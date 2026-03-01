@@ -4,48 +4,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a **Python tutorial documentation repository** containing 20 markdown files in Chinese covering Python from beginner to advanced topics. There is no source code to build, lint, or test.
-
-## File Structure
-
-```
-hello-python/
-├── README.md               # Main navigation and table of contents
-├── CLAUDE.md              # This file
-├── 00-Python 学习大纲.md
-├── 01-15              # Core tutorials (15 chapters)
-├── 16-20              # Advanced/specialized topics (5 chapters)
-└── ...
-```
+This is a **Python tutorial documentation repository** containing 21 markdown files in Chinese, covering Python from beginner to advanced topics. There is no source code to build, lint, or test — the primary task is writing and editing markdown tutorial content.
 
 ## Content Organization
 
-| Chapter Range | Category | Description |
-|---------------|----------|-------------|
-| 00 | Overview | Learning roadmap |
-| 01-10 | Basics | Python fundamentals |
-| 11-15 | Intermediate | Advanced concepts and practical projects |
-| 16-20 | Specialized | Deep dives (uv, type hints, strings, comprehensions, asyncio) |
+| Chapter Range | Category | Topics |
+|---------------|----------|--------|
+| 00 | Overview | Learning roadmap and prerequisites |
+| 01–10 | Basics | Python fundamentals (variables, flow control, data structures, OOP, exceptions) |
+| 11–15 | Intermediate | Iterators, decorators, regex, concurrency, practical projects |
+| 16–20 | Specialized | uv package manager, type hints, strings, comprehensions, asyncio |
 
-## Key Files
+All chapters are named `NN-<Chinese title>.md`, e.g., `09-面向对象编程.md`.
 
-- **README.md** - Main entry point with complete table of contents and navigation
-- **00-Python 学习大纲.md** - Learning path and prerequisites
-- **14-并发编程.md** - Concurrency (threading, multiprocessing, asyncio with detailed await explanation and coroutines)
-- **20-asyncio 高级编程.md** - Advanced asyncio (event loop, Queue, Task management, synchronisation primitives)
+## Writing Conventions
 
-## Toolchain (for code examples)
+Chapters follow a consistent structure:
+- **Chapter heading**: `# 第 N 章 - <Title>（详细版）`
+- **Sections**: `## 第一部分 / ## 第二部分 ...` with `### N.N` subsections
+- **Concept blocks**: `#### 概念说明` followed by explanation, then `#### 示例代码` with fenced Python code blocks
+- **ASCII diagrams**: Used extensively for visual explanations (box-drawing characters `┌─┬─┐`)
+- **Language**: All prose in Simplified Chinese; code comments/identifiers may be Chinese or English
+- **Audience**: Beginners — explain the "why", avoid jargon without definition, use analogies
+
+When editing or adding content, maintain these conventions so chapters feel uniform.
+
+## Key Reference Files
+
+- **README.md** — Table of contents and three-stage learning path diagram
+- **00-Python学习大纲.md** — Full curriculum outline with chapter-by-chapter topic breakdown
+- **14-并发编程.md** — Threading, multiprocessing, asyncio; includes detailed `await`/coroutine explanations
+- **20-asyncio高级编程.md** — Event loop internals, `asyncio.Queue`, `Task`, synchronization primitives
+
+## Toolchain (for code examples in chapters)
 
 - **Python**: 3.11+
-- **Package Manager**: `uv` (preferred) or `pip`
-- **Editor**: VS Code with Python extension
-
-## Common Commands
-
-```bash
-# Run a Python script from examples
-python script.py
-
-# Install dependencies for examples
-uv pip install <package>
-```
+- **Package manager**: `uv` (preferred) or `pip`
