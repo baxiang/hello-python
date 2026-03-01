@@ -31,8 +31,8 @@ hello-python/
 
 - **README.md** - Main entry point with complete table of contents and navigation
 - **00-Python 学习大纲.md** - Learning path and prerequisites
-- **14-并发编程 - 详细版.md** - Concurrency (threading, multiprocessing, asyncio with detailed await explanation and coroutines)
-- **20-asyncio 高级编程 - 详细版.md** - Advanced asyncio (event loop, Queue, Task management, synchronisation primitives)
+- **14-并发编程.md** - Concurrency (threading, multiprocessing, asyncio with detailed await explanation and coroutines)
+- **20-asyncio 高级编程.md** - Advanced asyncio (event loop, Queue, Task management, synchronisation primitives)
 
 ## Toolchain (for code examples)
 
