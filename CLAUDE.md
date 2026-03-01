@@ -4,18 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a **Python tutorial documentation repository** containing 21 markdown files in Chinese, covering Python from beginner to advanced topics. There is no source code to build, lint, or test — the primary task is writing and editing markdown tutorial content.
+This is a **Python tutorial documentation repository** containing 24 markdown files in Chinese, covering Python from beginner to advanced topics. There is no source code to build, lint, or test — the primary task is writing and editing markdown tutorial content.
 
 ## Content Organization
 
 | Chapter Range | Category | Topics |
 |---------------|----------|--------|
 | 00 | Overview | Learning roadmap and prerequisites |
-| 01–10 | Basics | Python fundamentals (variables, flow control, data structures, OOP, exceptions) |
-| 11–15 | Intermediate | Iterators, decorators, regex, concurrency, practical projects |
-| 16–20 | Specialized | uv package manager, type hints, strings, comprehensions, asyncio |
+| 01–09 | Basics | Intro, variables, operators, control flow, strings, list, tuple, dict, set |
+| 10–19 | Intermediate | Functions, modules, file I/O, OOP, exceptions, iterators, decorators, regex, concurrency, projects |
+| 20–23 | Specialized | uv package manager, type hints, comprehensions, asyncio |
 
-All chapters are named `NN-<Chinese title>.md`, e.g., `09-面向对象编程.md`.
+All chapters are named `NN-<Chinese title>.md`, e.g., `13-面向对象编程.md`.
 
 ## Writing Conventions
 
@@ -33,8 +33,8 @@ When editing or adding content, maintain these conventions so chapters feel unif
 
 - **README.md** — Table of contents and three-stage learning path diagram
 - **00-Python学习大纲.md** — Full curriculum outline with chapter-by-chapter topic breakdown
-- **14-并发编程.md** — Threading, multiprocessing, asyncio; includes detailed `await`/coroutine explanations
-- **20-asyncio高级编程.md** — Event loop internals, `asyncio.Queue`, `Task`, synchronization primitives
+- **18-并发编程.md** — Threading, multiprocessing, asyncio; includes detailed `await`/coroutine explanations
+- **23-asyncio高级编程.md** — Event loop internals, `asyncio.Queue`, `Task`, synchronization primitives
 
 ## Toolchain (for code examples in chapters)
 
