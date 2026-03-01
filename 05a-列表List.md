@@ -375,47 +375,309 @@ print(len(fruits))  # 5
 
 ### 5a.9 排序和反转
 
+#### 基本排序
+
 ```python
 numbers = [3, 1, 4, 1, 5, 9, 2, 6]
 
-# sort() - 排序（修改原列表）
+# 升序排序（默认）
 numbers.sort()
 print(numbers)  # [1, 1, 2, 3, 4, 5, 6, 9]
 
 # 降序排序
 numbers.sort(reverse=True)
 print(numbers)  # [9, 6, 5, 4, 3, 2, 1, 1]
+```
 
-# 自定义排序键
-words = ["apple", "pie", "cherry", "dog"]
-words.sort(key=len)  # 按长度排序
-print(words)  # ['pie', 'dog', 'apple', 'cherry']
+**排序过程图解：**
+```
+升序排序（默认）：
+原列表：[3, 1, 4, 1, 5]
+          │
+          ▼ .sort()
+排序后：[1, 1, 3, 4, 5]  ← 从小到大
 
-# reverse() - 反转列表（不排序）
+降序排序（reverse=True）：
+原列表：[3, 1, 4, 1, 5]
+          │
+          ▼ .sort(reverse=True)
+排序后：[5, 4, 3, 1, 1]  ← 从大到小
+```
+
+---
+
+#### key 参数详解
+
+`key` 是 `sort()` 最重要也最强大的参数。
+
+**核心概念：**
+```
+┌─────────────────────────────────────────────────┐
+│              key 参数的作用                      │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  排序时，Python 需要比较两个元素的大小。         │
+│  默认直接比较元素本身。                          │
+│                                                 │
+│  key 的作用：                                   │
+│  "排序前，先对每个元素调用这个函数，             │
+│   用函数的返回值来比较大小"                      │
+│                                                 │
+│  比喻：                                         │
+│  你有一堆快递盒子，要按重量排序。               │
+│  key 就是"称重"这个动作——先称出每个盒子的重量， │
+│  再按重量数字排序，盒子的顺序随之调整。          │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+**执行过程图解：**
+```
+words = ["banana", "pie", "apple", "cherry"]
+words.sort(key=len)
+
+第一步：对每个元素调用 key 函数，得到"排序依据"
+
+  元素       →  key(元素)  →  排序依据
+  "banana"   →  len("banana") →  6
+  "pie"      →  len("pie")    →  3
+  "apple"    →  len("apple")  →  5
+  "cherry"   →  len("cherry") →  6
+
+第二步：按排序依据（数字）从小到大排序
+
+  排序依据：  3      5       6        6
+  元素：    "pie"  "apple"  "banana" "cherry"
+
+第三步：返回排好序的原始元素
+
+结果：["pie", "apple", "banana", "cherry"]
+```
+
+---
+
+#### 用内置函数作为 key
+
+```python
+# 按字符串长度排序
+words = ["banana", "pie", "apple", "cherry"]
+words.sort(key=len)
+print(words)  # ['pie', 'apple', 'banana', 'cherry']
+
+# 按字母大小写不敏感排序
+names = ["alice", "Bob", "charlie", "David"]
+names.sort(key=str.lower)  # 统一转小写后比较
+print(names)  # ['alice', 'Bob', 'charlie', 'David']
+
+# 不用 key（直接比较），大写字母会排在小写前面
+names2 = ["alice", "Bob", "charlie", "David"]
+names2.sort()
+print(names2)  # ['Bob', 'David', 'alice', 'charlie'] ← 大写优先，不自然
+```
+
+**str.lower 的作用图解：**
+```
+names = ["alice", "Bob", "charlie", "David"]
+names.sort(key=str.lower)
+
+  元素       →  str.lower(元素)  →  排序依据
+  "alice"    →  "alice"          →  "alice"
+  "Bob"      →  "bob"            →  "bob"
+  "charlie"  →  "charlie"        →  "charlie"
+  "David"    →  "david"          →  "david"
+
+按 "alice" < "bob" < "charlie" < "david" 排序
+结果：["alice", "Bob", "charlie", "David"]
+（注意：原始大小写保持不变，只是排序时按小写比较）
+```
+
+---
+
+#### 用 lambda 作为 key
+
+当没有现成的内置函数时，可以用 `lambda` 写一个临时函数。
+
+```
+┌─────────────────────────────────────────┐
+│          lambda 简介                    │
+├─────────────────────────────────────────┤
+│                                         │
+│  lambda 是一种简短的匿名函数写法：       │
+│                                         │
+│  lambda x: x * 2                        │
+│  │         │                            │
+│  │         └── 函数体（返回值）          │
+│  └── 参数名                             │
+│                                         │
+│  等价于：                               │
+│  def 函数(x):                           │
+│      return x * 2                       │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+```python
+# 按绝对值排序
+numbers = [-5, 3, -1, 8, -2]
+numbers.sort(key=lambda x: abs(x))
+print(numbers)  # [-1, -2, 3, -5, 8]
+
+# 按字符串最后一个字母排序
+words = ["banana", "cherry", "apple", "date"]
+words.sort(key=lambda x: x[-1])
+print(words)  # ['banana', 'apple', 'date', 'cherry']
+#               末字母: a      e       e       y
+```
+
+**lambda 执行过程图解：**
+```
+numbers = [-5, 3, -1, 8, -2]
+numbers.sort(key=lambda x: abs(x))
+
+  元素   →  abs(元素)  →  排序依据
+  -5     →  abs(-5)   →  5
+   3     →  abs(3)    →  3
+  -1     →  abs(-1)   →  1
+   8     →  abs(8)    →  8
+  -2     →  abs(-2)   →  2
+
+按依据排序：  1    2    3    5    8
+原始元素：  -1   -2    3   -5    8
+
+结果：[-1, -2, 3, -5, 8]
+```
+
+---
+
+#### 对字典列表排序（最常用场景）
+
+实际开发中，经常需要对"一组字典"排序，`key` 就是此时的核心用法。
+
+```python
+students = [
+    {"name": "Alice",   "age": 20, "score": 88},
+    {"name": "Bob",     "age": 22, "score": 95},
+    {"name": "Charlie", "age": 19, "score": 72},
+    {"name": "David",   "age": 21, "score": 95},
+]
+
+# 按分数升序
+students.sort(key=lambda s: s["score"])
+for s in students:
+    print(s["name"], s["score"])
+# Charlie 72
+# Alice   88
+# Bob     95
+# David   95
+
+# 按分数降序
+students.sort(key=lambda s: s["score"], reverse=True)
+
+# 先按分数降序，分数相同再按姓名升序
+students.sort(key=lambda s: (-s["score"], s["name"]))
+for s in students:
+    print(s["name"], s["score"])
+# Bob     95   ← 分数同为 95，Bob 在 David 前（字母序）
+# David   95
+# Alice   88
+# Charlie 72
+```
+
+**多条件排序图解：**
+```
+key=lambda s: (-s["score"], s["name"])
+
+对每个学生，生成一个"比较元组"：
+
+  Alice   → (-88, "Alice")
+  Bob     → (-95, "Bob")
+  Charlie → (-72, "Charlie")
+  David   → (-95, "David")
+
+元组比较规则：先比第一个值，第一个值相同再比第二个值
+
+  (-95, "Bob")     ← 最小（-95 最小）
+  (-95, "David")   ← 第一个值相同，"David" > "Bob"
+  (-88, "Alice")
+  (-72, "Charlie") ← 最大
+
+结果顺序：Bob → David → Alice → Charlie
+```
+
+---
+
+#### sort() vs sorted()
+
+```python
+numbers = [3, 1, 4, 1, 5]
+
+# sort() - 直接修改原列表，无返回值
+numbers.sort()
+print(numbers)  # [1, 1, 3, 4, 5]（原列表已改变）
+
+# sorted() - 原列表不变，返回一个新的排好序的列表
+numbers = [3, 1, 4, 1, 5]
+sorted_numbers = sorted(numbers)
+print(sorted_numbers)  # [1, 1, 3, 4, 5]（新列表）
+print(numbers)         # [3, 1, 4, 1, 5]（原列表不变）
+```
+
+```
+┌──────────────────────────────────────────────┐
+│          sort() vs sorted() 对比             │
+├──────────────┬───────────────────────────────┤
+│  sort()      │  sorted()                     │
+├──────────────┼───────────────────────────────┤
+│  列表方法     │  内置函数                      │
+│  修改原列表   │  不修改原列表，返回新列表       │
+│  返回 None   │  返回新列表                    │
+│  只能用于列表 │  可用于任何可迭代对象           │
+└──────────────┴───────────────────────────────┘
+
+什么时候用哪个？
+• 不需要保留原列表 → 用 sort()（更省内存）
+• 需要保留原列表   → 用 sorted()
+```
+
+`sorted()` 同样支持 `key` 和 `reverse` 参数：
+
+```python
+words = ["banana", "pie", "apple", "cherry"]
+
+# sorted() + key
+result = sorted(words, key=len)
+print(result)  # ['pie', 'apple', 'banana', 'cherry']
+print(words)   # ['banana', 'pie', 'apple', 'cherry']（原列表不变）
+
+# sorted() + key + reverse
+result = sorted(words, key=len, reverse=True)
+print(result)  # ['banana', 'cherry', 'apple', 'pie']
+```
+
+---
+
+#### 反转列表
+
+```python
 numbers = [1, 2, 3, 4, 5]
+
+# reverse() - 原地反转（修改原列表）
 numbers.reverse()
 print(numbers)  # [5, 4, 3, 2, 1]
 
-# 使用切片反转（不修改原列表）
+# 切片反转 - 不修改原列表，返回新列表
 numbers = [1, 2, 3, 4, 5]
 reversed_numbers = numbers[::-1]
 print(reversed_numbers)  # [5, 4, 3, 2, 1]
 print(numbers)           # [1, 2, 3, 4, 5]（原列表不变）
 ```
 
-**sort() vs sorted()：**
-```python
-numbers = [3, 1, 4, 1, 5]
+```
+注意：reverse() 只是把顺序颠倒，不会排序！
 
-# sort() - 修改原列表
-numbers.sort()
-print(numbers)  # [1, 1, 3, 4, 5]（原列表已修改）
-
-# sorted() - 不修改原列表，返回新列表
-numbers = [3, 1, 4, 1, 5]
-sorted_numbers = sorted(numbers)
-print(sorted_numbers)  # [1, 1, 3, 4, 5]（新列表）
-print(numbers)         # [3, 1, 4, 1, 5]（原列表不变）
+[3, 1, 4, 1, 5]
+      ↓ .reverse()
+[5, 1, 4, 1, 3]  ← 顺序颠倒，不是从大到小排序
 ```
 
 ---
