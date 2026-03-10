@@ -96,4 +96,4 @@ train_loader = torch.utils.data.DataLoader(train_data, batch_size=32)
 ```
 ---
 
-[← 上一篇](./07-PyTorch 入门.md) | [下一篇 →](./09-循环神经网络 RNN.md)
+[← 上一篇](./02-PyTorch 入门.md) | [下一篇 →](./04-循环神经网络 RNN.md)
