@@ -1,4 +1,4 @@
-# 第 07 章 - PyTorch 入门
+# 第 36 章 - PyTorch 入门
 
 > PyTorch 是当前最流行的深度学习框架之一，本章介绍 PyTorch 的核心概念和基本用法。
 
