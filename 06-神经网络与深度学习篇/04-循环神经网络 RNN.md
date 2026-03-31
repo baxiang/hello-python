@@ -82,6 +82,3 @@ class Seq2Seq(nn.Module):
         
         return dec_output
 ```
----
-
-[← 上一篇](./03-卷积神经网络 CNN.md) | [下一篇 →](./05-深度学习实战.md)

@@ -140,6 +140,3 @@ for epoch in range(10):
         loss.backward()
         optimizer.step()
 ```
----
-
-[← 上一篇](./01-神经网络基础.md) | [下一篇 →](./03-卷积神经网络 CNN.md)
