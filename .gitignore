@@ -20,3 +20,6 @@ env/
 
 # Claude
 .claude/
+
+# Qwen
+.qwen/
