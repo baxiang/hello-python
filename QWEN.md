@@ -1,193 +1,149 @@
-# QWEN.md - Python 学习教程项目指南
+# QWEN.md
 
-## 项目概述
+This file provides guidance to Qwen Code when working with code in this repository.
 
-这是一个全面且详细的 **Python 学习教程文档仓库**，采用 Markdown 格式编写，覆盖从零基础入门到深度学习全栈能力的完整学习路径。
+## Repository Overview
 
-### 项目类型
+This is a **Python tutorial documentation repository** containing comprehensive Chinese-language learning materials covering Python from beginner to advanced topics, including web development, machine learning, and deep learning. The repository contains **markdown documentation only** — there is no source code to build, lint, or test.
 
-- **文档教程项目**：非代码项目，主要内容为 Markdown 格式的学习教程
-- **无构建需求**：无需编译、测试或打包，直接阅读 Markdown 文件即可学习
+## Content Structure
 
-### 技术栈
+The tutorial is organized into **8 major sections** with **50+ chapters**:
 
-| 类别 | 技术 |
-|------|------|
-| 编程语言 | Python 3.11+ |
-| 文档格式 | Markdown |
-| 包管理 | uv / pip |
+| Section | Directory | Chapters | Topics |
+|---------|-----------|----------|--------|
+| 语言基础篇 | `01-基础入门篇/` | 10 | Python intro, variables, operators, control flow, strings, list, tuple, dict, set, comprehensions |
+| 核心语法篇 | `02-核心编程篇/` | 7 | Functions, modules/packages, file I/O, OOP, exceptions, iterators/generators, decorators/closures |
+| 高级语法篇 | `03-高级语法篇/` | 2 | Regular expressions, concurrency & async programming |
+| Web 开发篇 | `04-Web 开发篇/` | 6 | HTTP basics, Flask (intro/advanced/expert), FastAPI, server projects |
+| 机器学习篇 | `05-机器学习篇/` | 5 | ML basics, data preprocessing, supervised/unsupervised learning, model evaluation |
+| 神经网络篇 | `06-神经网络与深度学习篇/` | 5 | Neural network basics, PyTorch, CNN, RNN, deep learning projects |
+| 项目实战篇 | `07-项目实战篇/` | 5 | Weather tool, file renamer, todo manager, web scraper, CSV analyzer |
+| 工程实践篇 | `08-工程实践篇/` | 10 | Package management, code standards, testing, documentation, CI/CD, logging, security, performance, debugging |
 
----
+Additional reference directories:
+- `20-uv包管理器/` — uv package manager guide
+- `21-类型提示/` — Type hints
+- `22-列表推导式/` — List comprehensions
+- `23-asyncio高级编程/` — Advanced asyncio
 
-## 目录结构
+## File Naming Conventions
 
-```
-hello-python/
-├── 00-Python学习大纲.md          # 学习大纲总览
-├── README.md                      # 项目首页
-├── CLAUDE.md                      # Claude Code 指南
-├── QWEN.md                        # 本文件
-│
-├── 01-基础入门篇/                  # 语言基础（10章）
-│   ├── 01-Python简介与环境搭建.md
-│   ├── 02-变量与数据类型.md
-│   ├── 03-基本运算符.md
-│   ├── 04-流程控制.md
-│   ├── 05-字符串.md
-│   ├── 06-列表.md
-│   ├── 07-元组.md
-│   ├── 08-字典.md
-│   ├── 09-集合.md
-│   └── 10-列表推导式.md
-│
-├── 02-核心编程篇/                  # 核心语法（7章）
-│   ├── 01-函数.md
-│   ├── 02-模块与包.md
-│   ├── 03-文件操作.md
-│   ├── 04-面向对象编程.md
-│   ├── 05-错误与异常.md
-│   ├── 06-迭代器与生成器.md
-│   └── 07-装饰器与闭包.md
-│
-├── 03-高级语法篇/                  # 高级语法（2章）
-│   ├── 01-正则表达式.md
-│   └── 02-并发与异步编程.md
-│
-├── 04-Web 开发篇/                  # Web 开发
-│   ├── 01-Web 基础入门.md          # HTTP、URL
-│   ├── 02-HTML 与 CSS.md           # 前端基础
-│   ├── 03-JavaScript 基础.md        # 前端交互
-│   ├── 04-Flask 入门.md            # Flask 基础
-│   ├── 05-Flask 进阶.md            # 数据库、蓝图
-│   ├── 06-Flask 高级.md            # JWT、缓存
-│   ├── 07-FastAPI 入门.md          # FastAPI 基础
-│   ├── 08-FastAPI 进阶.md          # 中间件、测试
-│   ├── 09-RESTful API 设计.md      # API 设计
-│   ├── 10-WebSocket 通信.md        # 实时通信
-│   ├── 11-Web 项目实战.md          # 项目实战
-│   ├── Flask/                      # Flask 详细教程
-│   │   ├── 01-Flask路由详解.md
-│   │   ├── 02-Jinja2模板引擎.md
-│   │   ├── 03-Flask数据库集成.md
-│   │   ├── 04-Flask表单处理.md
-│   │   ├── 05-Flask文件上传下载.md
-│   │   ├── 06-Flask蓝图Blueprint.md
-│   │   ├── 07-Flask认证授权.md
-│   │   ├── 08-Flask缓存.md
-│   │   ├── 09-Flask异步任务Celery.md
-│   │   └── 10-Flask部署.md
-│   └── FastAPI/                   # FastAPI 详细教程
-│       ├── 01-FastAPI路由与参数.md
-│       ├── 02-FastAPI-Pydantic模型.md
-│       ├── 03-FastAPI依赖注入.md
-│       ├── 04-FastAPI数据库集成.md
-│       ├── 05-FastAPI认证授权.md
-│       ├── 06-FastAPI中间件.md
-│       ├── 07-FastAPI错误处理.md
-│       ├── 08-FastAPI-WebSocket.md
-│       ├── 09-FastAPI后台任务.md
-│       └── 10-FastAPI测试与部署.md
-│
-├── 05-机器学习篇/                  # 机器学习（5章）
-│
-├── 06-神经网络与深度学习篇/         # 深度学习（5章）
-│
-├── 07-项目实战篇/                  # 项目实战
-│   ├── 股票数据监控系统/
-│   ├── 邮件处理系统/
-│   ├── 文件批量处理工具/
-│   ├── 后台商城系统/
-│   ├── 任务管理系统/
-│   ├── 博客系统/
-│   ├── 日志分析系统/
-│   └── 文件管理系统/
-│
-└── 08-工程实践篇/                  # 工程实践（10章）
-```
+- **Chapter files**: `NN-<Chinese-title>.md` (e.g., `01-Python简介与环境搭建.md`, `13-面向对象编程.md`)
+- **Section directories**: `NN-<Chinese-title>/` (e.g., `01-基础入门篇/`, `04-Web 开发篇/`)
+- All content is in **Simplified Chinese**
 
----
+## Writing Conventions
 
-## 学习路线
+Chapters follow a consistent structure:
+
+```markdown
+# 第 N 章 - <标题>（详细版）
+
+## 第一部分：<主题>
+
+### N.N <子主题>
+
+#### 概念说明
+
+<解释性文字>
 
 ```
-语言基础篇 → 核心语法篇 → 高级语法篇 → Web 开发篇
-     │              │              │            │
-     └──────────────┴──────────────┴────────────┘
-                                    │
-         ┌───────────────┐  ┌───────────────┐
-         │  机器学习篇   │  │  神经网络篇   │
-         └───────────────┘  └───────────────┘
-                                    │
-                          ┌─────────────────┐
-                          │  工程实践篇     │
-                          └─────────────────┘
+┌─────────────────────────────────────────┐
+│          ASCII 图表说明                  │
+├─────────────────────────────────────────┤
+│                                         │
+│  使用 box-drawing characters            │
+│  (┌─┬─┐ │ ├─┼─┤ └─┴─┘)                  │
+│                                         │
+└─────────────────────────────────────────┘
 ```
 
----
+#### 示例代码
 
-## 内容规范
+```python
+# 代码示例
+# 注释可以是中文或英文
+print("Hello, World!")
+```
 
-### 写作风格
+#### 常见错误
 
-- **语言**：简体中文（代码注释可用中英文）
-- **标题格式**：`# 第 N 章 - 标题`
-- **结构**：`## 第一部分` → `### 1.1` 层级分明
-- **示例代码**：使用 fenced Python 代码块
+<错误说明和解决方案>
 
-### 目录命名
+#### 练习题
 
-- 使用中文命名
-- 格式：`NN-章节标题.md`
-- 示例：`01-Python简介与环境搭建.md`
+<练习题目>
+```
 
----
+### Key Style Guidelines
 
-## 关键文件说明
+1. **ASCII diagrams**: Used extensively for visual explanations with box-drawing characters
+2. **Code blocks**: Always use fenced code blocks with language specifier (```python)
+3. **Comments**: Can be in Chinese or English within code
+4. **Audience**: Beginners — explain the "why", avoid jargon without definition, use analogies
+5. **Structure**: Each concept follows: 概念说明 → 示例代码 → 常见错误 → 练习题
 
-| 文件 | 说明 |
-|------|------|
-| `README.md` | 教程目录和学习路线图 |
-| `00-Python学习大纲.md` | 完整课程大纲 |
-| `04-Web 开发篇/` | Web 开发详细教程 |
-| `04-Web 开发篇/Flask/` | Flask 进阶教程 |
-| `04-Web 开发篇/FastAPI/` | FastAPI 进阶教程 |
-| `07-项目实战篇/` | 实战项目代码 |
+## Key Reference Files
 
----
+| File | Purpose |
+|------|---------|
+| `README.md` | Table of contents with learning path diagram |
+| `00-Python学习大纲.md` | Full curriculum outline with chapter-by-chapter topic breakdown |
+| `CLAUDE.md` | AI assistant guidance (English) |
 
-## 使用说明
+## Toolchain (for code examples in chapters)
 
-### 阅读教程
+| Tool | Version | Notes |
+|------|---------|-------|
+| Python | 3.11+ | Required for modern syntax features (match statements, type hints improvements) |
+| uv | Latest | Preferred package manager (replaces pip + venv) |
+| Editor | VS Code | With Python extension |
 
-直接使用任意 Markdown 阅读器或编辑器打开 `.md` 文件即可学习。
-
-### 运行示例代码
+### uv Commands Reference
 
 ```bash
-# 安装 Python（3.11+）
-# 推荐使用 uv 管理包
+# Install uv (macOS/Linux)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 运行示例代码
-python example.py
+# Install Python
+uv python install 3.11
+
+# Create new project
+uv init my-project
+cd my-project
+
+# Run Python files
+uv run python main.py
+
+# Add dependencies
+uv add requests
 ```
 
-### 编辑内容
+## Learning Paths
 
-1. 使用 Markdown 编辑器（如 VS Code、Typora）
-2. 遵循现有目录结构和命名规范
-3. 保持写作风格一致性
+| Direction | Recommended Chapters | Target Role |
+|-----------|---------------------|-------------|
+| Python 开发 | 1→2→3→8→7 | Python backend/automation |
+| Web 后端开发 | 1→2→3→4→8 | Flask/FastAPI engineer |
+| 全栈开发 | 1→2→3→4→8 + frontend | Full-stack engineer |
+| 机器学习 | 1→2→3→5→8 | ML engineer |
+| 深度学习 | 1→2→3→5→6→8 | CV/NLP algorithm engineer |
+| AI 应用开发 | 1→2→3→4→5→6→8 | AI application engineer |
 
----
+## When Editing Content
 
-## 贡献指南
+1. **Maintain consistency**: Follow the existing chapter structure and formatting
+2. **Use ASCII diagrams**: For visual explanations, use box-drawing characters
+3. **Include practical examples**: Every concept should have runnable code
+4. **Add "常见错误" sections**: Help beginners avoid common pitfalls
+5. **Keep Chinese prose**: All explanatory text should be in Simplified Chinese
+6. **Update cross-references**: If adding new chapters, update README.md and 00-Python学习大纲.md
 
-- 新增章节需添加到对应篇目目录
-- 保持文件命名格式一致
-- 添加 git commit 时使用清晰的中文描述
+## Git Ignore Patterns
 
----
-
-## License
-
-MIT
+The repository ignores:
+- `.DS_Store` (macOS)
+- Editor files (`.vscode/`, `.idea/`, swap files)
+- Python artifacts (`__pycache__/`, `*.pyc`, venv)
+- `.env` files
