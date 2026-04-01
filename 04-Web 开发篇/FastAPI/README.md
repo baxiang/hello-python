@@ -8,25 +8,25 @@
 
 | 章节 | 文件 | 主题 |
 |------|------|------|
-| 01 | [01-FastAPI路由与参数.md](./01-FastAPI路由与参数.md) | 路径参数、查询参数、请求体 |
-| 02 | [02-FastAPI-Pydantic模型.md](./02-FastAPI-Pydantic模型.md) | 数据验证、模型定义 |
-| 03 | [03-FastAPI依赖注入.md](./03-FastAPI依赖注入.md) | 依赖系统、Depends |
-| 04 | [04-FastAPI数据库集成.md](./04-FastAPI数据库集成.md) | SQLAlchemy、CRUD |
-| 05 | [05-FastAPI认证授权.md](./05-FastAPI认证授权.md) | JWT、OAuth2、权限 |
-| 06 | [06-FastAPI中间件.md](./06-FastAPI中间件.md) | CORS、GZip、自定义 |
-| 07 | [07-FastAPI错误处理.md](./07-FastAPI错误处理.md) | HTTPException、异常处理 |
-| 08 | [08-FastAPI-WebSocket.md](./08-FastAPI-WebSocket.md) | 实时通信、聊天室 |
-| 09 | [09-FastAPI后台任务.md](./09-FastAPI后台任务.md) | BackgroundTasks、Celery |
-| 10 | [10-FastAPI测试与部署.md](./10-FastAPI测试与部署.md) | 测试、Docker、部署 |
+| 01 | [01-FastAPI入门.md](./01-FastAPI入门.md) | FastAPI 简介、路径参数、请求体 |
+| 02 | [02-Pydantic模型.md](./02-Pydantic模型.md) | 数据验证、模型定义 |
+| 03 | [03-依赖注入.md](./03-依赖注入.md) | 依赖系统、Depends |
+| 04 | [04-数据库集成.md](./04-数据库集成.md) | SQLAlchemy、CRUD |
+| 05 | [05-认证授权.md](./05-认证授权.md) | JWT、OAuth2、权限 |
+| 06 | [06-中间件.md](./06-中间件.md) | CORS、GZip、自定义 |
+| 07 | [07-错误处理.md](./07-错误处理.md) | HTTPException、异常处理 |
+| 08 | [08-WebSocket.md](./08-WebSocket.md) | 实时通信、聊天室 |
+| 09 | [09-后台任务.md](./09-后台任务.md) | BackgroundTasks、Celery |
+| 10 | [10-测试与部署.md](./10-测试与部署.md) | 测试、Docker、部署 |
 
 ---
 
 ## 学习路径
 
 ```
-路由 → Pydantic → 依赖注入 → 数据库 → 认证 → 中间件 → 错误处理 → WebSocket → 后台任务 → 部署
-  │          │            │          │       │         │           │           │           │
-  └──────────┴────────────┴──────────┴─────────┴─────────┴───────────┴───────────┴───────────┘
+入门 → Pydantic → 依赖注入 → 数据库 → 认证 → 中间件 → 错误处理 → WebSocket → 后台任务 → 部署
+  │        │            │          │       │         │           │           │           │
+  └───────┴────────────┴──────────┴─────────┴─────────┴───────────┴───────────┴───────────┘
 ```
 
 ---
