@@ -1,0 +1,19 @@
+[project]
+name = "file-processor"
+version = "0.1.0"
+description = "文件批量处理工具 - 批量重命名、转换、整理"
+requires-python = ">=3.11"
+dependencies = [
+    "pillow>=10.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+file-processor = "processor.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["processor"]
