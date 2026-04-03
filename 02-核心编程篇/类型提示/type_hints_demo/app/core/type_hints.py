@@ -1,11 +1,11 @@
 """类型提示核心示例"""
 
-from typing import Optional, Union, List, Dict, TypeVar, Generic, Protocol, Callable
+from typing import TypeVar, Generic, Protocol, Callable, Any
 from dataclasses import dataclass
 
 
 UserId = int
-UserDict = Dict[str, Union[str, int, bool]]
+UserDict = dict[str, str | int | bool]
 
 
 def greet(name: str, age: int) -> str:
@@ -22,7 +22,7 @@ def greet(name: str, age: int) -> str:
     return f"Hello {name}, you are {age} years old"
 
 
-def find_user(user_id: UserId) -> Optional[Dict]:
+def find_user(user_id: UserId) -> dict[str, Any] | None:
     """
     查找用户
 
@@ -32,14 +32,14 @@ def find_user(user_id: UserId) -> Optional[Dict]:
     Returns:
         用户信息字典，不存在返回 None
     """
-    users: Dict[int, Dict] = {
+    users: dict[int, dict[str, str]] = {
         1: {"name": "张三", "email": "zhangsan@example.com"},
         2: {"name": "李四", "email": "lisi@example.com"},
     }
     return users.get(user_id)
 
 
-def process(value: Union[int, str]) -> str:
+def process(value: int | str) -> str:
     """
     处理整数或字符串
 
@@ -61,9 +61,9 @@ class User:
     id: int
     name: str
     email: str
-    age: Optional[int] = None
+    age: int | None = None
 
-    def to_dict(self) -> Dict[str, Union[int, str]]:
+    def to_dict(self) -> dict[str, int | str]:
         return {
             "id": self.id,
             "name": self.name,
@@ -79,7 +79,7 @@ class Stack(Generic[T]):
     """泛型栈"""
 
     def __init__(self) -> None:
-        self._items: List[T] = []
+        self._items: list[T] = []
 
     def push(self, item: T) -> None:
         self._items.append(item)
