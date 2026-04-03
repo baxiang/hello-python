@@ -1,5 +1,33 @@
 # pip 包管理
 
+> **注意：** 2026年起，推荐使用 **uv** 作为包管理工具（速度快10-100倍）。本章保留pip介绍，用于维护老项目。
+
+---
+
+## pip vs uv：如何选择
+
+| 特性 | pip | uv |
+|------|-----|-----|
+| **速度** | 基准 | 10-100倍快 ⚡ |
+| **依赖解析** | 慢，可能冲突 | 快速准确 ✅ |
+| **虚拟环境** | 需要venv | 内置支持 ✅ |
+| **锁文件** | 需要pip-tools | 自动生成 ✅ |
+| **Python版本管理** | 不支持 | 支持 ✅ |
+| **兼容性** | 广泛 | 广泛 |
+
+### 何时使用 pip
+- 维护老项目（已使用pip）
+- CI/CD环境已配置pip
+- 教学演示基础概念
+
+### 何时使用 uv（推荐）
+- 新项目 ✅
+- 需要快速安装依赖
+- 追求现代工具链
+- 需要Python版本管理
+
+---
+
 本章讲解 pip 包管理工具的使用，包括安装、卸载、依赖管理等操作。
 
 ---
@@ -280,6 +308,86 @@ pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 | 阿里云 | https://mirrors.aliyun.com/pypi/simple |
 | 中科大 | https://pypi.mirrors.ustc.edu.cn/simple |
 | 豆瓣 | https://pypi.douban.com/simple |
+
+---
+
+## 迁移到 uv
+
+如果你决定使用现代化的 uv 工具，迁移非常简单。
+
+### 安装 uv
+
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### 基本使用对比
+
+```bash
+# pip 方式
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+pip install requests
+pip freeze > requirements.txt
+python main.py
+
+# uv 方式（推荐）
+uv init my-project
+cd my-project
+uv add requests
+uv run python main.py
+```
+
+### pip 命令 vs uv 命令
+
+| 操作 | pip | uv |
+|------|-----|-----|
+| 创建项目 | 手动 | `uv init project` |
+| 创建虚拟环境 | `python -m venv .venv` | 自动创建 |
+| 安装包 | `pip install pkg` | `uv add pkg` |
+| 安装开发依赖 | `pip install -e .` | `uv add --dev pkg` |
+| 安装所有依赖 | `pip install -r requirements.txt` | `uv sync` |
+| 运行脚本 | `python script.py` | `uv run python script.py` |
+| 导出依赖 | `pip freeze > requirements.txt` | 自动生成 `uv.lock` |
+
+### 从 pip 项目迁移
+
+如果你有一个使用 pip 的老项目：
+
+```bash
+# 1. 安装 uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. 在项目目录初始化
+cd your-project
+uv init
+
+# 3. 从 requirements.txt 安装依赖
+uv add $(cat requirements.txt | tr '\n' ' ')
+
+# 4. 使用 uv 运行
+uv run python main.py
+```
+
+### uv 的优势
+
+1. **速度快** - 比 pip 快10-100倍
+2. **自动管理虚拟环境** - 无需手动创建
+3. **锁定依赖** - 自动生成 `uv.lock` 确保可重复性
+4. **Python版本管理** - `uv python install 3.11`
+5. **统一工具链** - 替代 pip, venv, pip-tools 等
+
+### 何时继续使用 pip
+
+- 维护不需要频繁更新的老项目
+- 团队工作流已深度集成 pip
+- 需要使用 pip 特有的插件或功能
+
+对于新项目，**强烈推荐使用 uv**。
 
 ---
 
