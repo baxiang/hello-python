@@ -1,5 +1,7 @@
 # Python 学习大纲
 
+> **本教程基于 Python 3.11+ 编写，使用现代产业级工具链（uv, FastAPI, PyTorch等）。**
+
 本教程共 23 章，分三大阶段，另含两个专题子目录（Python工具箱、项目实践）。
 
 ---
@@ -463,9 +465,11 @@ Python工具箱/
 
 | 工具 | 版本 | 说明 |
 |------|------|------|
-| Python | 3.11+ | 推荐通过 uv 安装 |
-| uv | 最新版 | 包管理器（替代 pip + venv） |
-| 编辑器 | VS Code | 安装 Python 插件 |
+| Python | 3.11+ | **必须** - 使用 match 语句、现代类型提示等特性 |
+| uv | 最新版 | **推荐** - 包管理器（速度比 pip 快10-100倍） |
+| 编辑器 | VS Code | 安装 Python 插件、Ruff 插件 |
+
+> **重要：** 本教程使用 Python 3.11+ 语法，不再支持 Python 3.10 及以下版本。如果你使用的是旧版本 Python，请先升级。
 
 安装 uv（macOS/Linux）：
 ```bash
@@ -477,6 +481,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv python install 3.11
 uv init my-python-project
 cd my-python-project
+uv add requests  # 添加依赖
 uv run python main.py
 ```
 
