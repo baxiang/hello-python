@@ -1,6 +1,23 @@
 # 第 36 章 - PyTorch 入门
 
+> **Python 版本要求：** 本章代码需要 Python 3.11+ 运行环境
+>
 > PyTorch 是当前最流行的深度学习框架之一，本章介绍 PyTorch 的核心概念和基本用法。
+
+---
+
+## 实际场景
+
+**使用 PyTorch 构建和训练神经网络**
+
+假设你需要训练一个图像分类模型来识别手写数字。使用 PyTorch，你可以：
+
+1. 定义神经网络架构（几层、每层多少神经元）
+2. 设置损失函数和优化器
+3. 编写训练循环，自动进行前向传播、反向传播
+4. GPU 加速训练（如果可用）
+
+PyTorch 的动态计算图让你可以像写普通 Python 代码一样定义模型，调试方便，灵活性高。
 
 ---
 
@@ -103,9 +120,10 @@ print(x.grad)  # tensor([4., 6., 8.])
 
 ```python
 import torch.nn as nn
+from torch import Tensor
 
 class NeuralNetwork(nn.Module):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.flatten = nn.Flatten()
         self.layers = nn.Sequential(
@@ -114,7 +132,7 @@ class NeuralNetwork(nn.Module):
             nn.Linear(128, 10)
         )
     
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         x = self.flatten(x)
         return self.layers(x)
 
