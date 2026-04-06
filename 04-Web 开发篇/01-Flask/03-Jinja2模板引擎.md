@@ -1,21 +1,29 @@
-# Flask 模板引擎 Jinja2
+# Jinja2 模板引擎（详细版）
 
-深入学习 Jinja2 模板引擎，掌握模板语法、继承、过滤器和宏。
+> Python 3.11+
+
+本章讲解 Jinja2 模板引擎的基本语法、模板继承、过滤器和宏的使用。
 
 ---
 
-## 1. Jinja2 简介
+## 第一部分：Jinja2 简介
 
-### 1.1 什么是 Jinja2？
+### 1.1 实际场景
+
+你需要在 Web 应用中展示动态内容，比如显示用户姓名、文章列表、当前日期等。纯字符串拼接太繁琐。
+
+**问题：如何优雅地将数据渲染到 HTML 页面中？**
+
+### 1.2 概念说明
 
 Jinja2 是 Flask 默认的模板引擎，是一个现代且设计师友好的 Python 模板语言。
 
-### 1.2 配置 Jinja2
+### 1.3 配置 Jinja2
 
 ```python
 from flask import Flask
 
-app = Flask(__name__)
+app: Flask = Flask(__name__)
 
 # Jinja2 配置
 app.jinja_env.auto_reload = True  # 自动重载模板
@@ -23,24 +31,30 @@ app.jinja_env.cache = None  # 模板缓存
 
 # 自定义配置
 app.jinja_env.globals.update({
-    'site_name': 'My Site',
-    'current_year': 2024
+    "site_name": "My Site",
+    "current_year": 2024
 })
 
 # 添加自定义过滤器
-def datetime_format(value, format='%Y-%m-%d'):
+def datetime_format(value: str, format: str = "%Y-%m-%d") -> str:
     if value:
         return value.strftime(format)
-    return ''
+    return ""
 
-app.jinja_env.filters['datetime'] = datetime_format
+app.jinja_env.filters["datetime"] = datetime_format
 ```
 
 ---
 
-## 2. 模板基础语法
+## 第二部分：模板基础语法
 
-### 2.1 变量输出
+### 2.1 实际场景
+
+你有一个用户对象，需要在 HTML 页面中显示用户的姓名、邮箱、头像等信息。
+
+**问题：如何在模板中输出变量？**
+
+### 2.2 变量输出
 
 ```html
 <!-- 基本变量 -->
@@ -57,7 +71,7 @@ app.jinja_env.filters['datetime'] = datetime_format
 <p>{{ items[0] }}</p>
 ```
 
-### 2.2 注释
+### 2.3 注释
 
 ```html
 {# 这是注释，不会被输出 #}
@@ -70,9 +84,15 @@ app.jinja_env.filters['datetime'] = datetime_format
 
 ---
 
-## 3. 条件判断
+## 第三部分：条件判断
 
-### 3.1 if 语句
+### 3.1 实际场景
+
+用户登录后显示"欢迎"，未登录显示"请登录"。文章已发布显示内容，未发布显示"草稿"。
+
+**问题：如何在模板中进行条件判断？**
+
+### 3.2 if 语句
 
 ```html
 {% if user.is_active %}
@@ -87,7 +107,7 @@ app.jinja_env.filters['datetime'] = datetime_format
 <p>{{ "欢迎" if user.is_logged_in else "请登录" }}</p>
 ```
 
-### 3.2 比较运算符
+### 3.3 比较运算符
 
 ```html
 {% if age >= 18 %}
@@ -101,7 +121,7 @@ app.jinja_env.filters['datetime'] = datetime_format
 {% endif %}
 ```
 
-### 3.3 逻辑运算符
+### 3.4 逻辑运算符
 
 ```html
 {% if user.is_active and user.has_permission %}
@@ -119,9 +139,15 @@ app.jinja_env.filters['datetime'] = datetime_format
 
 ---
 
-## 4. 循环
+## 第四部分：循环
 
-### 4.1 for 循环
+### 4.1 实际场景
+
+你有一组文章需要显示为列表，每篇文章显示标题、摘要和发布日期。
+
+**问题：如何在模板中遍历数据并渲染？**
+
+### 4.2 for 循环
 
 ```html
 <!-- 遍历列表 -->
@@ -149,7 +175,7 @@ app.jinja_env.filters['datetime'] = datetime_format
 </ul>
 ```
 
-### 4.2 循环变量
+### 4.3 循环变量
 
 ```html
 <!-- loop 变量提供循环信息 -->
@@ -166,7 +192,7 @@ app.jinja_env.filters['datetime'] = datetime_format
 </ul>
 ```
 
-### 4.3 循环过滤
+### 4.4 循环过滤
 
 ```html
 <!-- 反向遍历 -->
@@ -187,9 +213,15 @@ app.jinja_env.filters['datetime'] = datetime_format
 
 ---
 
-## 5. 过滤器
+## 第五部分：过滤器
 
-### 5.1 内置过滤器
+### 5.1 实际场景
+
+用户名需要大写显示，文章摘要需要截断为 200 字符，日期需要格式化显示。
+
+**问题：如何在模板中对数据进行处理？**
+
+### 5.2 内置过滤器
 
 ```html
 <!-- 字符串过滤器 -->
@@ -201,7 +233,6 @@ app.jinja_env.filters['datetime'] = datetime_format
 
 <!-- 数字过滤器 -->
 <p>{{ price|round(2) }}</p>      <!-- 四舍五入 -->
-<p>{{ number|format('d') }}</p>  <!-- 格式化 -->
 
 <!-- 列表过滤器 -->
 <p>{{ items|length }}</p>        <!-- 长度 -->
@@ -212,27 +243,26 @@ app.jinja_env.filters['datetime'] = datetime_format
 
 <!-- 布尔过滤器 -->
 <p>{{ value|default('N/A') }}</p>  <!-- 默认值 -->
-<p>{{ value|boolean }}</p>           <!-- 转为布尔值 -->
 ```
 
-### 5.2 自定义过滤器
+### 5.3 自定义过滤器
 
 ```python
 from flask import Flask
 
-app = Flask(__name__)
+app: Flask = Flask(__name__)
 
 # 方法一：注册过滤器
-@app.template_filter('reverse')
-def reverse_filter(s):
+@app.template_filter("reverse")
+def reverse_filter(s: str) -> str:
     return s[::-1]
 
 # 方法二：添加到全局
-def markdown_to_html(text):
+def markdown_to_html(text: str) -> str:
     import markdown
     return markdown.markdown(text)
 
-app.jinja_env.globals['markdown'] = markdown_to_html
+app.jinja_env.globals["markdown"] = markdown_to_html
 ```
 
 ```html
@@ -241,7 +271,7 @@ app.jinja_env.globals['markdown'] = markdown_to_html
 <p>{{ content|markdown }}</p>
 ```
 
-### 5.3 测试器
+### 5.4 测试器
 
 ```html
 <!-- 测试类型 -->
@@ -268,9 +298,15 @@ app.jinja_env.globals['markdown'] = markdown_to_html
 
 ---
 
-## 6. 宏
+## 第六部分：宏
 
-### 6.1 定义宏
+### 6.1 实际场景
+
+多个页面都有相似的表单输入框，如登录页、注册页、修改密码页，每次重复写相同的 HTML 很繁琐。
+
+**问题：如何复用模板中的重复代码片段？**
+
+### 6.2 定义宏
 
 ```html
 <!-- 定义输入宏 -->
@@ -290,7 +326,7 @@ app.jinja_env.globals['markdown'] = markdown_to_html
 {% endmacro %}
 ```
 
-### 6.2 使用宏
+### 6.3 使用宏
 
 ```html
 <!-- 使用宏 -->
@@ -300,7 +336,7 @@ app.jinja_env.globals['markdown'] = markdown_to_html
 {{ button('提交', 'submit', 'submitForm()') }}
 ```
 
-### 6.3 宏的导入
+### 6.4 宏的导入
 
 ```html
 <!-- 导入宏文件 -->
@@ -315,9 +351,15 @@ app.jinja_env.globals['markdown'] = markdown_to_html
 
 ---
 
-## 7. 模板继承
+## 第七部分：模板继承
 
-### 7.1 基础模板
+### 7.1 实际场景
+
+网站有统一的页面布局（头部导航、底部版权），但每个页面的内容区域不同。你不想在每个页面重复写导航和版权信息。
+
+**问题：如何定义基础模板让其他页面继承？**
+
+### 7.2 基础模板
 
 ```html
 <!-- templates/base.html -->
@@ -359,7 +401,7 @@ app.jinja_env.globals['markdown'] = markdown_to_html
 </html>
 ```
 
-### 7.2 子模板
+### 7.3 子模板
 
 ```html
 <!-- templates/home.html -->
@@ -392,9 +434,15 @@ app.jinja_env.globals['markdown'] = markdown_to_html
 
 ---
 
-## 8. 包含
+## 第八部分：包含
 
-### 8.1 include 语句
+### 8.1 实际场景
+
+导航栏在多个页面都要显示，但不同页面的导航栏可能有些细微差异。
+
+**问题：如何在一个模板中嵌入另一个模板？**
+
+### 8.2 include 语句
 
 ```html
 <!-- 包含导航 -->
@@ -407,7 +455,7 @@ app.jinja_env.globals['markdown'] = markdown_to_html
 {% include 'post_item.html' with context %}
 ```
 
-### 8.2 动态包含
+### 8.3 动态包含
 
 ```html
 <!-- 根据变量选择模板 -->
@@ -416,54 +464,9 @@ app.jinja_env.globals['markdown'] = markdown_to_html
 
 ---
 
-## 9. 模板继承进阶
+## 第九部分：实战示例
 
-### 9.1 块嵌套
-
-```html
-<!-- base.html -->
-{% block content %}
-    <div class="container">
-        {% block main %}{% endblock %}
-    </div>
-{% endblock %}
-
-<!-- page.html -->
-{% extends "base.html" %}
-
-{% block main %}
-    <div class="main-content">
-        {% block page_content %}{% endblock %}
-    </div>
-{% endblock %}
-
-<!-- post.html -->
-{% extends "page.html" %}
-
-{% block page_content %}
-    <article>{{ post.content }}</article>
-{% endblock %}
-```
-
-### 9.2 super() 调用
-
-```html
-<!-- 在子模板中调用父模板的内容 -->
-{% block content %}
-    <div class="old-content">
-        {{ super() }}
-    </div>
-    <div class="new-content">
-        新的额外内容
-    </div>
-{% endblock %}
-```
-
----
-
-## 10. 实战示例
-
-### 10.1 博客布局
+### 9.1 博客布局
 
 ```html
 <!-- templates/base.html -->
@@ -558,12 +561,8 @@ app.jinja_env.globals['markdown'] = markdown_to_html
 | 变量 | `{{ variable }}` |
 | 条件 | `{% if %}` |
 | 循环 | `{% for %}` |
-| 过滤器 | `\| filter` |
+| 过滤器 | `| filter` |
 | 宏 | `{% macro %}` |
 | 继承 | `{% extends %}` |
 | 包含 | `{% include %}` |
 | 块 | `{% block %}` |
-
----
-
-[← 上一章](./Flask/01-Flask路由详解.md) | [下一章](./Flask/03-Flask数据库集成.md)

@@ -1,6 +1,20 @@
-# Flask 简介与安装
+# Flask 简介与安装（详细版）
 
-## 什么是 Flask
+> Python 3.11+
+
+本章介绍 Flask Web 框架的基本概念、安装方法和第一个应用的创建。
+
+---
+
+## 第一部分：什么是 Flask
+
+### 1.1 实际场景
+
+你想要快速搭建一个个人博客网站，需要选择一个 Python Web 框架。Django 功能全面但学习曲线陡峭，你可能只需要一个轻量级的框架来快速开始。
+
+**问题：如何选择一个适合小型项目的 Web 框架？**
+
+### 1.2 概念说明
 
 Flask 是一个轻量级的 Python Web 框架，被称为"微框架"（Microframework）。
 
@@ -37,11 +51,17 @@ Flask 是一个轻量级的 Python Web 框架，被称为"微框架"（Microfram
 
 ---
 
-## 安装 Flask
+## 第二部分：安装 Flask
+
+### 2.1 实际场景
+
+你刚刚创建了一个新的项目文件夹 `my-flask-app`，需要安装 Flask 及相关依赖来开始开发。
+
+**问题：如何正确安装和配置 Flask 开发环境？**
+
+### 2.2 安装步骤
 
 使用 uv 包管理器安装 Flask 及其常用扩展。
-
-**安装步骤：**
 
 ```bash
 # 1. 创建新项目
@@ -79,28 +99,31 @@ my-flask-app/
 
 ---
 
-## 第一个 Flask 应用
+## 第三部分：第一个 Flask 应用
+
+### 3.1 实际场景
+
+你已经安装了 Flask，现在想要创建一个最简单的 Web 应用来验证环境是否正确配置。
+
+**问题：如何用最少的代码创建一个运行的 Flask 应用？**
+
+### 3.2 Hello World 示例
 
 一个最小的 Flask 应用只需要几行代码。
-
-**示例代码：Hello World**
 
 ```python
 # app.py
 from flask import Flask
 
-# 创建 Flask 应用实例
-app = Flask(__name__)
+app: Flask = Flask(__name__)
 
 
-# 定义路由和视图函数
-@app.route('/')
-def hello():
-    return 'Hello, World!'
+@app.route("/")
+def hello() -> str:
+    return "Hello, World!"
 
 
-# 运行开发服务器
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
 ```
 
@@ -133,7 +156,15 @@ Press CTRL+C to quit
 
 ---
 
-## Flask(__name__) 参数详解
+## 第四部分：Flask(__name__) 参数详解
+
+### 4.1 实际场景
+
+你在学习 Flask 时看到 `Flask(__name__)` 这行代码，不理解为什么需要传入 `__name__` 参数。
+
+**问题：`__name__` 参数的作用是什么？**
+
+### 4.2 概念说明
 
 `Flask(__name__)` 中的 `__name__` 参数用于确定应用的根目录。
 
@@ -168,21 +199,30 @@ print(__name__)  # 输出：app
 
 ---
 
-## 开发服务器与调试模式
+## 第五部分：开发服务器与调试模式
 
-### 开发服务器
+### 5.1 实际场景
+
+你在开发过程中每次修改代码都需要重启服务器，非常麻烦。你听说 Flask 有调试模式可以自动重载代码。
+
+**问题：如何启用调试模式让开发更高效？**
+
+### 5.2 开发服务器
 
 Flask 内置了一个轻量级的开发服务器，适合开发环境使用。
 
 **app.run() 参数详解：**
 
 ```python
+from flask import Flask
+
+app: Flask = Flask(__name__)
+
 app.run(
-    host='127.0.0.1',   # 监听地址，0.0.0.0 表示所有网卡
+    host="127.0.0.1",   # 监听地址，0.0.0.0 表示所有网卡
     port=5000,          # 端口号
     debug=None,         # 调试模式
     load_dotenv=True,   # 加载.env 文件
-    **options
 )
 ```
 
@@ -193,13 +233,13 @@ app.run(
 app.run(debug=True)  # 启用调试模式
 
 # 允许外部访问
-app.run(host='0.0.0.0', port=5000)
+app.run(host="0.0.0.0", port=5000)
 
 # 指定端口
 app.run(port=8080)
 ```
 
-### 调试模式
+### 5.3 调试模式
 
 调试模式启用后，代码变更会自动重载，并且提供交互式调试器。
 
@@ -207,14 +247,17 @@ app.run(port=8080)
 
 ```python
 # 方式 1：在代码中设置
+from flask import Flask
+
+app: Flask = Flask(__name__)
 app.run(debug=True)
 
 # 方式 2：使用环境变量
-export FLASK_DEBUG=1
-uv run flask run
+# export FLASK_DEBUG=1
+# uv run flask run
 
 # 方式 3：使用 flask 命令
-uv run flask --debug run
+# uv run flask --debug run
 ```
 
 **调试模式的特性：**
@@ -239,3 +282,15 @@ uv run flask --debug run
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 总结
+
+| 知识点 | 说明 |
+|---------|------|
+| Flask | 轻量级 Web 框架 |
+| uv 安装 | 使用 uv add flask |
+| app.run() | 启动开发服务器 |
+| debug=True | 启用调试模式 |
+| __name__ | 应用根目录定位 |
