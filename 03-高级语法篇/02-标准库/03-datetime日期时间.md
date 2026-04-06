@@ -1,150 +1,184 @@
-# datetime 模块参考
+# datetime 模块参考（详细版）
 
-Python datetime 模块提供日期和时间处理功能。
+> Python 3.11+
 
----
+## 第一部分：日期时间基础类型
 
-## 基本类型
+### 1.1 date 日期对象
 
-### date 日期
+#### 实际场景
+
+在日程管理、生日提醒、日期计算等场景中，需要处理纯日期信息。比如计算两个日期之间的天数、判断工作日等。
+
+**问题：如何创建和操作日期对象？如何获取日期的年、月、日等属性？**
 
 ```python
 from datetime import date
 
 # 创建日期
-d = date(2024, 3, 15)
+d: date = date(2024, 3, 15)
 print(d)  # 2024-03-15
 
 # 当前日期
-today = date.today()
+today: date = date.today()
 print(today)
 
 # 从时间戳创建
-d = date.fromtimestamp(1710460800)
+d_from_ts: date = date.fromtimestamp(1710460800)
 
 # 从 ISO 格式创建
-d = date.fromisoformat('2024-03-15')
+d_from_iso: date = date.fromisoformat('2024-03-15')
 
 # 属性
-print(d.year)   # 2024
-print(d.month)  # 3
-print(d.day)    # 15
+year: int = d.year        # 2024
+month: int = d.month      # 3
+day: int = d.day          # 15
 
 # 星期（0=周一, 6=周日）
-print(d.weekday())  # 4（周五）
+weekday: int = d.weekday()  # 4（周五）
 
 # ISO 星期（1=周一, 7=周日）
-print(d.isoweekday())  # 5
+iso_weekday: int = d.isoweekday()  # 5
 ```
 
-### time 时间
+### 1.2 time 时间对象
+
+#### 实际场景
+
+在闹钟应用、时间调度、日志记录等场景中，需要处理纯时间信息。
+
+**问题：如何创建和格式化时间对象？**
 
 ```python
 from datetime import time
 
 # 创建时间
-t = time(14, 30, 45, 123456)
+t: time = time(14, 30, 45, 123456)
 print(t)  # 14:30:45.123456
 
 # 属性
-print(t.hour)        # 14
-print(t.minute)      # 30
-print(t.second)      # 45
-print(t.microsecond) # 123456
+hour: int = t.hour                # 14
+minute: int = t.minute            # 30
+second: int = t.second            # 45
+microsecond: int = t.microsecond  # 123456
 
 # ISO 格式
-print(t.isoformat())  # 14:30:45.123456
+iso_str: str = t.isoformat()  # 14:30:45.123456
 ```
 
-### datetime 日期时间
+### 1.3 datetime 日期时间对象
+
+#### 实际场景
+
+在日志系统、数据记录、事件管理等场景中，需要同时处理日期和时间。比如记录事件发生时间、计算时间差等。
+
+**问题：datetime 和 date、time 有什么关系？如何解析和格式化日期时间字符串？**
 
 ```python
 from datetime import datetime
 
 # 创建日期时间
-dt = datetime(2024, 3, 15, 14, 30, 45)
+dt: datetime = datetime(2024, 3, 15, 14, 30, 45)
 print(dt)  # 2024-03-15 14:30:45
 
 # 当前日期时间
-now = datetime.now()
+now: datetime = datetime.now()
 print(now)
 
 # 当前 UTC 时间
-utc_now = datetime.utcnow()
+utc_now: datetime = datetime.utcnow()
 print(utc_now)
 
 # 从字符串解析
-dt = datetime.strptime('2024-03-15 14:30', '%Y-%m-%d %H:%M')
+dt_parsed: datetime = datetime.strptime('2024-03-15 14:30', '%Y-%m-%d %H:%M')
 
 # 格式化输出
-print(dt.strftime('%Y年%m月%d日 %H:%M'))  # 2024年03月15日 14:30
+formatted: str = dt.strftime('%Y年%m月%d日 %H:%M')  # 2024年03月15日 14:30
 
 # 从 ISO 格式创建
-dt = datetime.fromisoformat('2024-03-15T14:30:45')
+dt_from_iso: datetime = datetime.fromisoformat('2024-03-15T14:30:45')
 
 # 属性
-print(dt.year, dt.month, dt.day)
-print(dt.hour, dt.minute, dt.second)
+year: int = dt.year
+month: int = dt.month
+day: int = dt.day
+hour: int = dt.hour
+minute: int = dt.minute
+second: int = dt.second
 ```
 
----
+## 第二部分：时间差计算
 
-## 时间差 timedelta
+### 2.1 创建时间差
 
-### 创建时间差
+#### 实际场景
+
+在定时任务、倒计时、时间预算管理等场景中，需要表示和计算时间差。比如计算未来某天、过去某天等。
+
+**问题：如何表示和计算时间差？**
 
 ```python
 from datetime import datetime, timedelta
 
 # 创建时间差
-delta = timedelta(days=7, hours=3, minutes=30)
+delta: timedelta = timedelta(days=7, hours=3, minutes=30)
 print(delta)  # 7 days, 3:30:00
 
 # 属性
-print(delta.days)       # 7
-print(delta.seconds)    # 12600（3小时30分钟）
-print(delta.total_seconds())  # 637800.0
+days: int = delta.days           # 7
+seconds: int = delta.seconds     # 12600（3小时30分钟）
+total_secs: float = delta.total_seconds()  # 637800.0
 ```
 
-### 时间运算
+### 2.2 时间运算
+
+#### 实际场景
+
+在项目管理、日程安排、账单计算等场景中，需要计算相对时间。比如计算到期时间、计算账单周期等。
+
+**问题：如何对日期时间进行加减运算？如何计算两个日期之间的差值？**
 
 ```python
 from datetime import datetime, timedelta
 
-now = datetime.now()
+now: datetime = datetime.now()
 
 # 加减时间
-tomorrow = now + timedelta(days=1)
-last_week = now - timedelta(weeks=1)
-in_3_hours = now + timedelta(hours=3)
+tomorrow: datetime = now + timedelta(days=1)
+last_week: datetime = now - timedelta(weeks=1)
+in_3_hours: datetime = now + timedelta(hours=3)
 
 print(f"明天: {tomorrow}")
 print(f"上周: {last_week}")
 print(f"3小时后: {in_3_hours}")
 
 # 时间差
-dt1 = datetime(2024, 3, 15)
-dt2 = datetime(2024, 3, 20)
-diff = dt2 - dt1
-print(diff.days)  # 5
+dt1: datetime = datetime(2024, 3, 15)
+dt2: datetime = datetime(2024, 3, 20)
+diff: timedelta = dt2 - dt1
+days_diff: int = diff.days  # 5
 ```
 
----
+## 第三部分：日期时间格式化
 
-## 格式化
+### 3.1 strftime 格式化
 
-### strftime 格式化
+#### 实际场景
+
+在日志记录、报表生成、用户界面展示等场景中，需要将日期时间转换为特定格式的字符串。
+
+**问题：如何将日期时间对象格式化为自定义字符串？**
 
 ```python
 from datetime import datetime
 
-dt = datetime(2024, 3, 15, 14, 30, 45)
+dt: datetime = datetime(2024, 3, 15, 14, 30, 45)
 
 # 常用格式
-print(dt.strftime('%Y-%m-%d'))           # 2024-03-15
-print(dt.strftime('%Y/%m/%d %H:%M'))     # 2024/03/15 14:30
-print(dt.strftime('%Y年%m月%d日'))        # 2024年03月15日
-print(dt.strftime('%A, %B %d, %Y'))      # Friday, March 15, 2024
+fmt1: str = dt.strftime('%Y-%m-%d')           # 2024-03-15
+fmt2: str = dt.strftime('%Y/%m/%d %H:%M')    # 2024/03/15 14:30
+fmt3: str = dt.strftime('%Y年%m月%d日')       # 2024年03月15日
+fmt4: str = dt.strftime('%A, %B %d, %Y')     # Friday, March 15, 2024
 ```
 
 **格式代码：**
@@ -164,116 +198,149 @@ print(dt.strftime('%A, %B %d, %Y'))      # Friday, March 15, 2024
 | `%b` | 月份缩写 | Mar |
 | `%w` | 星期数字（0-6） | 5 |
 
-### strptime 解析
+### 3.2 strptime 解析
+
+#### 实际场景
+
+在数据处理、日志分析等场景中，需要从字符串解析出日期时间对象。比如解析日志时间戳、解析用户输入的日期等。
+
+**问题：如何将字符串解析为日期时间对象？**
 
 ```python
 from datetime import datetime
 
 # 从字符串解析
-dt = datetime.strptime('2024-03-15', '%Y-%m-%d')
-print(dt)  # 2024-03-15 00:00:00
+dt1: datetime = datetime.strptime('2024-03-15', '%Y-%m-%d')
+print(dt1)  # 2024-03-15 00:00:00
 
-dt = datetime.strptime('15/03/2024 14:30', '%d/%m/%Y %H:%M')
-print(dt)  # 2024-03-15 14:30:00
+dt2: datetime = datetime.strptime('15/03/2024 14:30', '%d/%m/%Y %H:%M')
+print(dt2)  # 2024-03-15 14:30:00
 ```
 
----
+## 第四部分：时区处理
 
-## 时区处理
+### 4.1 timezone 时区
 
-### timezone
+#### 实际场景
+
+在跨国应用、服务器时间处理、API 开发等场景中，需要处理不同时区的时间。比如用户在不同地区看到本地时间、服务器使用 UTC 时间等。
+
+**问题：如何创建和转换不同时区的日期时间？**
 
 ```python
 from datetime import datetime, timezone, timedelta
 
 # UTC 时区
-utc_dt = datetime.now(timezone.utc)
+utc_dt: datetime = datetime.now(timezone.utc)
 print(utc_dt)  # 2024-03-15 06:30:45+00:00
 
 # 自定义时区（东八区）
-beijing_tz = timezone(timedelta(hours=8))
-beijing_dt = datetime.now(beijing_tz)
+beijing_tz: timezone = timezone(timedelta(hours=8))
+beijing_dt: datetime = datetime.now(beijing_tz)
 print(beijing_dt)  # 2024-03-15 14:30:45+08:00
 
 # 时区转换
-utc_dt = datetime.now(timezone.utc)
-beijing_dt = utc_dt.astimezone(beijing_tz)
+utc_dt2: datetime = datetime.now(timezone.utc)
+beijing_dt2: datetime = utc_dt2.astimezone(beijing_tz)
 ```
 
-### zoneinfo（Python 3.9+）
+### 4.2 zoneinfo 时区信息（Python 3.9+）
+
+#### 实际场景
+
+在实际开发中，需要使用真实的时区名称（如 Asia/Shanghai），而不仅仅是时差。`zoneinfo` 模块提供了完整的 IANA 时区数据库。
+
+**问题：如何使用真实时区名称（如 Asia/Shanghai）进行时区转换？**
 
 ```python
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 # 使用 IANA 时区名称
-dt = datetime.now(ZoneInfo('Asia/Shanghai'))
-print(dt)  # 2024-03-15 14:30:45+08:00
+shanghai_dt: datetime = datetime.now(ZoneInfo('Asia/Shanghai'))
+print(shanghai_dt)  # 2024-03-15 14:30:45+08:00
 
-dt = datetime.now(ZoneInfo('America/New_York'))
-print(dt)  # 2024-03-15 02:30:45-04:00
+newyork_dt: datetime = datetime.now(ZoneInfo('America/New_York'))
+print(newyork_dt)  # 2024-03-15 02:30:45-04:00
 
 # 时区转换
-shanghai = datetime.now(ZoneInfo('Asia/Shanghai'))
-new_york = shanghai.astimezone(ZoneInfo('America/New_York'))
+shanghai: datetime = datetime.now(ZoneInfo('Asia/Shanghai'))
+new_york: datetime = shanghai.astimezone(ZoneInfo('America/New_York'))
 ```
 
----
+## 第五部分：实际应用示例
 
-## 常用示例
+### 5.1 计算年龄
 
-### 计算年龄
+#### 实际场景
+
+在用户管理、身份验证、生日提醒等场景中，需要根据出生日期计算年龄。
 
 ```python
 from datetime import date
 
-def calculate_age(birth_date):
+def calculate_age(birth_date: date) -> int:
     """计算年龄"""
-    today = date.today()
-    age = today.year - birth_date.year
+    today: date = date.today()
+    age: int = today.year - birth_date.year
     # 如果今年生日还没到，减 1
     if (today.month, today.day) < (birth_date.month, birth_date.day):
         age -= 1
     return age
 
-birth = date(1990, 5, 15)
-print(f"年龄: {calculate_age(birth)}")
+birth: date = date(1990, 5, 15)
+age: int = calculate_age(birth)
+print(f"年龄: {age}")
 ```
 
-### 计算工作日
+### 5.2 计算工作日
+
+#### 实际场景
+
+在项目管理、考勤统计、工期计算等场景中，需要计算两个日期之间的工作日数（排除周末）。
 
 ```python
 from datetime import date, timedelta
 
-def count_workdays(start, end):
+def count_workdays(start: date, end: date) -> int:
     """计算两个日期之间的工作日数"""
-    workdays = 0
-    current = start
+    workdays: int = 0
+    current: date = start
     while current <= end:
         if current.weekday() < 5:  # 周一到周五
             workdays += 1
         current += timedelta(days=1)
     return workdays
 
-start = date(2024, 3, 1)
-end = date(2024, 3, 15)
-print(f"工作日: {count_workdays(start, end)}")
+start_date: date = date(2024, 3, 1)
+end_date: date = date(2024, 3, 15)
+workdays: int = count_workdays(start_date, end_date)
+print(f"工作日: {workdays}")
 ```
 
-### 倒计时
+### 5.3 倒计时
+
+#### 实际场景
+
+在活动倒计时、任务截止提醒等场景中，需要计算距离目标时间还剩多少。
 
 ```python
 from datetime import datetime
 
-def countdown(target_date):
+def countdown(target_date: datetime) -> str:
     """倒计时"""
-    now = datetime.now()
-    diff = target_date - now
-    days = diff.days
+    now: datetime = datetime.now()
+    diff: timedelta = target_date - now
+    days: int = diff.days
+    hours: int
+    remainder: int
     hours, remainder = divmod(diff.seconds, 3600)
+    minutes: int
+    seconds: int
     minutes, seconds = divmod(remainder, 60)
     return f"{days}天 {hours}小时 {minutes}分钟 {seconds}秒"
 
-target = datetime(2024, 12, 31, 23, 59, 59)
-print(countdown(target))
+target: datetime = datetime(2024, 12, 31, 23, 59, 59)
+result: str = countdown(target)
+print(result)
 ```
