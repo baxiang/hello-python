@@ -1,17 +1,26 @@
-# FastAPI WebSocket
+# WebSocket（详细版）
 
-掌握 FastAPI WebSocket 实时通信。
+> Python 3.11+
+
+本章讲解 FastAPI WebSocket 实时通信。
 
 ---
 
-## 1. 基础 WebSocket
+## 第一部分：基础 WebSocket
 
-### 1.1 基本使用
+### 1.1 实际场景
+
+需要实现实时聊天功能，客户端和服务器之间保持长连接，实时推送消息。
+
+**问题：如何使用 WebSocket 实现实时通信？**
+
+### 1.2 基本使用
 
 ```python
 from fastapi import FastAPI, WebSocket
 
-app = FastAPI()
+app: FastAPI = FastAPI()
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -19,13 +28,13 @@ async def websocket_endpoint(websocket: WebSocket):
     
     try:
         while True:
-            data = await websocket.receive_text()
+            data: str = await websocket.receive_text()
             await websocket.send_text(f"Echo: {data}")
     except Exception:
         await websocket.close()
 ```
 
-### 1.2 客户端示例
+### 1.3 客户端示例
 
 ```javascript
 const ws = new WebSocket('ws://localhost:8000/ws');
@@ -39,40 +48,49 @@ ws.send('Hello Server');
 
 ---
 
-## 2. 连接管理
+## 第二部分：连接管理
 
-### 2.1 连接管理器
+### 2.1 实际场景
+
+聊天室有多个用户，需要管理所有 WebSocket 连接，支持广播消息。
+
+**问题：如何管理多个 WebSocket 连接？**
+
+### 2.2 连接管理器
 
 ```python
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import List
 
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
     
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
         self.active_connections.append(websocket)
     
-    def disconnect(self, websocket: WebSocket):
+    def disconnect(self, websocket: WebSocket) -> None:
         self.active_connections.remove(websocket)
     
-    async def send_personal_message(self, message: str, websocket: WebSocket):
+    async def send_personal_message(self, message: str, websocket: WebSocket) -> None:
         await websocket.send_text(message)
     
-    async def broadcast(self, message: str):
+    async def broadcast(self, message: str) -> None:
         for connection in self.active_connections:
             await connection.send_text(message)
 
-manager = ConnectionManager()
+
+manager: ConnectionManager = ConnectionManager()
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            data = await websocket.receive_text()
+            data: str = await websocket.receive_text()
             await manager.broadcast(f"Broadcast: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -80,97 +98,39 @@ async def websocket_endpoint(websocket: WebSocket):
 
 ---
 
-## 3. 聊天室示例
+## 第三部分：完整示例
 
 ```python
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import Dict
 import json
-from datetime import datetime
 
-app = FastAPI()
+app: FastAPI = FastAPI()
 
-class ChatManager:
-    def __init__(self):
-        self.users: Dict[str, WebSocket] = {}
-    
-    async def join(self, websocket: WebSocket, username: str):
-        await websocket.accept()
-        self.users[username] = websocket
-        await self.broadcast(f"System: {username} joined")
-    
-    async def leave(self, username: str):
-        if username in self.users:
-            del self.users[username]
-            await self.broadcast(f"System: {username} left")
-    
-    async def send_message(self, username: str, message: str):
-        await self.broadcast(f"{username}: {message}")
-    
-    async def broadcast(self, message: str):
-        for ws in self.users.values():
-            await ws.send_text(message)
-
-chat = ChatManager()
-
-@app.websocket("/chat")
-async def chat_websocket(websocket: WebSocket):
-    username = None
-    try:
-        # 接收用户名
-        data = await websocket.receive_text()
-        data_json = json.loads(data)
-        
-        if data_json.get("type") == "join":
-            username = data_json.get("username")
-            await chat.join(websocket, username)
-            
-            # 消息循环
-            while True:
-                data = await websocket.receive_text()
-                data_json = json.loads(data)
-                
-                if data_json.get("type") == "message":
-                    await chat.send_message(username, data_json.get("message"))
-    
-    except WebSocketDisconnect:
-        if username:
-            await chat.leave(username)
-```
-
----
-
-## 4. 完整示例
-
-```python
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from typing import List, Dict
-import json
-
-app = FastAPI()
 
 # ==================== 连接管理 ====================
 class ConnectionManager:
     def __init__(self):
         self.connections: Dict[str, WebSocket] = {}
     
-    async def connect(self, client_id: str, websocket: WebSocket):
+    async def connect(self, client_id: str, websocket: WebSocket) -> None:
         await websocket.accept()
         self.connections[client_id] = websocket
     
-    def disconnect(self, client_id: str):
+    def disconnect(self, client_id: str) -> None:
         if client_id in self.connections:
             del self.connections[client_id]
     
-    async def send(self, client_id: str, message: str):
+    async def send(self, client_id: str, message: str) -> None:
         if client_id in self.connections:
             await self.connections[client_id].send_text(message)
     
-    async def broadcast(self, message: str):
+    async def broadcast(self, message: str) -> None:
         for ws in self.connections.values():
             await ws.send_text(message)
 
-manager = ConnectionManager()
+
+manager: ConnectionManager = ConnectionManager()
 
 # ==================== WebSocket 路由 ====================
 @app.websocket("/ws/{client_id}")
@@ -178,14 +138,14 @@ async def websocket_endpoint(client_id: str, websocket: WebSocket):
     await manager.connect(client_id, websocket)
     try:
         while True:
-            data = await websocket.receive_text()
-            message = json.loads(data)
+            data: str = await websocket.receive_text()
+            message: dict = json.loads(data)
             
             if message.get("type") == "broadcast":
                 await manager.broadcast(f"[{client_id}] {message.get('content')}")
             elif message.get("type") == "private":
-                target = message.get("to")
-                content = f"[{client_id} -> {target}] {message.get('content')}"
+                target: str = message.get("to", "")
+                content: str = f"[{client_id} -> {target}] {message.get('content')}"
                 await manager.send(target, content)
                 await manager.send(client_id, content)
     except WebSocketDisconnect:
@@ -194,7 +154,7 @@ async def websocket_endpoint(client_id: str, websocket: WebSocket):
 
 # ==================== HTTP 路由 ====================
 @app.get("/")
-def root():
+def root() -> dict[str, str]:
     return {"message": "WebSocket server running"}
 ```
 
@@ -209,7 +169,3 @@ def root():
 | receive_text | 接收消息 |
 | send_text | 发送消息 |
 | 连接管理器 | 广播和私聊 |
-
----
-
-[← 上一章](./07-FastAPI错误处理.md) | [下一章](./09-FastAPI后台任务.md)
