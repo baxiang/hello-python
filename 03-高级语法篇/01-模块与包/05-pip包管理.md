@@ -1,10 +1,26 @@
-# pip 包管理
+# pip 包管理（详细版）
+
+> Python 3.11+
+
+## 第一部分：pip 基础
+
+### 5.1 什么是 pip
+
+#### 实际场景
+
+你想用 Python 做数据分析，听说有个叫 `pandas` 的库很好用。但你的 Python 里没有这个库，直接 `import pandas` 会报错 `ModuleNotFoundError`。
+
+**问题：如何安装别人开发的 Python 库？**
+
+#### 概念说明
+
+pip 是 Python 的包管理工具，用于安装和管理第三方库。
 
 > **注意：** 2026年起，推荐使用 **uv** 作为包管理工具（速度快10-100倍）。本章保留pip介绍，用于维护老项目。
 
 ---
 
-## pip vs uv：如何选择
+### 5.2 pip vs uv：如何选择
 
 | 特性 | pip | uv |
 |------|-----|-----|
@@ -28,42 +44,38 @@
 
 ---
 
-本章讲解 pip 包管理工具的使用，包括安装、卸载、依赖管理等操作。
-
----
-
-## pip 基础
-
-### 什么是 pip
-
-pip 是 Python 的包管理工具，用于安装和管理第三方库。
+#### 基本命令
 
 ```bash
-# 查看 pip 版本
-pip --version
+# 推荐：使用 uv 安装包（更快）
+uv add pandas numpy matplotlib
 
-# 查看 pip 帮助
-pip help
+# 传统：使用 pip 安装包
+pip install pandas numpy matplotlib
 
-# 查看 pip 配置
-pip config list
+# 查看已安装的包
+pip list
+
+# 导出依赖列表
+pip freeze > requirements.txt
 ```
 
 ---
 
-## 安装包
+## 第二部分：安装包
 
-### 基本安装
+### 5.3 基本安装
 
 ```bash
-# 安装最新版本
+# 推荐：使用 uv 安装（更快）
+uv add requests
+
+# 传统：使用 pip 安装
 pip install requests
 
 # 安装指定版本
+uv add requests==2.28.0
 pip install requests==2.28.0
-
-# 安装最低版本
-pip install requests>=2.28.0
 
 # 安装版本范围
 pip install "requests>=2.28.0,<3.0.0"
@@ -72,13 +84,13 @@ pip install "requests>=2.28.0,<3.0.0"
 pip install requests~=2.28.0  # >=2.28.0, <2.29.0
 ```
 
-### 从不同来源安装
+### 5.4 从不同来源安装
 
 ```bash
 # 从 PyPI 安装（默认）
 pip install requests
 
-# 从指定索引安装
+# 从指定索引安装（国内镜像加速）
 pip install requests -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 从 Git 仓库安装
@@ -87,14 +99,12 @@ pip install git+https://github.com/psf/requests.git
 # 从本地目录安装
 pip install ./my-package
 
-# 从压缩包安装
-pip install ./package.tar.gz
-
 # 从 requirements.txt 安装
 pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
-### 安装选项
+### 5.5 安装选项
 
 ```bash
 # 升级已安装的包
@@ -108,14 +118,13 @@ pip install --no-cache-dir requests
 
 # 安装到用户目录
 pip install --user requests
-
-# 忽略已安装的依赖
-pip install --ignore-installed requests
 ```
 
 ---
 
-## 卸载包
+## 第三部分：卸载包
+
+### 5.6 卸载命令
 
 ```bash
 # 卸载包
@@ -133,7 +142,9 @@ pip freeze | xargs pip uninstall -y
 
 ---
 
-## 查看包信息
+## 第四部分：查看包信息
+
+### 5.7 查看命令
 
 ```bash
 # 查看已安装的包
@@ -157,22 +168,21 @@ pip show -f requests
 
 ---
 
-## 依赖管理
+## 第五部分：依赖管理
 
-### requirements.txt
+### 5.8 requirements.txt
 
 ```bash
-# 导出当前环境的所有包
-pip freeze > requirements.txt
+# 推荐：使用 uv 自动管理
+uv add requests numpy pandas
+# 自动生成 uv.lock 和 pyproject.toml
 
-# 导出时指定格式
-pip freeze --format=freeze > requirements.txt
+# 传统：pip + requirements.txt
+pip freeze > requirements.txt
 
 # 从 requirements.txt 安装
 pip install -r requirements.txt
-
-# 安装时忽略失败
-pip install -r requirements.txt --ignore-errors
+uv pip install -r requirements.txt
 ```
 
 **requirements.txt 格式：**
@@ -191,7 +201,7 @@ git+https://github.com/user/repo.git@main#egg=package
 ./local-package
 ```
 
-### 版本 specifier
+### 5.9 版本 specifier
 
 | 符号 | 含义 | 示例 |
 |------|------|------|
@@ -206,9 +216,9 @@ git+https://github.com/user/repo.git@main#egg=package
 
 ---
 
-## 虚拟环境
+## 第六部分：虚拟环境
 
-### venv（推荐）
+### 5.10 venv（Python 内置）
 
 ```bash
 # 创建虚拟环境
@@ -228,7 +238,7 @@ deactivate
 rm -rf .venv
 ```
 
-### virtualenv
+### 5.11 virtualenv
 
 ```bash
 # 安装
@@ -241,30 +251,33 @@ virtualenv .venv
 virtualenv -p python3.11 .venv
 ```
 
-### 使用 uv（推荐）
+### 5.12 使用 uv（推荐）
 
 ```bash
 # 安装 uv
-pip install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 创建虚拟环境
+# 创建新项目（自动创建虚拟环境）
+uv init my-project
+cd my-project
+
+# 添加依赖
+uv add requests pandas
+
+# 运行脚本
+uv run python main.py
+
+# 或使用 uv pip 兼容模式
 uv venv
-
-# 安装包
 uv pip install requests
-
-# 从 requirements.txt 安装
 uv pip install -r requirements.txt
-
-# 同步依赖
-uv pip sync requirements.txt
 ```
 
 ---
 
-## 配置 pip
+## 第七部分：配置 pip
 
-### 配置文件
+### 5.13 配置文件
 
 ```bash
 # 查看 pip 配置
@@ -278,7 +291,7 @@ pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 # Windows: %APPDATA%\pip\pip.ini
 ```
 
-### pip.conf 示例
+### 5.14 pip.conf 示例
 
 ```ini
 [global]
@@ -290,7 +303,7 @@ timeout = 60
 no-cache-dir = true
 ```
 
-### 使用国内镜像
+### 5.15 使用国内镜像
 
 ```bash
 # 临时使用
@@ -311,11 +324,9 @@ pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 ---
 
-## 迁移到 uv
+## 第八部分：迁移到 uv
 
-如果你决定使用现代化的 uv 工具，迁移非常简单。
-
-### 安装 uv
+### 5.16 安装 uv
 
 ```bash
 # macOS/Linux
@@ -325,7 +336,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-### 基本使用对比
+### 5.17 基本使用对比
 
 ```bash
 # pip 方式
@@ -342,7 +353,7 @@ uv add requests
 uv run python main.py
 ```
 
-### pip 命令 vs uv 命令
+### 5.18 pip 命令 vs uv 命令
 
 | 操作 | pip | uv |
 |------|-----|-----|
@@ -354,7 +365,7 @@ uv run python main.py
 | 运行脚本 | `python script.py` | `uv run python script.py` |
 | 导出依赖 | `pip freeze > requirements.txt` | 自动生成 `uv.lock` |
 
-### 从 pip 项目迁移
+### 5.19 从 pip 项目迁移
 
 如果你有一个使用 pip 的老项目：
 
@@ -373,7 +384,7 @@ uv add $(cat requirements.txt | tr '\n' ' ')
 uv run python main.py
 ```
 
-### uv 的优势
+### 5.20 uv 的优势
 
 1. **速度快** - 比 pip 快10-100倍
 2. **自动管理虚拟环境** - 无需手动创建
@@ -381,7 +392,7 @@ uv run python main.py
 4. **Python版本管理** - `uv python install 3.11`
 5. **统一工具链** - 替代 pip, venv, pip-tools 等
 
-### 何时继续使用 pip
+### 5.21 何时继续使用 pip
 
 - 维护不需要频繁更新的老项目
 - 团队工作流已深度集成 pip
