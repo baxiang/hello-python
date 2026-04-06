@@ -1,10 +1,10 @@
-# Flask 详细教程
+# Flask
 
-深入学习 Flask 各个模块的详细使用指南。
+学习 Flask Web 框架，从入门到实战。
 
 ---
 
-## 目录
+## 章节导航
 
 | 章节 | 文件 | 主题 |
 |------|------|------|
@@ -32,12 +32,14 @@
 
 ---
 
+## 示例项目
+
+[flask_demo/](./flask_demo/) - Flask 实践项目
+
+---
+
 ## 配套资源
 
 - [Flask 官方文档](https://flask.palletsprojects.com/)
 - [SQLAlchemy 文档](https://docs.sqlalchemy.org/)
 - [WTForms 文档](https://wtforms.readthedocs.io/)
-
----
-
-[← 返回目录](../README.md)

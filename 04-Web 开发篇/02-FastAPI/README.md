@@ -1,10 +1,10 @@
-# FastAPI 详细教程
+# FastAPI
 
-深入学习 FastAPI 各个模块的详细使用指南。
+学习 FastAPI 现代异步 Web 框架，从入门到实战。
 
 ---
 
-## 目录
+## 章节导航
 
 | 章节 | 文件 | 主题 |
 |------|------|------|
@@ -31,12 +31,14 @@
 
 ---
 
+## 示例项目
+
+[fastapi_demo/](./fastapi_demo/) - FastAPI 实践项目
+
+---
+
 ## 配套资源
 
 - [FastAPI 官方文档](https://fastapi.tiangolo.com/)
 - [Pydantic 文档](https://pydantic-docs.helpmanual.io/)
 - [Uvicorn 文档](https://www.uvicorn.org/)
-
----
-
-[← 返回目录](../README.md)
