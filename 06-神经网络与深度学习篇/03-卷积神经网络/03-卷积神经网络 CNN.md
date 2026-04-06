@@ -1,6 +1,22 @@
 # 第 37 章 - 卷积神经网络 CNN
 
+> **Python 版本要求：** 本章代码需要 Python 3.11+ 运行环境
+>
 > 卷积神经网络是计算机视觉的核心技术，本章介绍 CNN 的原理和应用。
+
+---
+
+## 实际场景
+
+**图像分类：识别猫和狗**
+
+假设你正在开发一个宠物识别应用，需要区分照片中的猫和狗。使用 CNN，你可以：
+
+1. 卷积层自动提取图像特征（边缘、形状、纹理）
+2. 池化层降低特征维度，提高计算效率
+3. 全连接层进行最终分类判断
+
+CNN 特别适合图像处理，因为它能自动学习图像的空间特征，无需人工设计复杂的特征提取规则。
 
 ---
 
@@ -38,8 +54,12 @@ avgpool = nn.AvgPool2d(kernel_size=2, stride=2)
 ### 2.1 LeNet-5
 
 ```python
+import torch
+import torch.nn as nn
+from torch import Tensor
+
 class LeNet(nn.Module):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.conv1 = nn.Conv2d(1, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
@@ -47,7 +67,7 @@ class LeNet(nn.Module):
         self.fc1 = nn.Linear(16*4*4, 120)
         self.fc2 = nn.Linear(120, 10)
     
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         x = self.pool(torch.relu(self.conv1(x)))
         x = self.pool(torch.relu(self.conv2(x)))
         x = x.view(-1, 16*4*4)
