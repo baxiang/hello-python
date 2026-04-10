@@ -10,7 +10,7 @@
 从官网下载并安装 [Visual Studio Code](https://code.visualstudio.com/)。
 
 ### 1.2 安装 Python 官方扩展
-在扩展面板 (Ctrl+Shift+X) 搜索并安装：
+在扩展面板 (`Ctrl+Shift+X` / `Cmd+Shift+X`) 搜索并安装：
 *   **Python** (by Microsoft)：核心支持，提供智能补全、调试、环境管理。
 *   **Pylance**：高性能语言服务器，提供静态类型检查和快速补全。
 
@@ -84,7 +84,7 @@ VSCode 的配置分为三个级别：**用户 (User)** > **工作区 (Workspace)
 ## 3. Python 解释器管理
 
 ### 3.1 切换解释器
-*   **快捷键**：`Ctrl+Shift+P` -> `Python: Select Interpreter`
+*   **快捷键**：`Ctrl+Shift+P` (Win/Linux) / `Cmd+Shift+P` (Mac) -> `Python: Select Interpreter`
 *   **状态栏**：点击右下角的 Python 版本号进行切换。
 
 ### 3.2 自动发现虚拟环境
@@ -182,7 +182,7 @@ VSCode 会自动识别常见位置（`.venv`, `env`, `venv`）的虚拟环境。
   ]
 }
 ```
-*   **运行任务**：`Ctrl+Shift+P` -> `Tasks: Run Task` 或 `Ctrl+Shift+B` 运行构建任务。
+*   **运行任务**：`Ctrl+Shift+P` / `Cmd+Shift+P` -> `Tasks: Run Task` 或 `Ctrl+Shift+B` / `Cmd+Shift+B` 运行构建任务。
 
 ---
 
