@@ -82,7 +82,7 @@ Lambda 的本质是：**无需命名的轻量级函数**。
 
 ---
 
-## Lambda 的最简用法（3分钟上手）
+## Lambda 的最简用法
 
 ```python
 # 定义 lambda
