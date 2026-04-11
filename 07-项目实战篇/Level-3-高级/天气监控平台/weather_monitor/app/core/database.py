@@ -18,5 +18,6 @@ def get_db():
 
 
 def init_db():
-    from ..models import WeatherRecord, City
+    from ..models import City, WeatherRecord
+
     Base.metadata.create_all(bind=engine)
