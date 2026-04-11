@@ -47,9 +47,35 @@
 ## 2. 语法基础：Hello World 与避坑
 
 ### 2.1 基本语法
-*   `async def`：定义协程。
-*   `await`：挂起当前协程，等待结果（必须是 awaitable 对象）。
-*   `asyncio.run()`：程序的入口点，负责启动和关闭事件循环。
+
+**asyncio三要素：** async、await、事件循环。
+
+```
+asyncio语法：
+┌─────────────────────────────────────────────────────────────┐
+│  asyncio 核心语法                                              │
+│                                                              │
+│  async def func():    # 定义协程                              │
+│      await something  # 暂停等待                              │
+│                                                              │
+│  asyncio.run(main())  # 启动事件循环                          │
+│                                                              │
+│  ⚠️ 关键概念：                                                 │
+│  ─────────────────────────────                               │
+│  async def    → 定义协程函数                                  │
+│  await        → 暂停当前协程，等待结果                        │
+│  asyncio.run  → 启动事件循环，执行协程                        │
+│                                                              │
+│  ⚠️ await 后面必须是 awaitable 对象：                         │
+│  • 协程对象（调用 async def 函数的返回值）                     │
+│  • Task 对象（asyncio.create_task() 创建）                    │
+│  • Future 对象（底层并发原语）                                │
+│                                                              │
+│  ❌ 不能 await：普通函数、整数、字符串                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 最简示例
 
 ```python
 import asyncio
@@ -59,14 +85,24 @@ async def say_after(delay, what):
     print(what)
 
 async def main():
-    print(f"开始于 {asyncio.get_event_loop().time():.1f}s")
+    print(f"开始")
     await say_after(1, 'hello')
     await say_after(2, 'world')
-    print(f"结束于 {asyncio.get_event_loop().time():.1f}s")
+    print(f"结束")
 
-# 运行
 asyncio.run(main())
 ```
+
+### 关键代码解释
+
+| 代码 | 含义 | 说明 |
+|------|------|------|
+| `async def` | 定义协程 | 函数返回协程对象 |
+| `await` | 暂停等待 | 让出控制权给事件循环 |
+| `asyncio.sleep()` | 异步睡眠 | 非阻塞等待 |
+| `asyncio.run()` | 运行协程 | 启动事件循环 |
+
+---
 
 ### 2.2 ⚠️ 致命陷阱：阻塞调用
 在 `async` 函数中，**绝对不能使用同步阻塞代码**（如 `time.sleep`, `requests.get`）。一旦阻塞，整个事件循环都会卡死，所有其他任务都无法运行。
