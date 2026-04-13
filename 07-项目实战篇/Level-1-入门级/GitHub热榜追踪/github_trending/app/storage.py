@@ -1,6 +1,7 @@
-import json
 import csv
+import json
 from pathlib import Path
+
 from app.models import TrendingRepo
 
 

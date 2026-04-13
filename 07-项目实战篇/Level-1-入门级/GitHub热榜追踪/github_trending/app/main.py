@@ -1,8 +1,9 @@
 import argparse
 from pathlib import Path
+
 from app.fetcher import fetch_trending_page
 from app.parser import parse_trending_page
-from app.storage import save_json, save_csv, format_terminal
+from app.storage import format_terminal, save_csv, save_json
 
 
 def parse_args(args: list[str] | None = None) -> argparse.Namespace:

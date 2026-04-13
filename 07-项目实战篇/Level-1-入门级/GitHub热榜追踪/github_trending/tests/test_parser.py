@@ -1,7 +1,9 @@
-import pytest
 from pathlib import Path
-from app.parser import parse_trending_page
+
+import pytest
+
 from app.models import TrendingRepo
+from app.parser import parse_trending_page
 
 
 @pytest.fixture

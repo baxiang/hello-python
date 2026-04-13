@@ -1,10 +1,12 @@
-import pytest
-import json
 import csv
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
+
 from app.models import TrendingRepo
-from app.storage import save_json, save_csv, format_terminal
+from app.storage import format_terminal, save_csv, save_json
 
 
 @pytest.fixture
