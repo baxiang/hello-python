@@ -48,7 +48,7 @@ def get_weather(city: str) -> str:
     return f"{city}: sunny"
 
 weather_agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[get_weather],
     name="weather_agent",
 )
@@ -59,7 +59,7 @@ def call_weather_agent(query: str) -> str:
     return result["messages"][-1].text
 
 supervisor = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[call_weather_agent],
     name="supervisor",
 )
@@ -91,19 +91,19 @@ def handoff_to_writer(content: str) -> str:
     return "handoff:writer_agent"
 
 research_agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[handoff_to_writer],
     name="research_agent",
 )
 
 writer_agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[],
     name="writer_agent",
 )
 
 supervisor = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[handoff_to_research, handoff_to_writer],
     name="supervisor",
 )
@@ -141,7 +141,7 @@ def load_js_skill() -> str:
     """
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[load_python_skill, load_js_skill],
 )
 ```
@@ -161,13 +161,13 @@ agent = create_agent(
 from langchain.agents import create_agent
 
 python_agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[python_tools],
     name="python_agent",
 )
 
 js_agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[js_tools],
     name="js_agent",
 )
@@ -181,7 +181,7 @@ def route_query(query: str) -> str:
     return "无法识别"
 
 router_agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[route_query],
 )
 ```

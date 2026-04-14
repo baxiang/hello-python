@@ -5,7 +5,11 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 
 
 def chat_node(state: MessagesState):
-    model = ChatOpenAI(model="gpt-4o-mini")
+    model = ChatOpenAI(
+        model="moonshot-v1-8k",
+        openai_api_base="https://api.moonshot.cn/v1",
+        openai_api_key="${MOONSHOT_API_KEY}",
+    )
     response = model.invoke(state["messages"])
     return {"messages": [response]}
 

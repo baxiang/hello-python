@@ -27,7 +27,7 @@ LangChain 提供生产级 Agent 实现：
 from langchain.agents import create_agent
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[get_weather, search],
 )
 ```
@@ -57,13 +57,14 @@ agent = create_agent(
 
 ```python
 # 方式1：字符串标识符
-agent = create_agent("openai:gpt-4o-mini", tools=tools)
+agent = create_agent("moonshot:moonshot-v1-8k", tools=tools)
 
 # 方式2：模型实例（更多控制）
 from langchain_openai import ChatOpenAI
 
 model = ChatOpenAI(
-    model="gpt-4o-mini",
+    model="moonshot-v1-8k",
+    openai_api_base="https://api.moonshot.cn/v1",
     temperature=0.1,
     max_tokens=1000,
     timeout=30,
@@ -72,8 +73,8 @@ agent = create_agent(model, tools=tools)
 ```
 
 **字符串标识符自动推断：**
-- `"gpt-4"` → `"openai:gpt-4"`
-- `"claude-3"` → `"anthropic:claude-3"`
+- `"moonshot-v1"` → `"moonshot:moonshot-v1-8k"`
+- `"deepseek-chat"` → `"deepseek:deepseek-chat"`
 
 ### 动态模型
 
@@ -83,8 +84,14 @@ agent = create_agent(model, tools=tools)
 from langchain_openai import ChatOpenAI
 from langchain.agents.middleware import wrap_model_call
 
-basic_model = ChatOpenAI(model="gpt-4o-mini")
-advanced_model = ChatOpenAI(model="gpt-4o")
+basic_model = ChatOpenAI(
+    model="moonshot-v1-8k",
+    openai_api_base="https://api.moonshot.cn/v1",
+)
+advanced_model = ChatOpenAI(
+    model="moonshot-v1-32k",
+    openai_api_base="https://api.moonshot.cn/v1",
+)
 
 @wrap_model_call
 def dynamic_model_selection(request, handler):
@@ -175,7 +182,7 @@ def context_based_tools(request, handler):
     return handler(request)
 
 agent = create_agent(
-    model="gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[read_data, write_data, delete_data],
     middleware=[context_based_tools],
     context_schema=Context,
@@ -202,7 +209,7 @@ agent = create_agent(
 from langchain.messages import SystemMessage
 
 agent = create_agent(
-    model="anthropic:claude-3",
+    model="moonshot:moonshot-v1-32k",
     system_prompt=SystemMessage(
         content=[
             {"type": "text", "text": "你是一个文学分析助手。"},
@@ -232,7 +239,7 @@ def user_role_prompt(request) -> str:
     return base
 
 agent = create_agent(
-    model="gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[search],
     middleware=[user_role_prompt],
 )
@@ -289,7 +296,7 @@ class ContactInfo(BaseModel):
     phone: str
 
 agent = create_agent(
-    model="gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     response_format=ToolStrategy(ContactInfo),
 )
 
@@ -309,7 +316,7 @@ print(result["structured_response"])
 from langchain.agents.structured_output import ProviderStrategy
 
 agent = create_agent(
-    model="gpt-4o",
+    model="moonshot:moonshot-v1-8k",
     response_format=ProviderStrategy(ContactInfo),
 )
 ```
@@ -353,7 +360,7 @@ def handle_tool_errors(request, handler):
         )
 
 agent = create_agent(
-    model="gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[search],
     middleware=[handle_tool_errors],
 )

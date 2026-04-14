@@ -22,7 +22,7 @@ def calculate(expression: str) -> str:
 
 def create_calculator_agent():
     return create_agent(
-        model="openai:gpt-4o-mini",
+        model="moonshot:moonshot-v1-8k",
         tools=[get_current_time, calculate],
         system_prompt="你是一个智能助手，可以使用工具来回答问题。",
     )

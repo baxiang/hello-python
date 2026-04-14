@@ -3,7 +3,7 @@ from langchain.messages import HumanMessage, SystemMessage
 
 
 def create_chat(system_prompt: str = "你是一个友好的助手"):
-    model = init_chat_model("openai:gpt-4o-mini")
+    model = init_chat_model("moonshot:moonshot-v1-8k")
     messages = [SystemMessage(system_prompt)]
     return model, messages
 

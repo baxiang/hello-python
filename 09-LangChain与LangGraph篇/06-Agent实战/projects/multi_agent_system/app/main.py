@@ -20,13 +20,21 @@ def supervisor(state: State) -> Command[Literal["search_agent", "calc_agent", EN
 
 
 def search_agent(state: State) -> dict:
-    model = ChatOpenAI(model="gpt-4o-mini")
+    model = ChatOpenAI(
+        model="moonshot-v1-8k",
+        openai_api_base="https://api.moonshot.cn/v1",
+        openai_api_key="${MOONSHOT_API_KEY}",
+    )
     response = model.invoke(f"搜索: {state['task']}")
     return {"result": response.content}
 
 
 def calc_agent(state: State) -> dict:
-    model = ChatOpenAI(model="gpt-4o-mini")
+    model = ChatOpenAI(
+        model="moonshot-v1-8k",
+        openai_api_base="https://api.moonshot.cn/v1",
+        openai_api_key="${MOONSHOT_API_KEY}",
+    )
     response = model.invoke(f"计算: {state['task']}")
     return {"result": response.content}
 

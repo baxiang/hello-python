@@ -12,11 +12,19 @@ def create_doc_qa(docs_path: str):
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = splitter.split_documents(documents)
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(
+        model="text-embedding-3-small",
+        openai_api_base="https://api.moonshot.cn/v1",
+        openai_api_key="${MOONSHOT_API_KEY}",
+    )
     vectorstore = Chroma.from_documents(chunks, embeddings)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-    model = ChatOpenAI(model="gpt-4o-mini")
+    model = ChatOpenAI(
+        model="moonshot-v1-8k",
+        openai_api_base="https://api.moonshot.cn/v1",
+        openai_api_key="${MOONSHOT_API_KEY}",
+    )
 
     return retriever, model
 

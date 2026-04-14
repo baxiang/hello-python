@@ -28,7 +28,7 @@ def search(query: str) -> str:
 
 def create_assistant():
     return create_agent(
-        model="openai:gpt-4o-mini",
+        model="moonshot:moonshot-v1-8k",
         tools=[get_time, calculate, search],
         system_prompt="你是一个智能助手，可以使用工具来帮助用户。",
     )

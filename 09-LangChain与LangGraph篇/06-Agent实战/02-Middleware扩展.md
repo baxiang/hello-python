@@ -56,7 +56,7 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import SummarizationMiddleware, HumanInTheLoopMiddleware
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[...],
     middleware=[
         SummarizationMiddleware(...),
@@ -96,8 +96,14 @@ def log_model(request: ModelRequest, handler) -> ModelResponse:
 ```python
 from langchain_openai import ChatOpenAI
 
-basic_model = ChatOpenAI(model="gpt-4o-mini")
-advanced_model = ChatOpenAI(model="gpt-4o")
+basic_model = ChatOpenAI(
+    model="moonshot-v1-8k",
+    openai_api_base="https://api.moonshot.cn/v1",
+)
+advanced_model = ChatOpenAI(
+    model="moonshot-v1-32k",
+    openai_api_base="https://api.moonshot.cn/v1",
+)
 
 @wrap_model_call
 def dynamic_model(request: ModelRequest, handler) -> ModelResponse:
@@ -195,7 +201,7 @@ from langchain.agents.middleware import HumanInTheLoopMiddleware
 from langgraph.checkpoint.memory import InMemorySaver
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[send_email, delete_file],
     middleware=[
         HumanInTheLoopMiddleware(
@@ -222,11 +228,11 @@ result = agent.invoke(Command(resume={"type": "approve"}), config)
 from langchain.agents.middleware import SummarizationMiddleware
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[...],
     middleware=[
         SummarizationMiddleware(
-            model="openai:gpt-4o-mini",
+            model="moonshot:moonshot-v1-8k",
             token_limit=4000,  # 超过 4000 token 时摘要
         ),
     ],

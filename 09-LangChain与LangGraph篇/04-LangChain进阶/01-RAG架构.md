@@ -122,7 +122,10 @@ print(f"分块数: {len(all_splits)}")
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 
-embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small",
+    openai_api_base="https://api.moonshot.cn/v1",
+)
 vector_store = InMemoryVectorStore(embeddings)
 
 document_ids = vector_store.add_documents(all_splits)
@@ -180,7 +183,7 @@ prompt = (
 )
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[retrieve_context],
     system_prompt=prompt,
 )
@@ -229,7 +232,7 @@ def prompt_with_context(request: ModelRequest) -> str:
     )
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[],
     middleware=[prompt_with_context],
 )
@@ -255,7 +258,10 @@ docs = loader.load()
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 all_splits = text_splitter.split_documents(docs)
 
-embeddings = OpenAIEmbeddings()
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small",
+    openai_api_base="https://api.moonshot.cn/v1",
+)
 vector_store = InMemoryVectorStore(embeddings)
 vector_store.add_documents(all_splits)
 
@@ -266,7 +272,7 @@ def retrieve(query: str) -> str:
     return "\n\n".join(d.page_content for d in docs)
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[retrieve],
 )
 

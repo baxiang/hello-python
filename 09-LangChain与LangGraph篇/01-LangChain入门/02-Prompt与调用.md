@@ -47,7 +47,7 @@ template = PromptTemplate(
 
 prompt = template.invoke({"concept": "列表推导式"})
 
-model = init_chat_model("openai:gpt-4o-mini")
+model = init_chat_model("moonshot:moonshot-v1-8k")
 response = model.invoke([HumanMessage(prompt.text)])
 
 print(response.content)
@@ -137,7 +137,7 @@ response = model.invoke("什么是 Python？")
 from langchain.chat_models import init_chat_model
 
 model = init_chat_model(
-    "openai:gpt-4o-mini",
+    "moonshot:moonshot-v1-8k",
     temperature=0.7,
     max_tokens=1000,
     timeout=30,
@@ -174,7 +174,7 @@ model = init_chat_model(
 ```python
 from langchain.chat_models import init_chat_model
 
-model = init_chat_model("openai:gpt-4o-mini")
+model = init_chat_model("moonshot:moonshot-v1-8k")
 
 response = model.invoke("你好")
 print(response.content)
@@ -185,7 +185,7 @@ print(response.content)
 ```python
 from langchain.chat_models import init_chat_model
 
-model = init_chat_model("openai:gpt-4o-mini")
+model = init_chat_model("moonshot:moonshot-v1-8k")
 
 for chunk in model.stream("请介绍 Python"):
     print(chunk.text, end="", flush=True)
@@ -207,7 +207,7 @@ print(full.content_blocks)
 ```python
 from langchain.chat_models import init_chat_model
 
-model = init_chat_model("openai:gpt-4o-mini")
+model = init_chat_model("moonshot:moonshot-v1-8k")
 
 responses = model.batch([
     "什么是变量？",
@@ -300,10 +300,10 @@ anthropic.messages.create(
 
 from langchain.chat_models import init_chat_model
 
-model = init_chat_model("openai:gpt-4o-mini")
+model = init_chat_model("moonshot:moonshot-v1-8k")
 model.invoke("你好")
 
-model = init_chat_model("anthropic:claude-3-sonnet")
+model = init_chat_model("deepseek:deepseek-chat")
 model.invoke("你好")
 ```
 

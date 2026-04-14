@@ -79,7 +79,7 @@ def multiply(a: int, b: int) -> int:
     return a * b
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[add, multiply],
 )
 
@@ -187,7 +187,7 @@ for chunk in agent.stream({
 
 ```python
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[get_weather],
 )
 
@@ -212,7 +212,7 @@ def get_weather(location: str) -> str:
     return f"{location}: sunny"
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[get_weather],
 )
 
@@ -247,7 +247,7 @@ def handle_tool_errors(request, handler):
         )
 
 agent = create_agent(
-    model="openai:gpt-4o-mini",
+    model="moonshot:moonshot-v1-8k",
     tools=[search, get_weather],
     middleware=[handle_tool_errors],
 )
