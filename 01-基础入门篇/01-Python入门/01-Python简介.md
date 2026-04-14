@@ -348,6 +348,18 @@ if __name__ == "__main__":
 - 字典存储统计数据
 - 类型提示的现代语法
 
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `pathlib.Path(source_dir)` | 将字符串路径转为 Path 对象 | Path 对象支持 `/` 拼接和 `.glob()` 等方法 |
+| `source.glob("*.*")` | 匹配目录下所有带扩展名的文件 | `*.*` 表示"名字任意.扩展名任意" |
+| `file.suffix.lower()` | 获取文件扩展名并转小写 | 统一大小写，避免 `.JPG` 和 `.jpg` 被分开统计 |
+| `ext.replace(".", "")` | 去掉扩展名中的点 | 把 `.txt` 变成 `txt`，用作文件夹名 |
+| `target_dir.mkdir(exist_ok=True)` | 创建目录，已存在不报错 | 多个同类型文件时只创建一次目录 |
+| `file.rename(target_dir / file.name)` | 将文件移动到目标目录 | `Path / name` 用 `/` 拼接路径，等同于 `os.path.join` |
+| `stats.get(ext, 0) + 1` | 读取当前计数，默认 0，再加 1 | 字典中不存在该键时返回默认值 0，避免 KeyError |
+
 ---
 
 ## 本章小结
