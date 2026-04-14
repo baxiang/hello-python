@@ -403,3 +403,12 @@ target: datetime = datetime(2024, 12, 31, 23, 59, 59)
 result: str = countdown(target)
 print(result)
 ```
+
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `if (today.month, today.day) < (birth_date.month, birth_date.day)` | 元组比较判断今年生日是否已过 | 元组按位比较：先比月，再比日，一行代替 `if month < m or (month == m and day < d)` |
+| `current.weekday() < 5` | 判断是否工作日（0=周一，4=周五） | `weekday()` 返回 0-6，小于 5 即周一到周五，比 `isoweekday()` 减 1 后判断更直观 |
+| `diff.seconds` | 获取 timedelta 中不满一天的秒数 | `timedelta` 存储为 `(days, seconds, microseconds)`，`seconds` 最大为 86399 |
+| `divmod(diff.seconds, 3600)` | 一次性分解小时和余秒 | `divmod(a, b)` 返回 `(商, 余数)`，比手动写 `// 3600` 和 `% 3600` 更简洁 |

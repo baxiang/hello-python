@@ -310,6 +310,15 @@ db.set('user', {'name': '张三', 'age': 25})
 print(db.get('user'))
 ```
 
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `self.filepath.read_text()` + `json.loads(...)` | 读取文件文本再解析 | `pathlib` 的 `read_text` 自动处理编码和关闭，比手动 `open/read/close` 更安全简洁 |
+| `if self.filepath.exists(): return json.loads(...)` | 文件不存在时返回空字典 | 首次使用时文件可能尚未创建，返回空字典而非抛异常，让 `JsonDB` 自动初始化 |
+| `json.dumps(self.data, indent=2, ensure_ascii=False)` | 格式化写入 JSON | `indent=2` 使文件人类可读；`ensure_ascii=False` 保留中文字符（否则中文会被转义为 `\uXXXX`） |
+| `self._save()` 在 `set` 和 `delete` 末尾调用 | 写穿策略（write-through） | 每次修改立即持久化，避免内存数据与文件不一致；简单场景不需要显式 flush |
+
 ---
 
 ## 第五部分：异常处理

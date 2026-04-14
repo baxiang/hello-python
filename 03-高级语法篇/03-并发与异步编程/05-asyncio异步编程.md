@@ -400,6 +400,16 @@ async def main():
 asyncio.run(main())
 ```
 
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `asyncio.Queue(maxsize=10)` | 有界异步队列 | `maxsize` 限制队列长度；当队列满时，`put()` 会自动挂起生产者，实现背压（backpressure）控制 |
+| `await queue.put(i)` | 异步放入数据 | 队列满时 `await` 让出控制权，不阻塞事件循环，等有空位时再继续 |
+| `item = await queue.get()` | 异步取出数据 | 队列空时 `await` 挂起消费者，直到生产者放入数据才恢复，无需轮询 |
+| `await queue.put(None)` | 发送结束标记 | 用哨兵值 `None` 通知消费者"没有更多数据"，比 `Event` 标志更适合队列场景 |
+| `if item is None: break` | 收到哨兵值时退出循环 | 消费者检测到结束标记后退出，而不依赖外部 `stop_event`，逻辑自包含 |
+
 ---
 
 ## 5. 异步迭代与上下文
