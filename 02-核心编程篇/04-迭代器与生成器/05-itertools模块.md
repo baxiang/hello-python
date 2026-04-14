@@ -526,6 +526,16 @@ for i, config in enumerate(configs, 1):
 # ...
 ```
 
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `while chunk := tuple(itertools.islice(it, size))` | 海象运算符 + islice 分块 | `islice` 从迭代器取至多 `size` 个元素，空时返回空元组，`:=` 赋值同时判断终止 |
+| `itertools.tee(iterable, size)` | 复制 `size` 个独立迭代器 | 滑动窗口需要多个偏移迭代器并行推进，`tee` 避免重复消费同一迭代器 |
+| `keys = list(options.keys()); values = list(options.values())` | 分别提取键和值 | 保持键值对应顺序，便于后续用 `zip` 将笛卡尔积结果还原为字典 |
+| `itertools.product(*values)` | 生成所有参数值的笛卡尔积 | `*values` 解包列表，让 `product` 对每个参数的可选值求所有组合 |
+| `dict(zip(keys, combo))` | 将组合元组还原为字典 | `zip` 将键列表与当前组合配对，`dict()` 转为可读的配置字典 |
+
 ---
 
 ## itertools 速查表

@@ -397,6 +397,14 @@ result = sum(
 print(result)  # 2² + 4² + 6² + 8² + 10² = 4 + 16 + 36 + 64 + 100 = 220
 ```
 
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `filter(lambda x: x % 2 == 0, numbers)` | 过滤出偶数 | 最内层先执行，筛选数据是后续操作的前提 |
+| `map(lambda x: x ** 2, ...)` | 将每个元素平方 | 对已过滤的偶数集合做变换，`map` 保持惰性不立即计算 |
+| `sum(...)` | 对结果求和 | 最外层聚合，三层嵌套体现"过滤→变换→归约"管道模式 |
+
 ---
 
 ## 实际应用：数据处理管道
@@ -452,6 +460,15 @@ for s in top_3:
 above_80 = process_data(students, min_value=80)
 print(f"80分以上人数：{len(above_80)}")
 ```
+
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `filter(lambda x: x.get(sort_key, 0) >= min_value, data)` | 过滤低于阈值的条目 | `get` 安全读取字段值，缺失时默认为 0 避免 KeyError |
+| `sorted(..., key=lambda x: x.get(sort_key, 0), reverse=True)` | 按指定字段降序排序 | `key` 参数接受函数，`reverse=True` 使最高分排在最前 |
+| `sorted_data[:top_n]` | 切片取前 N 条 | 切片越界安全，结果少于 N 时自动返回全部，不会报错 |
+| `sort_key: str = "score"` | 排序字段作为参数 | 让函数通用，无需修改代码即可按不同字段排序 |
 
 ---
 

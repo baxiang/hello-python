@@ -483,6 +483,15 @@ print(f"有效数据: {valid_nums}")
 print(f"总和: {total}, 平均值: {average}")
 ```
 
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `x.isdigit()` | 过滤掉非纯数字字符串 | 避免 `int("")`、`int("abc")` 引发 ValueError |
+| `[int(x) for x in data if x.isdigit()]` | 过滤并转换一步完成 | 列表推导式比 `map`+`filter` 更易读，且只遍历一次 |
+| `round(total / len(valid_nums), 2)` | 保留两位小数 | `round` 内置实现精确舍入，比字符串格式化更适合用于后续计算 |
+| `if valid_nums else 0` | 防止空列表除零 | 过滤后可能没有有效数据，需要在使用前做空值保护 |
+
 ---
 
 ## 本章小结
