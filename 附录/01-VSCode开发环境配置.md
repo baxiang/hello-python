@@ -379,6 +379,235 @@ Python 严格要求使用 **4 个空格** 进行缩进。如果 VSCode 的缩进
 
 ---
 
+### 2.4 Pylance 类型检查配置
+
+#### 概念说明
+
+**Pylance** 是 VSCode 的 Python 语言服务器，负责类型检查、智能补全、代码导航。
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│          Python 类型提示的本质                                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ❌ 误解：类型提示会阻止错误代码运行                            │
+│  ✅ 正解：类型提示只是"注释"，运行时完全忽略                    │
+│                                                             │
+│  类型提示工作流程：                                            │
+│  ─────────────────────────────────────────────              │
+│  1. 写代码：def double(value: Number) -> Number: ...         │
+│  2. 静态检查：Pylance/mypy 检查类型是否匹配                   │
+│  3. 运行代码：Python 执行时忽略所有类型提示                    │
+│                                                             │
+│  运行时行为：                                                  │
+│  ─────────────────────────────────────────────              │
+│  • 类型提示被存储但未使用                                      │
+│  • 参数可以是任意类型                                         │
+│  • 不匹配的类型照样能运行                                      │
+│                                                             │
+│  示例：                                                       │
+│  double("hello")  → 运行成功，返回 "hellohello"              │
+│                    → Pylance 显示警告（编辑器波浪线）         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Python 插件架构：**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│          VSCode Python 插件架构                                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  VSCode Python 插件                                          │
+│  ├── Python 扩展（官方）                                      │
+│  │   • 负责运行、调试、环境管理                               │
+│  │   • 必须安装                                              │
+│  │                                                           │
+│  └── Pylance（语言服务器）                                    │
+│      • 类型检查 ← 本章重点                                   │
+│      • 智能提示                                              │
+│      • 代码导航                                              │
+│      • 自动补全                                              │
+│      • 安装 Python 插件后自动附带                             │
+│                                                             │
+│  功能对比：                                                   │
+│  ─────────────────────────────────────────────              │
+│  功能              Pylance      无 Pylance                   │
+│  类型检查          ✅ 有       ❌ 无                         │
+│  智能补全          ✅ 精准     ⚠️ 基础                       │
+│  类型提示显示      ✅ 有       ❌ 无                         │
+│  错误波浪线        ✅ 有       ❌ 无                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 类型检查模式
+
+Pylance 支持三种类型检查模式：
+
+| 模式 | 说明 | 推荐场景 |
+|------|------|---------|
+| `off` | 关闭类型检查 | 不需要类型检查的项目 |
+| `basic` | 基础检查 | 入门项目、学习阶段 |
+| `standard` | 标准检查 | 一般项目（推荐默认） |
+| `strict` | 严格检查 | 生产项目、大型项目 |
+
+**各模式检查内容：**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│          类型检查模式对比                                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  off：                                                       │
+│  • 不检查任何类型错误                                         │
+│  • 无波浪线警告                                              │
+│                                                             │
+│  basic：                                                     │
+│  • 检查基本类型错误                                           │
+│  • 参数类型不匹配                                             │
+│  • 返回类型不匹配                                             │
+│                                                             │
+│  standard：                                                  │
+│  • basic + 更多检查                                          │
+│  • 未使用的变量/导入                                          │
+│  • 缺少类型提示的函数                                         │
+│                                                             │
+│  strict：                                                    │
+│  • standard + 严格检查                                       │
+│  • 所有参数必须有类型提示                                     │
+│  • 所有返回值必须有类型提示                                   │
+│  • 不允许 Any 类型                                           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 配置方法
+
+**方法1：VSCode 设置界面**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│          Pylance 配置步骤                                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  步骤1：确认语言服务器                                         │
+│  • Cmd+Shift+P → 输入 "Python: Select Language Server"       │
+│  • 选择 "Pylance"（必须）                                     │
+│  • 不要选择 Jedi 或 None                                     │
+│                                                             │
+│  步骤2：设置类型检查模式                                       │
+│  • Cmd+, 打开设置                                            │
+│  • 搜索 "typeCheckingMode"                                   │
+│  • 选择 basic/standard/strict                                │
+│                                                             │
+│  步骤3：验证配置生效                                          │
+│  • 创建测试文件（见下文）                                      │
+│  • 观察是否有波浪线警告                                       │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**方法2：settings.json 配置**
+
+```json
+{
+    // 语言服务器（必须设为 Pylance）
+    "python.languageServer": "Pylance",
+
+    // 类型检查模式
+    "python.analysis.typeCheckingMode": "standard",
+
+    // 类型检查相关设置
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.inlayHints.functionReturnTypes": true,
+    "python.analysis.inlayHints.variableTypes": false,
+    "python.analysis.diagnosticSeverity": "warning"
+}
+```
+
+**配置说明：**
+
+| 设置项 | 值 | 说明 |
+|--------|-----|------|
+| `python.languageServer` | `"Pylance"` | 必须使用 Pylance，否则无类型检查 |
+| `python.analysis.typeCheckingMode` | `"standard"` | 类型检查级别 |
+| `python.analysis.diagnosticSeverity` | `"warning"` | 错误显示为警告而非错误 |
+
+#### 验证配置生效
+
+**测试代码：**
+
+```python
+# test_type_check.py
+from typing import TypeVar
+
+Number = TypeVar('Number', int, float)
+
+def double(value: Number) -> Number:
+    return value * 2
+
+# 这行应该显示波浪线警告
+result = double("hello")  # ← 应有类型警告
+```
+
+**验证步骤：**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│          验证类型检查是否生效                                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. 确认 Pylance 启动                                         │
+│     • VSCode 右下角状态栏                                     │
+│     • 应显示 "Pylance" 或 Python 版本                         │
+│                                                             │
+│  2. 确认解释器正确                                            │
+│     • Cmd+Shift+P → "Python: Select Interpreter"             │
+│     • 选择 .venv/bin/python                                  │
+│                                                             │
+│  3. 确认文件在工作区                                          │
+│     • 文件必须在项目目录内                                     │
+│     • Pylance 只检查工作区文件                                │
+│                                                             │
+│  4. 观察波浪线                                                │
+│     • `double("hello")` 应有黄色波浪线                       │
+│     • 点击波浪线查看错误详情                                  │
+│                                                             │
+│  5. 检查问题面板                                              │
+│     • Cmd+Shift+M 打开问题面板                               │
+│     • 应列出类型错误                                          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 常见问题：没有类型警告
+
+**排查清单：**
+
+| 问题 | 检查方法 | 解决方案 |
+|------|---------|---------|
+| Pylance 未启用 | `Cmd+Shift+P` → "Python: Select Language Server" | 选择 "Pylance" |
+| 类型检查关闭 | 搜索设置 `typeCheckingMode` | 设为 `basic` 或 `standard` |
+| 解释器错误 | 右下角状态栏查看 Python 版本 | 选择正确的虚拟环境 |
+| 文件不在工作区 | 检查文件路径 | 确保在项目目录内 |
+| Python 插件未安装 | 扩展面板搜索 "Python" | 安装官方 Python 插件 |
+
+**完整配置示例：**
+
+```json
+// .vscode/settings.json（完整 Pylance 配置）
+{
+    "python.languageServer": "Pylance",
+    "python.analysis.typeCheckingMode": "standard",
+    "python.analysis.diagnosticSeverity": "warning",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
+}
+```
+
+---
+
 ## 第三部分：tasks.json 配置
 
 ### 3.1 任务配置
@@ -1197,6 +1426,12 @@ source .venv/bin/activate  # macOS/Linux
 │   ✓ Ruff（Linter + Formatter，2026 主流）                   │
 │   ✓ Error Lens（行内错误）                                  │
 │   ✓ GitLens（Git 增强）                                     │
+│                                                             │
+│   Pylance 类型检查（核心）：                                   │
+│   ✓ 类型提示运行时不验证，只用于静态分析                      │
+│   ✓ python.languageServer = "Pylance"（必须）               │
+│   ✓ python.analysis.typeCheckingMode = "standard"          │
+│   ✓ 类型错误显示波浪线，但不阻止运行                         │
 │                                                             │
 │   settings.json：                                            │
 │   ✓ python.defaultInterpreterPath                           │
