@@ -1,66 +1,80 @@
 # 装饰器与闭包
 
-本章讲解 Python 装饰器与闭包的完整知识体系，包括函数进阶、闭包原理和装饰器用法。
+本章讲解 Python 装饰器与闭包的完整知识体系。
+
+---
+
+## 贯穿项目：Web API 请求处理系统
+
+本章以 **Web API 请求处理系统** 贯穿各节，从函数参数化到装饰器应用：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Web API 请求处理系统演进                                      │
+│                                                             │
+│  第1节 函数进阶                                               │
+│  ─────────────────────────────────────────────              │
+│  → 将处理函数作为参数传递                                     │
+│  → 实现路由分发系统                                           │
+│                                                             │
+│  第2节 闭包详解                                               │
+│  ─────────────────────────────────────────────              │
+│  → 用闭包管理请求计数器                                       │
+│  → 实现私有状态管理                                           │
+│                                                             │
+│  第3节 装饰器基础                                             │
+│  ─────────────────────────────────────────────              │
+│  → 用装饰器添加日志、计时                                     │
+│  → 实现 @timer、@logger                                      │
+│                                                             │
+│  第4节 装饰器进阶                                             │
+│  ─────────────────────────────────────────────              │
+│  → 带参数装饰器实现权限验证                                   │
+│  → 实现 @auth_required(role="admin")                        │
+│  → 实现 @retry(times=3)                                     │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## 章节导航
 
-| 章节 | 文件 | 主题 |
-|------|------|------|
-| 01 | [01-函数进阶.md](./01-函数进阶.md) | 函数是一等公民、嵌套函数、LEGB |
-| 02 | [02-闭包详解.md](./02-闭包详解.md) | 闭包概念、nonlocal、应用场景 |
-| 03 | [03-装饰器基础.md](./03-装饰器基础.md) | 装饰器语法、常用装饰器 |
-| 04 | [04-装饰器进阶.md](./04-装饰器进阶.md) | 带参数装饰器、类装饰器 |
+| 章节 | 文件 | 主题 | 贯穿实战 |
+|------|------|------|---------|
+| 01 | [01-函数进阶.md](./01-函数进阶.md) | 函数是一等公民 | 路由分发系统 |
+| 02 | [02-闭包详解.md](./02-闭包详解.md) | 闭包、nonlocal | 请求计数器 |
+| 03 | [03-装饰器基础.md](./03-装饰器基础.md) | 装饰器语法 | 日志/计时装饰器 |
+| 04 | [04-装饰器进阶.md](./04-装饰器进阶.md) | 带参数装饰器 | 权限验证/重试 |
 
 ---
 
-## 核心概念
+## 核心概念预览
+
+### 函数是一等公民
+
+```python
+def route(path: str, handler: Callable) -> None:
+    handler(request)  # 函数作为参数传递
+```
 
 ### 闭包
 
 ```python
-def outer(x):
-    def inner(y):
-        return x + y  # 引用外层变量 x
-    return inner
-
-add5 = outer(5)
-print(add5(3))  # 8
+def create_counter():
+    count = 0  # 私有变量
+    def increment():
+        nonlocal count
+        count += 1
+        return count
+    return increment
 ```
 
 ### 装饰器
 
 ```python
-def my_decorator(func):
-    def wrapper(*args, **kwargs):
-        print("前处理")
-        result = func(*args, **kwargs)
-        print("后处理")
-        return result
-    return wrapper
-
-@my_decorator
-def my_func():
-    print("执行函数")
-```
-
-### 常用装饰器
-
-```python
-# 计时
 @timer
-def slow_function(): ...
-
-# 日志
 @logger
-def important_function(): ...
-
-# 缓存
-@lru_cache(maxsize=128)
-def expensive_function(): ...
-
-# 重试
-@retry(times=3)
-def unstable_function(): ...
+def handle_request(request):
+    return process(request)
 ```
