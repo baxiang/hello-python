@@ -492,13 +492,12 @@ Pylance 支持三种类型检查模式：
 │          Pylance 配置步骤                                       │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  步骤1：确认语言服务器                                         │
-│  • Cmd+Shift+P → 输入 "Python: Select Language Server"       │
-│  • 选择 "Pylance"（必须）                                     │
-│  • 不要选择 Jedi 或 None                                     │
+│  步骤1：确认语言服务器设置                                     │
+│  • Cmd+, 打开设置                                            │
+│  • 搜索 "python.languageServer"                              │
+│  • 确保值为 "Pylance"（默认已启用）                           │
 │                                                             │
 │  步骤2：设置类型检查模式                                       │
-│  • Cmd+, 打开设置                                            │
 │  • 搜索 "typeCheckingMode"                                   │
 │  • 选择 basic/standard/strict                                │
 │                                                             │
@@ -508,6 +507,16 @@ Pylance 支持三种类型检查模式：
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**⚠️ 注意：2026年 VSCode Python 扩展已默认使用 Pylance，无需手动选择。**
+
+**旧版本（2024年前）可能有：**
+- `Python: Select Language Server` 命令
+- Jedi、None 等选项
+
+**当前版本：**
+- Pylance 自动启用
+- 通过 `settings.json` 的 `python.languageServer` 确认
 
 **方法2：settings.json 配置**
 
@@ -588,11 +597,38 @@ result = double("hello")  # ← 应有类型警告
 
 | 问题 | 检查方法 | 解决方案 |
 |------|---------|---------|
-| Pylance 未启用 | `Cmd+Shift+P` → "Python: Select Language Server" | 选择 "Pylance" |
-| 类型检查关闭 | 搜索设置 `typeCheckingMode` | 设为 `basic` 或 `standard` |
+| 类型检查关闭 | Cmd+, 搜索 `typeCheckingMode` | 设为 `basic` 或 `standard` |
 | 解释器错误 | 右下角状态栏查看 Python 版本 | 选择正确的虚拟环境 |
 | 文件不在工作区 | 检查文件路径 | 确保在项目目录内 |
 | Python 插件未安装 | 扩展面板搜索 "Python" | 安装官方 Python 插件 |
+| 语言服务器设置错误 | Cmd+, 搜索 `languageServer` | 确保值为 `Pylance` 或 `Default` |
+
+**验证步骤：**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│          快速诊断：类型检查是否启用                              │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. 打开设置：Cmd+,                                          │
+│                                                             │
+│  2. 搜索并确认以下设置：                                       │
+│     • python.languageServer = "Pylance" 或 "Default"        │
+│     • python.analysis.typeCheckingMode = "basic" 或更高     │
+│                                                             │
+│  3. 创建测试文件验证：                                         │
+│     def add(a: int, b: int) -> int:                         │
+│         return a + b                                        │
+│                                                             │
+│     add("1", "2")  # ← 应有波浪线                            │
+│                                                             │
+│  4. 如果无波浪线：                                             │
+│     • 检查右下角 Python 解释器是否正确                        │
+│     • 确保文件在项目目录内                                    │
+│     • 重启 VSCode                                            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
 **完整配置示例：**
 
