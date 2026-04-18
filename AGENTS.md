@@ -2,7 +2,7 @@
 
 ## Repository Overview
 
-Python tutorial repo with Chinese markdown docs + 40+ sample Python projects across 8 sections (基础→核心→高级→Web→ML→DL→项目→工程实践).
+Python tutorial repo with Chinese markdown docs + 49 sample Python projects across 9 sections (基础→核心→高级→Web→ML→DL→项目→工程实践→LangChain/LangGraph).
 
 ## Architecture
 
@@ -24,12 +24,27 @@ Python tutorial repo with Chinese markdown docs + 40+ sample Python projects acr
 cd <project_directory>
 uv run pytest                   # Run tests
 uv run pytest tests/test_x.py   # Single test file
+uv run pytest -k "test_name"    # Run specific test by name
 uv run ruff check .             # Lint
 uv run ruff check --fix .       # Auto-fix
 uv run ruff format .            # Format
 uv run uvicorn app.main:app --reload  # FastAPI apps
 uv add <package>                # Add dependency
 ```
+
+## Sections
+
+| Dir | Topics |
+|-----|--------|
+| 01-基础入门篇 | Python入门、变量、运算符、字符串、数据结构 |
+| 02-核心编程篇 | 函数、OOP、异常、迭代器、装饰器、类型提示 |
+| 03-高级语法篇 | 模块与包、标准库、并发与异步 |
+| 04-Web开发篇 | Flask、FastAPI |
+| 05-机器学习篇 | 基础概念、数据预处理、监督/无监督学习、模型优化 |
+| 06-神经网络与深度学习篇 | PyTorch、CNN、RNN、实战项目 |
+| 07-项目实战篇 | Level 1-4 项目（入门→专业级） |
+| 08-工程实践篇 | 代码质量、项目管理、运维监控、开发技巧 |
+| 09-LangChain与LangGraph篇 | LangChain/LangGraph入门与进阶、Agent实战 |
 
 ## Toolchain
 
