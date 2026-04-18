@@ -1,6 +1,8 @@
 # Python 代码规范完整指南
 
-> **摘要**：本文档是 Python 代码编写规范的完整指南，涵盖命名、布局、类型提示、文档、函数设计、错误处理等核心规范，帮助团队写出高质量、可维护的代码。
+> **摘要**：本文档是 Python 代码编写规范的完整指南，基于 Python 3.11+ 和现代工具链（Ruff、Pydantic v2），涵盖命名、布局、类型提示、文档、函数设计、错误处理、异步编程等核心规范，帮助团队写出高质量、可维护的代码。
+
+> **适用版本**：Python 3.11+
 
 ---
 
@@ -247,7 +249,7 @@ class UserService:
 
 ### 3.2 使用 dataclass 简化
 
-Python 3.7+ 推荐 `dataclasses`，自动生成 `__init__`, `__repr__`, `__eq__`。
+Python 3.10+ 的 `dataclasses` 支持 `kw_only` 等特性：
 
 ```python
 from dataclasses import dataclass, field
@@ -258,12 +260,24 @@ class User:
     id: int
     name: str
     email: str
-    is_active: bool = True
-    tags: list[str] = field(default_factory=list)
+    is_active: bool = True  # 有默认值的字段放在后面
+    tags: list[str] = field(default_factory=list)  # 可变默认值用 field
 
 # 使用
 user = User(id=1, name="Alice", email="alice@example.com")
 print(user)  # User(id=1, name='Alice', email='alice@example.com', is_active=True, tags=[])
+
+# Python 3.10+：KW_ONLY 强制关键字参数
+@dataclass(kw_only=True)
+class Config:
+    host: str
+    port: int = 8080
+
+# 必须使用关键字参数
+config = Config(host="localhost")  # OK
+# config = Config("localhost")     # ❌ Error
+
+# 对比 Pydantic：需要验证时用 Pydantic，纯数据容器用 dataclass
 ```
 
 ---
@@ -394,33 +408,25 @@ def get_user(user_id: int) -> UserResponse:
 ### 6.1 基本类型
 
 ```python
-# Python 3.9+：使用内置类型
+# Python 3.9+：使用内置类型（无需 typing 导入）
 def process(items: list[str]) -> dict[str, int]:
     return {item: len(item) for item in items}
 
-# Python 3.10+：使用 | 语法
+# Python 3.10+：使用 | 语法替代 Optional/Union
 def find(id: int) -> User | None:
     return database.get(id)
 
-# Python 3.11+：Self 类型
+# Python 3.11+：Self 类型（链式调用）
 from typing import Self
 
 class Builder:
     def set_name(self, name: str) -> Self:
         self.name = name
         return self
-```
 
-### 6.2 复杂类型
+# 泛型：使用 TypeVar（Python 3.11兼容写法）
+from typing import TypeVar, Generic
 
-```python
-from typing import Callable, TypeVar, Generic, Protocol
-
-# Callable：函数类型
-def apply(func: Callable[[int], str], value: int) -> str:
-    return func(value)
-
-# TypeVar：泛型
 T = TypeVar("T")
 
 class Stack(Generic[T]):
@@ -430,12 +436,50 @@ class Stack(Generic[T]):
     def push(self, item: T) -> None:
         self._items.append(item)
 
+# 注：Python 3.12+ 支持更简洁的 class[T] 语法，但 3.11 需用 TypeVar
+```
+
+### 6.2 异步类型提示
+
+```python
+# 异步函数返回类型
+async def fetch_user(user_id: int) -> User:
+    return await db.get(user_id)
+
+# 异步生成器
+from collections.abc import AsyncGenerator
+
+async def stream_logs() -> AsyncGenerator[str, None]:
+    async for line in log_file:
+        yield line
+
+# Awaitable 类型
+from collections.abc import Awaitable
+
+def run_task(task: Awaitable[Result]) -> Result:
+    return asyncio.run(task)
+```
+
+### 6.3 复杂类型
+
+```python
+from typing import Callable, Protocol
+from collections.abc import Iterable
+
+# Callable：函数类型
+def apply(func: Callable[[int], str], value: int) -> str:
+    return func(value)
+
 # Protocol：结构化类型（鸭子类型）
 class SupportsRead(Protocol):
     def read(self) -> str: ...
 
 def read_data(source: SupportsRead) -> str:
     return source.read()
+
+# Iterable vs Iterator
+def process_items(items: Iterable[str]) -> list[str]:
+    return [item.upper() for item in items]
 ```
 
 ---
@@ -495,43 +539,98 @@ target-version = "py311"
 [tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
     "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-    "ARG", # flake8-unused-arguments
+    "I",   # isort（导入排序）
+    "N",   # pep8-naming（命名规范）
+    "W",   # pycodestyle warnings
+    "UP",  # pyupgrade（语法现代化）
+    "B",   # flake8-bugbear（常见错误）
+    "SIM", # flake8-simplify（简化建议）
+    "C4",  # flake8-comprehensions（推导式优化）
+    "ARG", # flake8-unused-arguments（未使用参数）
+    "PTH", # flake8-use-pathlib（pathlib 推荐）
+    "RUF", # Ruff 特定规则
 ]
 ignore = [
     "E501",  # line too long（交给 formatter 处理）
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["app", "src"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+docstring-code-format = true
 ```
 
-### 8.2 pre-commit 配置
+**规则说明：**
+
+| 规则 | 说明 | 示例修复 |
+|------|------|---------|
+| `I` | 导入排序 | 标准库→第三方→本地，自动分组 |
+| `N` | 命名规范 | 类名应为 PascalCase |
+| `UP` | 语法升级 | `Optional[X]` → `X | None` |
+| `SIM` | 简化代码 | `if x: return True else: return False` → `return bool(x)` |
+| `PTH` | 使用 pathlib | `os.path.join()` → `Path()` |
+| `RUF` | Ruff 特定 | 检查可变默认参数等 |
+
+### 8.2 Pydantic v2 数据验证
+
+```python
+from pydantic import BaseModel, Field, ConfigDict
+from datetime import datetime
+
+class User(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    
+    id: int
+    name: str = Field(min_length=1, max_length=100)
+    email: str = Field(pattern=r"^[\w\.-]+@[\w\.-]+\.\w+$")
+    created_at: datetime = Field(default_factory=datetime.now)
+    is_active: bool = True
+
+# 自动验证
+user = User(id=1, name="Alice", email="alice@example.com")
+
+# JSON 输出（v2 新 API）
+user.model_dump()      # dict
+user.model_dump_json() # JSON string
+```
+
+### 8.3 pre-commit 配置
 
 ```yaml
 # .pre-commit-config.yaml
+# 注意：rev 版本号建议定期更新，或使用 .pre-commit-hooks.yaml 自动更新
+
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.0
+    rev: "v0.11.0"  # 2026年稳定版本
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
   
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: "v5.0.0"  # 2026年稳定版本
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+      - id: check-toml
       - id: check-added-large-files
         args: ['--maxkb=500']
+      - id: detect-private-key  # 防止提交私钥
+
+  - repo: local
+    hooks:
+      - id: pytest-fast
+        name: pytest (fast tests)
+        entry: uv run pytest -m "not slow"
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
 ```
 
 ---
@@ -590,17 +689,24 @@ def process(data):
 │  ✓ 参数 ≤ 5 个，避免布尔参数                                 │
 │  ✓ 默认值用 None，不用可变对象                               │
 │                                                             │
-│  类型提示：                                                   │
+│  类型提示（Python 3.11+）：                                    │
 │  ✓ 所有函数签名添加类型                                      │
-│  ✓ Python 3.10+ 使用 | 语法                                  │
+│  ✓ 使用 | 语法替代 Optional                                  │
+│  ✓ 泛型使用 TypeVar + Generic                                │
+│  ✓ 异步函数标注 AsyncGenerator/Awaitable                     │
+│                                                             │
+│  数据验证：                                                   │
+│  ✓ 使用 Pydantic v2 进行数据建模                             │
+│  ✓ Field() 约束 + model_config 配置                          │
 │                                                             │
 │  错误处理：                                                   │
 │  ✓ 捕获具体异常，不吞异常                                    │
 │  ✓ 早失败：参数验证在前                                      │
 │                                                             │
-│  工具链：                                                     │
-│  ✓ Ruff 检查 + 格式化                                       │
-│  ✓ pre-commit 自动化                                        │
+│  工具链（2026）：                                             │
+│  ✓ Ruff：E,F,I,N,W,UP,B,SIM,PTH,RUF                         │
+│  ✓ pre-commit：自动检查 + detect-private-key                 │
+│  ✓ pytest -m "not slow" 快速测试钩子                         │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
