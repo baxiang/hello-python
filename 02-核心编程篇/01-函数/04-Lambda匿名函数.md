@@ -472,27 +472,290 @@ print(f"80分以上人数：{len(above_80)}")
 
 ---
 
+## L2 实践层：最佳实践
+
+### 推荐做法
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| **用于简单一次性函数** | lambda 的核心定位，简洁不冗余 | `sorted(items, key=lambda x: x[0])` |
+| **作为 key 参数** | sorted/min/max 的标准用法 | `max(users, key=lambda u: u["score"])` |
+| **作为 filter/map 条件** | 函数式编程的惯用法 | `filter(lambda x: x > 0, nums)` |
+| **保持简单** | 可读性优先，一行能读懂 | `lambda x: x * 2` |
+| **避免赋值给变量** | def 函数更清晰，有名字和文档 | 不要写 `f = lambda x: x + 1` |
+| **复杂逻辑用 def** | lambda 写不了多行，也难调试 | 多步骤逻辑拆成 def 函数 |
+
+### 反模式：不要这样做
+
+```python
+# ❌ 把 lambda 赋值给变量（失去命名意义）
+add = lambda a, b: a + b
+
+# 问题：
+# 1. lambda 本意是"匿名"，赋值给变量违背设计初衷
+# 2. 没有 docstring，help(add) 看不到说明
+# 3. 调试时函数名显示为 '<lambda>'，难以追踪
+# 4. IDE 无法提供类型提示和参数信息
+```
+
+```python
+# ✅ 正确做法：用 def 定义需要复用的函数
+def add(a: int, b: int) -> int:
+    """计算两个数的和"""
+    return a + b
+
+# 有名字、有文档、有类型提示
+help(add)  # 可以查看文档
+```
+
+```python
+# ❌ lambda 内写复杂逻辑
+process = lambda x: (
+    x * 2 if x > 0 else
+    x * -1 if x < 0 else
+    0
+)
+
+# 问题：
+# 1. 多行三元表达式难以阅读
+# 2. 无法添加注释
+# 3. 无法处理异常
+# 4. 维护困难
+```
+
+```python
+# ✅ 正确做法：用 def 函数展开逻辑
+def process(x: int) -> int:
+    """处理数值：正数乘2，负数取反，零返回零"""
+    if x > 0:
+        return x * 2
+    elif x < 0:
+        return x * -1
+    else:
+        return 0
+
+# 逻辑清晰，可以添加注释和异常处理
+```
+
+```python
+# ❌ lambda 内调用复杂函数
+validate = lambda data: (
+    check_format(data) and
+    check_length(data) and
+    check_content(data) and
+    check_signature(data)
+)
+
+# 问题：lambda 只适合简单表达式，不适合串联多个函数调用
+```
+
+```python
+# ✅ 正确做法：用 def 函数组合逻辑
+def validate(data: dict) -> bool:
+    """验证数据完整性"""
+    checks = [
+        check_format,
+        check_length,
+        check_content,
+        check_signature
+    ]
+    return all(check(data) for check in checks)
+
+# 或者更直观的写法
+def validate(data: dict) -> bool:
+    if not check_format(data):
+        return False
+    if not check_length(data):
+        return False
+    if not check_content(data):
+        return False
+    if not check_signature(data):
+        return False
+    return True
+```
+
+```python
+# ❌ lambda 内使用副作用操作
+[print(x) for x in items]  # 用 lambda 但只是为了副作用
+
+# 或
+save_all = lambda items: [save(item) for item in items]
+
+# 问题：
+# 1. lambda 应返回有意义的结果，不只是执行操作
+# 2. 副作用操作用 for 循环更清晰
+# 3. 创建无用列表浪费内存
+```
+
+```python
+# ✅ 正确做法：副作用操作用 for 循环
+for x in items:
+    print(x)
+
+for item in items:
+    save(item)
+
+# 或者写一个正常的函数
+def save_all(items: list) -> None:
+    """保存所有项目"""
+    for item in items:
+        save(item)
+```
+
+```python
+# ❌ 过度嵌套的 lambda
+result = map(
+    lambda x: filter(
+        lambda y: y > x,
+        data
+    ),
+    thresholds
+)
+
+# 问题：
+# 1. lambda 嵌套难以理解
+# 2. 返回的是迭代器的迭代器，需要多次转换
+# 3. 调试困难
+```
+
+```python
+# ✅ 正确做法：用命名函数或推导式
+def filter_above_threshold(threshold: int) -> list[int]:
+    """过滤大于阈值的数据"""
+    return [y for y in data if y > threshold]
+
+result = [filter_above_threshold(t) for t in thresholds]
+
+# 或用普通函数
+def get_filtered_results(thresholds: list[int], data: list[int]) -> list[list[int]]:
+    """获取各阈值过滤结果"""
+    return [[y for y in data if y > t] for t in thresholds]
+```
+
+```python
+# ❌ 用 lambda 模仿闭包（不必要）
+make_adder = lambda x: lambda y: x + y
+
+add5 = make_adder(5)
+print(add5(3))  # 8
+
+# 问题：两层 lambda，难以理解和调试
+```
+
+```python
+# ✅ 正确做法：用 def 函数创建闭包
+def make_adder(x: int) -> Callable[[int], int]:
+    """创建加法器"""
+    def adder(y: int) -> int:
+        return x + y
+    return adder
+
+add5 = make_adder(5)
+print(add5(3))  # 8
+
+# 有名字、有文档、更清晰
+```
+
+### 何时用 Lambda，何时不用
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│               Lambda 使用决策树（L2 实践层）                    │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. 这个函数会多处复用吗？                                    │
+│       ├─ 是  →  用 def（给它起个好名字）                      │
+│       └─ 否  →  继续判断                                      │
+│                                                              │
+│  2. 逻辑超过一个表达式吗？                                    │
+│       ├─ 是  →  用 def（lambda 写不了多行）                   │
+│       └─ 否  →  继续判断                                      │
+│                                                              │
+│  3. 需要写注释/文档吗？                                       │
+│       ├─ 是  →  用 def（lambda 没有 docstring）               │
+│       └─ 否  →  继续判断                                      │
+│                                                              │
+│  4. 是否作为 key/filter/map 参数？                            │
+│       ├─ 是  →  ✅ 可以用 lambda                             │
+│       └─ 否  →  考虑 def，更清晰                              │
+│                                                              │
+│  5. 表达式是否简单可读？                                      │
+│       ├─ 是  →  ✅ 可以用 lambda                             │
+│       ├─ 否  →  用 def，展开逻辑                              │
+│                                                              │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ✅ Lambda 最佳场景：                                         │
+│  • sorted() / min() / max() 的 key 参数                      │
+│  • filter() 的过滤条件                                       │
+│  • map() 的简单转换                                          │
+│  • 简单的一行数学表达式                                       │
+│  • 回调函数（如果是简单逻辑）                                 │
+│                                                              │
+│  ❌ Lambda 不适合的场景：                                     │
+│  • 需要复用的函数 → 用 def                                   │
+│  • 多行逻辑 → 用 def                                         │
+│  • 需要文档 → 用 def                                         │
+│  • 赋值给变量 → 用 def                                       │
+│  • 有异常处理 → 用 def                                       │
+│  • 有副作用（打印、写入）→ 用 for 循环                       │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 适用场景对比表
+
+| 场景 | 是否推荐 | 原因 | 示例 |
+|------|---------|------|------|
+| sorted key 参数 | ✅ 推荐 | 标准用法，简洁直观 | `sorted(items, key=lambda x: x[1])` |
+| filter 条件 | ✅ 推荐 | 简单过滤，一行搞定 | `filter(lambda x: x > 0, nums)` |
+| map 转换 | ✅ 推荐 | 简单映射，清晰 | `map(lambda x: x.upper(), words)` |
+| min/max key | ✅ 推荐 | 找最大/最小值的键 | `max(users, key=lambda u: u["age"])` |
+| 简单数学计算 | ✅ 推荐 | 一行表达式 | `(lambda x, y: x + y)(1, 2)` |
+| 回调函数 | ❓ 看情况 | 简单逻辑可用，复杂用 def | `on_click=lambda: print("clicked")` |
+| 复用函数 | ❌ 不推荐 | 用 def，有名字和文档 | 不要 `f = lambda x: x + 1` |
+| 多行逻辑 | ❌ 不推荐 | lambda 只能一行 | 用 def 展开逻辑 |
+| 异常处理 | ❌ 不推荐 | lambda 无法 try/except | 用 def 处理异常 |
+| 副作用操作 | ❌ 不推荐 | 用 for 循环更清晰 | 不要 `[print(x) for x in items]` |
+| 复杂嵌套 | ❌ 不推荐 | 难以阅读和调试 | 用 def 函数组合 |
+
+### Lambda vs def 选择指南
+
+| 特性 | Lambda | def 函数 | 选择建议 |
+|------|--------|----------|----------|
+| 定义方式 | 一行表达式 | 多行语句块 | 逻辑复杂选 def |
+| 命名 | 匿名 | 有名字 | 复用选 def |
+| 文档 | 无 docstring | 可写 docstring | 需要文档选 def |
+| 类型提示 | 难添加 | 可完整添加 | 需类型提示选 def |
+| 异常处理 | 不支持 | 支持 | 需异常处理选 def |
+| 调试 | 函数名显示 `<lambda>` | 显示实际名字 | 需调试选 def |
+| 性能 | 无差别 | 无差别 | 不作为选择依据 |
+
+---
+
 ## 本章小结
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Lambda 匿名函数 知识要点                 │
+│                      Lambda 匿名函数 知识要点                  │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│   语法：                                                     │
-│   ✓ lambda 参数: 表达式                                     │
+│   L1 理解层：                                                │
+│   ✓ 语法：lambda 参数: 表达式                               │
 │   ✓ 自动返回表达式结果                                      │
 │   ✓ 只能有一个表达式                                        │
+│   ✓ 用于 sorted/filter/map/reduce 的参数                    │
 │                                                             │
-│   使用场景：                                                 │
-│   ✓ sorted() 的 key 参数                                    │
-│   ✓ filter() 的过滤条件                                     │
-│   ✓ map() 的转换规则                                        │
-│   ✓ reduce() 的归约操作                                     │
+│   L2 实践层：                                                │
+│   ✓ 用于简单一次性函数，不赋值给变量                        │
+│   ✓ 作为 key/filter/map 参数的标准用法                      │
+│   ✓ 保持简单：一行能读懂                                    │
+│   ✓ 复杂逻辑、复用函数、需文档时用 def                      │
+│   ✓ 副作用操作用 for 循环，不隐藏在 lambda 里               │
 │                                                             │
 │   选择指南：                                                 │
-│   ✓ 简单一次性函数 → lambda                                 │
-│   ✓ 复杂或复用函数 → def                                    │
+│   ✓ 简单一次性 → lambda                                     │
+│   ✓ 复杂或复用 → def                                        │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```

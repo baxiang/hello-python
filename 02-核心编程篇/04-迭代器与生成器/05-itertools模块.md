@@ -538,6 +538,303 @@ for i, config in enumerate(configs, 1):
 
 ---
 
+## L2 实践层：itertools 最佳实践
+
+### 推荐做法
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| **用 chain() 代替列表相加** | 避免创建中间列表，惰性连接 | `chain(list1, list2)` vs `list1 + list2` |
+| **用 islice() 切片迭代器** | 迭代器不支持普通切片 | `islice(gen, 5, 10)` |
+| **groupby() 前先排序** | groupby 只对连续相同元素分组 | `groupby(sorted(data))` |
+| **用 tee() 创建多个独立迭代器** | 一个迭代器不能同时遍历 | `it1, it2 = tee(gen)` |
+| **无限迭代器配合 break 或 islice** | 避止无限循环 | `islice(count(), 10)` |
+| **用 product() 生成配置组合** | 简洁的笛卡尔积实现 | `product(colors, sizes)` |
+
+### 反模式：不要这样做
+
+```python
+# ❌ 用列表相加代替 chain()
+list1 = [1, 2, 3]
+list2 = [4, 5, 6]
+result = list1 + list2  # 创建新列表，内存开销
+
+# ✅ 正确做法：用 chain() 惰性连接
+from itertools import chain
+result = chain(list1, list2)  # 不创建中间列表
+for x in result:
+    print(x)
+
+# 如果需要列表结果
+result_list = list(chain(list1, list2))
+```
+
+```python
+# ❌ 直接切片生成器（不支持）
+gen = (x for x in range(10))
+result = gen[3:7]  # TypeError: generator indices must be integers
+
+# ✅ 正确做法：用 islice()
+from itertools import islice
+gen = (x for x in range(10))
+result = list(islice(gen, 3, 7))  # [3, 4, 5, 6]
+```
+
+```python
+# ❌ groupby() 不排序导致错误分组
+from itertools import groupby
+data = [('A', 1), ('B', 2), ('A', 3)]  # 未排序
+for key, group in groupby(data, key=lambda x: x[0]):
+    print(f"{key}: {list(group)}")
+# A: [('A', 1)]
+# B: [('B', 2)]
+# A: [('A', 3)]  ← A 被分成两组！
+
+# ✅ 正确做法：先排序
+from itertools import groupby
+sorted_data = sorted(data, key=lambda x: x[0])
+for key, group in groupby(sorted_data, key=lambda x: x[0]):
+    print(f"{key}: {list(group)}")
+# A: [('A', 1), ('A', 3)]  ← 正确分组
+# B: [('B', 2)]
+```
+
+```python
+# ❌ 无限迭代器没有终止条件
+from itertools import count
+for i in count():  # 无限循环！
+    print(i)
+
+# ✅ 正确做法：使用终止条件或 islice
+from itertools import count, islice
+
+# 方式1：手动 break
+for i in count():
+    if i >= 100:
+        break
+    print(i)
+
+# 方式2：使用 islice
+for i in islice(count(), 100):
+    print(i)
+```
+
+```python
+# ❌ tee() 后继续使用原迭代器
+from itertools import tee
+gen = (x for x in range(5))
+it1, it2 = tee(gen)
+next(gen)  # 消费原迭代器，影响 tee 结果！
+
+# ✅ 正确做法：tee 后不再使用原迭代器
+from itertools import tee
+gen = (x for x in range(5))
+it1, it2 = tee(gen)
+# 不再使用 gen
+next(it1)  # 0
+next(it2)  # 0（独立迭代器）
+```
+
+### 常用组合模式
+
+```
+itertools 常用组合：
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  数据分块：                                                  │
+│  ─────────────────                                          │
+│  iter + islice                                              │
+│  it = iter(data)                                            │
+│  while chunk := list(islice(it, size)):                    │
+│      process(chunk)                                         │
+│                                                             │
+│  滑动窗口：                                                  │
+│  ─────────────────                                          │
+│  tee + islice + zip                                         │
+│  iters = tee(iterable, size)                                │
+│  for i, it in enumerate(iters):                            │
+│      advance = islice(it, i, None)                         │
+│  zip(*iters)                                                │
+│                                                             │
+│  批量并行处理：                                              │
+│  ─────────────────                                          │
+│  tee + islice                                               │
+│  iters = tee(iterable, n)                                   │
+│  batches = [islice(it, i, None, n) for i, it...]           │
+│                                                             │
+│  展平嵌套：                                                  │
+│  ─────────────────                                          │
+│  chain.from_iterable                                        │
+│  flat = chain.from_iterable(nested_list)                   │
+│                                                             │
+│  带索引遍历：                                                │
+│  ─────────────────                                          │
+│  count + zip                                                │
+│  for idx, item in zip(count(), iterable):                  │
+│      print(f"{idx}: {item}")                               │
+│                                                             │
+│  循环遍历：                                                  │
+│  ─────────────────                                          │
+│  cycle + islice                                             │
+│  for item in islice(cycle(items), n):                      │
+│      process(item)                                          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```python
+# 实用组合示例
+from itertools import islice, tee, chain, count, cycle, product
+
+# 1. 数据分块
+def chunked(iterable, size):
+    """将迭代器分块"""
+    it = iter(iterable)
+    while chunk := list(islice(it, size)):
+        yield chunk
+
+for chunk in chunked(range(10), 3):
+    print(chunk)  # [0, 1, 2], [3, 4, 5], [6, 7, 8], [9]
+
+# 2. 滑动窗口
+def sliding_window(iterable, size):
+    """滑动窗口"""
+    iters = tee(iterable, size)
+    for i, it in enumerate(iters):
+        for _ in range(i):
+            next(it, None)
+    return zip(*iters)
+
+for window in sliding_window(range(5), 3):
+    print(window)  # (0, 1, 2), (1, 2, 3), (2, 3, 4)
+
+# 3. 展平嵌套列表
+nested = [[1, 2], [3, 4], [5, 6]]
+flat = list(chain.from_iterable(nested))
+print(flat)  # [1, 2, 3, 4, 5, 6]
+
+# 4. 带索引遍历
+for idx, item in zip(count(), ['a', 'b', 'c']):
+    print(f"{idx}: {item}")  # 0: a, 1: b, 2: c
+
+# 5. 循环取值（轮询）
+servers = ['server1', 'server2', 'server3']
+for server in islice(cycle(servers), 10):
+    print(server)  # server1, server2, server3, server1, ...
+```
+
+### 适用场景
+
+| 场景 | 是否推荐 | 推荐函数 | 原因 |
+|------|---------|---------|------|
+| 合并多个列表 | ✅ 推荐 | chain() | 惰性连接，无中间列表 |
+| 大数据切片 | ✅ 推荐 | islice() | 不转换为列表 |
+| 数据分组 | ✅ 推荐 | groupby() | 先排序后分组 |
+| 笛卡尔积 | ✅ 推荐 | product() | 简洁高效 |
+| 排列组合 | ✅ 推荐 | permutations/combinations | 算法优化 |
+| 展平嵌套 | ✅ 推荐 | chain.from_iterable | 一行代码 |
+| 多次遍历同一迭代器 | ✅ 推荐 | tee() | 创建独立副本 |
+| 无限计数 | ✅ 推荐 | count() | 内存友好 |
+| 循环遍历 | ✅ 推荐 | cycle() | 轮询场景 |
+| 需要索引 | ❌ 不推荐 count+zip | enumerate() | enumerate 更直观 |
+
+### 性能考量与最佳实践
+
+```python
+# 性能对比：chain vs 列表相加
+import timeit
+import sys
+from itertools import chain
+
+# 列表相加：创建中间列表
+lists = [list(range(1000)) for _ in range(10)]
+concat_list = sum(lists, [])  # 创建大量中间列表
+
+# chain：惰性连接
+concat_chain = chain.from_iterable(lists)  # 无中间列表
+
+# 内存对比
+print(f"列表相加内存：{sys.getsizeof(concat_list)} 字节")  # 大
+print(f"chain 内存：{sys.getsizeof(concat_chain)} 字节")    # 约 56 字节
+
+# 时间对比
+list_time = timeit.timeit(lambda: sum(lists, []), number=1000)
+chain_time = timeit.timeit(lambda: list(chain.from_iterable(lists)), number=1000)
+print(f"列表相加时间：{list_time:.3f}s")
+print(f"chain 时间：{chain_time:.3f}s")  # chain 更快
+```
+
+```python
+# tee() 的内存警告
+from itertools import tee
+
+# tee 会缓存已消费的元素
+gen = (x for x in range(1000000))
+it1, it2 = tee(gen)
+
+# 如果 it1 消费完再消费 it2，tee 会缓存所有元素！
+list(it1)  # tee 缓存了 100 万个元素
+list(it2)  # 从缓存读取，但内存已占用
+
+# 最佳实践：两个迭代器交替消费
+gen = (x for x in range(1000000))
+it1, it2 = tee(gen)
+for a, b in zip(it1, it2):  # 交替消费，缓存最小
+    process(a, b)
+```
+
+### 常见陷阱
+
+```python
+# 陷阱1：groupby 不排序导致错误分组
+from itertools import groupby
+
+# 错误示例
+data = [1, 2, 1, 2, 1]  # 未排序
+for key, group in groupby(data):
+    print(f"{key}: {list(group)}")
+# 1: [1], 2: [2], 1: [1], 2: [2], 1: [1] ← 多组！
+
+# 解决：先排序
+for key, group in groupby(sorted(data)):
+    print(f"{key}: {list(group)}")
+# 1: [1, 1, 1], 2: [2, 2] ← 正确
+```
+
+```python
+# 陷阱2：tee 后使用原迭代器
+from itertools import tee
+
+gen = (x for x in range(5))
+it1, it2 = tee(gen)
+print(list(gen))  # [0, 1, 2, 3, 4] ← 消费了原迭代器
+print(list(it1))  # [] ← tee 被影响！
+
+# 解决：tee 后丢弃原迭代器
+gen = (x for x in range(5))
+it1, it2 = tee(gen)
+del gen  # 明确丢弃
+print(list(it1))  # [0, 1, 2, 3, 4]
+print(list(it2))  # [0, 1, 2, 3, 4]
+```
+
+```python
+# 陷阱3：islice 消费迭代器但不重置
+from itertools import islice
+
+gen = (x for x in range(10))
+print(list(islice(gen, 5)))  # [0, 1, 2, 3, 4]
+print(list(islice(gen, 5)))  # [5, 6, 7, 8, 9] ← 继续消费
+
+# 解决：如果需要从头开始，重新创建迭代器
+gen = (x for x in range(10))
+print(list(islice(gen, 5)))  # [0, 1, 2, 3, 4]
+gen = (x for x in range(10))  # 重新创建
+print(list(islice(gen, 5)))  # [0, 1, 2, 3, 4]
+```
+
+---
+
 ## itertools 速查表
 
 ```
