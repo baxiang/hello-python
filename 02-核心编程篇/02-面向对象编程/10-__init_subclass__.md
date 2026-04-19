@@ -427,6 +427,15 @@ True
 True
 ```
 
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `def __init_subclass__(cls, **kwargs)` | `cls` 指新创建的子类（非父类自身） | 钩子由父类定义但作用于子类，`cls` 即触发钩子的那个子类对象 |
+| `super().__init_subclass__(**kwargs)` | 沿 MRO 继续调用下一个父类的钩子 | 多继承时若省略此调用，链条断裂，后续父类（如 `BaseB`）的钩子不会执行 |
+| `**kwargs` | 接收并透传类定义时传入的关键字参数 | 允许父类声明具名参数，未消费的参数必须通过 `**kwargs` 继续传递，否则报 `TypeError` |
+| `cls._from_a = True` | 在钩子中向子类注入类属性 | `__init_subclass__` 在类对象创建完成后调用，可直接修改类属性 |
+
 **说明：**
 - 多继承时，按 MRO 顺序调用各父类的 __init_subclass__
 - 必须调用 super().__init_subclass__(**kwargs) 才能触发链式调用
@@ -688,6 +697,15 @@ print(f"MRO: {Child.__mro__}")
 [C] Child
 MRO: (<class 'Child'>, <class 'A'>, <class 'B'>, <class 'C'>, <class 'object'>)
 ```
+
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `class Child(A, B, C)` | 同时继承 A、B、C 三个父类 | 触发三条 `__init_subclass__` 链，验证 MRO 驱动的调用顺序 |
+| `super().__init_subclass__(**kwargs)` | 沿 MRO 向后传递调用 | 若 A 不调用 `super()`，B、C 的钩子将被跳过；`**kwargs` 确保参数完整透传 |
+| `print(f"MRO: {Child.__mro__}")` | 打印子类的方法解析顺序 | 直观展示 Python C3 线性化算法决定的调用链顺序 |
+| 三个独立的 `__init_subclass__` | 每个父类各自定义钩子 | 演示各钩子相互独立且均能执行，依赖 `super()` 组成完整调用链 |
 
 **说明：**
 - 按照子类 → A → B → C → object 的 MRO 顺序
