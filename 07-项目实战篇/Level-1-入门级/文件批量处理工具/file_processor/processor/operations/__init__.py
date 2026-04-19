@@ -14,7 +14,7 @@ class FileOperations:
     def rename_files(
         directory: str,
         pattern: Callable[[str], str],
-        extensions: list[str] = None
+        extensions: list[str] | None = None
     ) -> list[str]:
         """批量重命名"""
         dir_path = Path(directory)
@@ -35,7 +35,7 @@ class FileOperations:
         return results
     
     @staticmethod
-    def add_prefix(directory: str, prefix: str, extensions: list[str] = None) -> list[str]:
+    def add_prefix(directory: str, prefix: str, extensions: list[str] | None = None) -> list[str]:
         """添加前缀"""
         return FileOperations.rename_files(
             directory,
@@ -44,7 +44,7 @@ class FileOperations:
         )
     
     @staticmethod
-    def add_suffix(directory: str, suffix: str, extensions: list[str] = None) -> list[str]:
+    def add_suffix(directory: str, suffix: str, extensions: list[str] | None = None) -> list[str]:
         """添加后缀"""
         return FileOperations.rename_files(
             directory,
@@ -53,7 +53,7 @@ class FileOperations:
         )
     
     @staticmethod
-    def add_timestamp(directory: str, extensions: list[str] = None) -> list[str]:
+    def add_timestamp(directory: str, extensions: list[str] | None = None) -> list[str]:
         """添加时间戳"""
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         return FileOperations.rename_files(
