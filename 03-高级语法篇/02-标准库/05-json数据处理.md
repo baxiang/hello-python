@@ -1,355 +1,733 @@
-# json 模块参考（详细版）
+# json 数据处理
 
 > Python 3.11+
 
-JSON（JavaScript Object Notation）是一种轻量级数据交换格式，Python 的 json 模块提供 JSON 数据的编码和解码功能。
+---
+
+## 为什么需要 json 模块？
+
+### 问题场景
+
+你开发了一个用户管理接口，需要把 Python 字典返回给前端：
+
+```python
+user = {"name": "张三", "age": 25, "vip": True, "address": None}
+
+# ❌ 直接拼字符串：容易出错，特殊字符没转义
+result = str(user)   # {'name': '张三', ...}  Python 语法，前端无法解析
+
+# ✅ 用 json 模块：生成标准 JSON，全球通用
+import json
+result = json.dumps(user, ensure_ascii=False)
+# {"name": "张三", "age": 25, "vip": true, "address": null}
+```
+
+JSON 是前后端、跨语言传数据的通用格式，`json` 模块是处理它的标准工具。
 
 ---
 
-## 第一部分：JSON 基础操作
+## 章节导航
 
-### 5.1 编码（Python → JSON）
+| 部分 | 内容 |
+|------|------|
+| JSON 格式 | JSON 是什么、六种数据类型、格式规则 |
+| 第一部分 | 四个核心函数与所有参数详解 |
+| 第二部分 | Python ↔ JSON 类型映射 |
+| 第三部分 | 自定义编解码（datetime、set、自定义类） |
+| 第四部分 | 实际应用（配置文件、数据持久化） |
+| L2 实践层 | 推荐做法、反模式、常见陷阱、适用场景 |
 
-#### 实际场景
+---
 
-在 Web API 开发中，后端需要将 Python 对象转换为 JSON 格式返回给前端；在配置文件存储时，需要将字典数据序列化为 JSON 文件。
+## JSON 格式介绍
 
-**问题：如何将 Python 字典、列表转换为 JSON 字符串？如何控制格式化输出？**
+### 什么是 JSON
+
+JSON（JavaScript Object Notation）是一种用纯文本表示结构化数据的格式。它独立于编程语言，被广泛用于 Web API、配置文件、数据存储。
+
+一个完整的 JSON 文档示例，包含所有六种类型：
+
+```json
+{
+  "name": "张三",
+  "age": 25,
+  "score": 98.5,
+  "is_vip": true,
+  "deleted_at": null,
+  "tags": ["python", "web", "api"],
+  "address": {
+    "city": "北京",
+    "zip": "100000"
+  }
+}
+```
+
+### JSON 的六种数据类型
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    JSON 六种数据类型                          │
+├────────────┬──────────────────────┬──────────────────────────┤
+│  类型       │  示例                │  说明                    │
+├────────────┼──────────────────────┼──────────────────────────┤
+│  string    │  "hello"  "张三"     │  必须用双引号，不能单引号  │
+│  number    │  25  98.5  -3  1e10  │  整数或浮点数，无引号      │
+│  boolean   │  true  false         │  全小写，无引号            │
+│  null      │  null                │  全小写，无引号            │
+│  array     │  [1, "a", true]      │  方括号，元素可混合类型    │
+│  object    │  {"key": "value"}    │  花括号，键必须是字符串    │
+└────────────┴──────────────────────┴──────────────────────────┘
+```
+
+### JSON 格式规则
+
+```json
+{
+  "valid_string": "必须双引号",
+  "number": 42,
+  "float": 3.14,
+  "bool_true": true,
+  "bool_false": false,
+  "nothing": null,
+  "array": [1, 2, 3],
+  "nested": {"inner": "value"}
+}
+```
+
+**三个最常见的格式错误：**
+
+```
+❌  {'name': '张三'}          键和值用了单引号（Python 语法，不是 JSON）
+❌  {"name": "张三",}         末尾多了逗号（trailing comma）
+❌  {"name": "张三" // 注释}  JSON 不支持注释
+```
+
+---
+
+## 第一部分：四个核心函数与参数
+
+### 1.1 概念动机
+
+`json` 模块只有四个核心函数，两对镜像关系：
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   四个核心函数关系                            │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   字符串操作：                                               │
+│     Python 对象  →  JSON 字符串    json.dumps()              │
+│     JSON 字符串  →  Python 对象    json.loads()              │
+│                                                              │
+│   文件操作：                                                 │
+│     Python 对象  →  JSON 文件      json.dump()               │
+│     JSON 文件    →  Python 对象    json.load()               │
+│                                                              │
+│   记忆口诀：带 s 的操作字符串（s = string）                   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 1.2 最简示例
+
+```python
+import json
+
+data = {"name": "张三", "age": 25}
+
+# 序列化：Python → JSON 字符串
+s = json.dumps(data)            # '{"name": "\\u5f20\\u4e09", "age": 25}'
+
+# 反序列化：JSON 字符串 → Python
+d = json.loads(s)               # {'name': '张三', 'age': 25}
+
+# 写文件
+with open("data.json", "w", encoding="utf-8") as f:
+    json.dump(data, f)
+
+# 读文件
+with open("data.json", encoding="utf-8") as f:
+    d = json.load(f)
+```
+
+### 1.3 详细讲解：dumps 参数全表
+
+`json.dumps(obj, *, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, default=None, sort_keys=False)`
+
+| 参数 | 类型 | 默认值 | 含义 |
+|------|------|--------|------|
+| `obj` | any | — | 要序列化的 Python 对象（必填） |
+| `ensure_ascii` | bool | `True` | `True`：非 ASCII 字符转义为 `\uXXXX`；`False`：保留原字符（中文直接输出） |
+| `indent` | int\|str\|None | `None` | `None`：紧凑单行；整数 N：缩进 N 个空格；字符串：用该字符串缩进 |
+| `sort_keys` | bool | `False` | `True`：所有 object 的键按字母顺序排序，便于比较和版本控制 |
+| `separators` | tuple\|None | `None` | `(item_sep, key_sep)`；紧凑格式用 `(',', ':')` 去掉空格 |
+| `default` | callable\|None | `None` | 遇到无法序列化的类型时调用此函数，应返回可序列化的值或抛 `TypeError` |
+| `cls` | type\|None | `None` | 自定义 `JSONEncoder` 子类，比 `default` 更灵活 |
+| `skipkeys` | bool | `False` | `True`：跳过非字符串的键；`False`：遇到非字符串键抛 `TypeError` |
+| `allow_nan` | bool | `True` | `True`：允许 `float('nan')`、`float('inf')`（非标准 JSON）；`False`：遇到则抛 `ValueError` |
+| `check_circular` | bool | `True` | `True`：检查循环引用，发现则抛 `ValueError`；`False`：跳过检查（略微提速） |
 
 ```python
 import json
 from typing import Any
 
-data: dict[str, Any] = {'name': '张三', 'age': 25, 'city': '北京'}
+data: dict[str, Any] = {"city": "北京", "name": "张三", "scores": [95, 87]}
 
-json_str: str = json.dumps(data)
-print(json_str)  # {"name": "\u5f20\u4e09", "age": 25, "city": "\u5317\u4eac"}
+# ensure_ascii=False：中文直接输出，不转义
+print(json.dumps(data, ensure_ascii=False))
+# {"city": "北京", "name": "张三", "scores": [95, 87]}
 
-json_str_formatted: str = json.dumps(data, indent=2, ensure_ascii=False)
-print(json_str_formatted)
+# indent=2：美化缩进
+print(json.dumps(data, indent=2, ensure_ascii=False))
 # {
+#   "city": "北京",
 #   "name": "张三",
-#   "age": 25,
-#   "city": "北京"
+#   "scores": [
+#     95,
+#     87
+#   ]
 # }
 
-with open('data.json', 'w', encoding='utf-8') as f:
-    json.dump(data, f, indent=2, ensure_ascii=False)
+# sort_keys=True：键排序（city < name < scores）
+print(json.dumps(data, sort_keys=True, ensure_ascii=False))
+# {"city": "北京", "name": "张三", "scores": [95, 87]}
+
+# separators=(',', ':')：去掉所有空格，最小体积，适合网络传输
+print(json.dumps(data, separators=(",", ":"), ensure_ascii=False))
+# {"city":"北京","name":"张三","scores":[95,87]}
+
+# skipkeys=True：跳过非字符串键而不是报错
+mixed_keys: dict[Any, Any] = {1: "one", "two": 2, (3,): "tuple_key"}
+print(json.dumps(mixed_keys, skipkeys=True))
+# {"two": 2}
 ```
 
-### 5.2 解码（JSON → Python）
+### 1.4 详细讲解：loads 参数全表
 
-#### 实际场景
+`json.loads(s, *, cls=None, object_hook=None, parse_float=None, parse_int=None, parse_constant=None, object_pairs_hook=None)`
 
-从前端接收 JSON 数据时，需要将 JSON 字符串解析为 Python 对象；读取配置文件时，需要将 JSON 文件反序列化为字典。
-
-**问题：如何将 JSON 字符串转换为 Python 字典？如何处理 Unicode 编码问题？**
+| 参数 | 类型 | 默认值 | 含义 |
+|------|------|--------|------|
+| `s` | str\|bytes | — | 要解析的 JSON 字符串（必填） |
+| `object_hook` | callable\|None | `None` | 每次解析完一个 JSON object `{}` 后调用，传入 `dict`，返回值替换原 `dict`；常用于转换特定字段类型 |
+| `parse_float` | callable\|None | `None` | 解析浮点数时调用的函数，默认 `float`；可传 `decimal.Decimal` 获得精确小数 |
+| `parse_int` | callable\|None | `None` | 解析整数时调用的函数，默认 `int` |
+| `object_pairs_hook` | callable\|None | `None` | 与 `object_hook` 类似，但传入有序的 `[(key, value), ...]` 列表，优先级高于 `object_hook` |
+| `cls` | type\|None | `None` | 自定义 `JSONDecoder` 子类 |
 
 ```python
 import json
-
-json_str: str = '{"name": "张三", "age": 25}'
-data: dict[str, Any] = json.loads(json_str)
-print(data)  # {'name': '张三', 'age': 25}
-print(data['name'])  # 张三
-
-with open('data.json', 'r', encoding='utf-8') as f:
-    data: dict[str, Any] = json.load(f)
-print(data)
-```
-
----
-
-## 第二部分：类型映射与参数
-
-### 5.3 类型映射
-
-#### 实际场景
-
-理解 JSON 与 Python 类型之间的映射关系，有助于正确处理数据序列化和反序列化，避免类型转换错误。
-
-**问题：Python 的 None 在 JSON 中如何表示？JSON 的数组会转换成什么 Python 类型？**
-
-**Python → JSON 类型映射：**
-
-| Python 类型 | JSON 类型 |
-|-------------|-----------|
-| dict | object |
-| list, tuple | array |
-| str | string |
-| int, float | number |
-| True | true |
-| False | false |
-| None | null |
-
-**JSON → Python 类型映射：**
-
-| JSON 类型 | Python 类型 |
-|-----------|-------------|
-| object | dict |
-| array | list |
-| string | str |
-| number (int) | int |
-| number (real) | float |
-| true | True |
-| false | False |
-| null | None |
-
-### 5.4 dumps 常用参数
-
-#### 实际场景
-
-在实际项目中，需要控制 JSON 输出格式：压缩传输、美化显示、排序键值等。
-
-**问题：如何生成紧凑的 JSON 用于网络传输？如何让 JSON 保留中文字符而不是 Unicode 转义？**
-
-```python
-import json
+from decimal import Decimal
 from typing import Any
 
-data: dict[str, Any] = {'name': '张三', 'scores': [95, 87, 92]}
-
-json_indented: str = json.dumps(data, indent=2)
-json_unicode: str = json.dumps(data, ensure_ascii=False)
-json_sorted: str = json.dumps(data, sort_keys=True)
-json_compact: str = json.dumps(data, separators=(',', ':'))
-
-data_with_nonstr_key: dict[Any, Any] = {1: 'one', 'two': 2}
-json_skipkeys: str = json.dumps(data_with_nonstr_key, skipkeys=True)
-```
-
----
-
-## 第三部分：自定义编解码
-
-### 5.5 自定义编码
-
-#### 实际场景
-
-Python 的 datetime 对象、set 集合等类型无法直接序列化为 JSON，需要自定义编码逻辑。
-
-**问题：如何将 datetime 对象序列化为 JSON？如何处理自定义类的序列化？**
-
-```python
-import json
+# object_hook：把所有 _at 结尾的字段自动转 datetime
 from datetime import datetime
-from typing import Any
 
-data: dict[str, Any] = {
-    'name': '张三',
-    'created_at': datetime.now()
-}
-
-def json_serializer(obj: Any) -> str:
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-
-json_str: str = json.dumps(data, default=json_serializer)
-print(json_str)
-```
-
-**使用 JSONEncoder 子类：**
-
-```python
-import json
-from datetime import datetime
-from typing import Any, Set
-
-class CustomEncoder(json.JSONEncoder):
-    def default(self, obj: Any) -> Any:
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        if isinstance(obj, set):
-            return list(obj)
-        return super().default(obj)
-
-data: dict[str, Any] = {
-    'time': datetime.now(),
-    'tags': {'python', 'json', 'web'}
-}
-
-json_str: str = json.dumps(data, cls=CustomEncoder)
-print(json_str)
-```
-
-### 5.6 自定义解码
-
-#### 实际场景
-
-JSON 字符串中的日期时间字段需要自动转换为 Python datetime 对象，而不是保留为字符串。
-
-**问题：如何在解析 JSON 时自动识别并转换特定字段？**
-
-```python
-import json
-from datetime import datetime
-from typing import Any
-
-json_str: str = '{"name": "张三", "created_at": "2024-03-15T14:30:00"}'
-
-def json_decoder(obj: dict[str, Any]) -> dict[str, Any]:
-    for key, value in obj.items():
-        if key.endswith('_at') and isinstance(value, str):
+def parse_dates(obj: dict[str, Any]) -> dict[str, Any]:
+    for key, val in obj.items():
+        if key.endswith("_at") and isinstance(val, str):
             try:
-                obj[key] = datetime.fromisoformat(value)
+                obj[key] = datetime.fromisoformat(val)
             except ValueError:
                 pass
     return obj
 
-data: dict[str, Any] = json.loads(json_str, object_hook=json_decoder)
-print(data['created_at'])  # 2024-03-15 14:30:00
-print(type(data['created_at']))  # <class 'datetime.datetime'>
+data = json.loads(
+    '{"name": "张三", "created_at": "2024-01-15T10:00:00"}',
+    object_hook=parse_dates,
+)
+print(type(data["created_at"]))  # <class 'datetime.datetime'>
+
+# parse_float：用 Decimal 替代 float，避免浮点精度问题
+price_data = json.loads('{"price": 9.99}', parse_float=Decimal)
+print(type(price_data["price"]))  # <class 'decimal.Decimal'>
+print(price_data["price"])        # 9.99（精确值，不是 9.990000000000001）
 ```
 
----
+### 1.5 实际应用：dump / load 文件操作
 
-## 第四部分：实际应用
+`json.dump()` 和 `json.load()` 接受的参数与 `dumps`/`loads` 完全相同，只是第二个参数换成了文件对象：
 
-### 5.7 配置文件管理
-
-#### 实际场景
-
-应用程序需要读取和保存配置信息，如数据库连接参数、API 密钥等。
-
-**问题：如何设计一个简单易用的 JSON 配置管理工具？**
+```python
+# json.dump(obj, fp, **同 dumps 的所有参数)
+# json.load(fp,    **同 loads 的所有参数)
+```
 
 ```python
 import json
 from pathlib import Path
 from typing import Any
-
-def load_config(config_file: str | Path) -> dict[str, Any]:
-    with open(config_file, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-def save_config(config_file: str | Path, config: dict[str, Any]) -> None:
-    with open(config_file, 'w', encoding='utf-8') as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
 
 config: dict[str, Any] = {
-    'database': {
-        'host': 'localhost',
-        'port': 5432,
-        'name': 'myapp'
-    },
-    'debug': True
+    "app": "MyShop",
+    "debug": True,
+    "database": {"host": "localhost", "port": 5432},
 }
 
-save_config('config.json', config)
-loaded: dict[str, Any] = load_config('config.json')
-print(loaded['database']['host'])
-```
+config_path = Path("config.json")
 
-### 5.8 API 响应生成
+# 写文件：indent + ensure_ascii=False 让文件人类可读
+with config_path.open("w", encoding="utf-8") as f:
+    json.dump(config, f, indent=2, ensure_ascii=False)
 
-#### 实际场景
+# 读文件
+with config_path.open(encoding="utf-8") as f:
+    loaded: dict[str, Any] = json.load(f)
 
-Web API 需要返回统一格式的 JSON 响应，包含状态码、数据和时间戳。
-
-**问题：如何生成符合 RESTful 规范的 JSON 响应？**
-
-```python
-import json
-from datetime import datetime
-from typing import Any
-
-def api_response(data: Any, status: str = 'success') -> str:
-    return json.dumps({
-        'status': status,
-        'data': data,
-        'timestamp': datetime.now().isoformat()
-    }, ensure_ascii=False)
-
-response: str = api_response({'user': '张三', 'score': 95})
-print(response)
-```
-
-### 5.9 数据持久化
-
-#### 实际场景
-
-简单应用需要一个轻量级的本地数据库，JSON 文件是一种便捷的选择。
-
-**问题：如何实现一个简单的键值存储数据库？**
-
-```python
-import json
-from pathlib import Path
-from typing import Any
-
-class JsonDB:
-    def __init__(self, filepath: str | Path) -> None:
-        self.filepath: Path = Path(filepath)
-        self.data: dict[str, Any] = self._load()
-    
-    def _load(self) -> dict[str, Any]:
-        if self.filepath.exists():
-            return json.loads(self.filepath.read_text())
-        return {}
-    
-    def _save(self) -> None:
-        self.filepath.write_text(
-            json.dumps(self.data, indent=2, ensure_ascii=False)
-        )
-    
-    def get(self, key: str, default: Any = None) -> Any:
-        return self.data.get(key, default)
-    
-    def set(self, key: str, value: Any) -> None:
-        self.data[key] = value
-        self._save()
-    
-    def delete(self, key: str) -> None:
-        if key in self.data:
-            del self.data[key]
-            self._save()
-
-db: JsonDB = JsonDB('data.json')
-db.set('user', {'name': '张三', 'age': 25})
-print(db.get('user'))
+print(loaded["app"])   # MyShop
 ```
 
 **关键代码说明：**
 
 | 代码 | 含义 | 为什么这样写 |
 |------|------|-------------|
-| `self.filepath.read_text()` + `json.loads(...)` | 读取文件文本再解析 | `pathlib` 的 `read_text` 自动处理编码和关闭，比手动 `open/read/close` 更安全简洁 |
-| `if self.filepath.exists(): return json.loads(...)` | 文件不存在时返回空字典 | 首次使用时文件可能尚未创建，返回空字典而非抛异常，让 `JsonDB` 自动初始化 |
-| `json.dumps(self.data, indent=2, ensure_ascii=False)` | 格式化写入 JSON | `indent=2` 使文件人类可读；`ensure_ascii=False` 保留中文字符（否则中文会被转义为 `\uXXXX`） |
-| `self._save()` 在 `set` 和 `delete` 末尾调用 | 写穿策略（write-through） | 每次修改立即持久化，避免内存数据与文件不一致；简单场景不需要显式 flush |
+| `ensure_ascii=False` | 非 ASCII 字符直接写入，不转义 | 中文变成 `\u5f20\u4e09` 可读性差；写文件时关闭转义，文件内容人类友好 |
+| `indent=2` | 每层缩进 2 个空格 | 无缩进时整个 JSON 挤在一行，读写配置文件时需要可读格式 |
+| `separators=(",", ":")` | 去掉分隔符后的空格 | 网络传输时最小化体积，减少流量；不需要人读时使用 |
+| `parse_float=Decimal` | 用 `Decimal` 解析浮点数 | 金融金额等场景下 `float` 精度不足，`9.99` 存成 `9.990000000000001` |
 
 ---
 
-## 第五部分：异常处理
+## 第二部分：Python ↔ JSON 类型映射
 
-### 5.10 JSON 异常处理
+### 2.1 概念动机
 
-#### 实际场景
+序列化时 Python 类型会按固定规则转换为 JSON 类型，反序列化时则按另一套规则转回。理解这两张映射表，能避免"存进去的是 tuple，读出来变成 list"这类困惑。
 
-在解析来自网络或用户输入的 JSON 数据时，可能会遇到格式错误，需要妥善处理。
-
-**问题：如何安全地解析 JSON 并给出友好的错误提示？**
+### 2.2 最简示例
 
 ```python
 import json
-from typing import Any
 
-def safe_loads(json_str: str) -> dict[str, Any] | None:
-    try:
-        return json.loads(json_str)
-    except json.JSONDecodeError as e:
-        print(f"JSON 解析错误: {e}")
-        return None
+# 存一个 tuple
+data = {"pair": (1, 2)}
+s = json.dumps(data)
+print(s)                          # {"pair": [1, 2]}  — tuple 变成了 array
 
-data: dict[str, Any] | None = safe_loads('{"name": "张三"}')
-data = safe_loads('{"name": 张三}')
+restored = json.loads(s)
+print(type(restored["pair"]))     # <class 'list'>  — array 还原为 list，不是 tuple
 ```
 
-**常见异常：**
+### 2.3 详细讲解：两张映射表
 
-| 异常 | 说明 |
-|------|------|
-| `json.JSONDecodeError` | JSON 解析错误 |
-| `TypeError` | 不支持的类型 |
-| `ValueError` | 无效值 |
+**Python → JSON（序列化）：**
+
+| Python 类型 | JSON 类型 | 备注 |
+|------------|----------|------|
+| `dict` | object `{}` | 键必须是字符串；非字符串键需 `skipkeys=True` 跳过或报错 |
+| `list` | array `[]` | 元素类型可混合 |
+| `tuple` | array `[]` | **tuple 转为 array，反序列化后变 list** |
+| `str` | string `""` | — |
+| `int` | number | — |
+| `float` | number | `nan`/`inf` 非标准 JSON，默认允许但可用 `allow_nan=False` 禁止 |
+| `True` | `true` | 注意大小写变化 |
+| `False` | `false` | — |
+| `None` | `null` | — |
+| `set`、`datetime`、自定义类 | ❌ 报 `TypeError` | 需用 `default` 或 `cls` 自定义处理 |
+
+**JSON → Python（反序列化）：**
+
+| JSON 类型 | Python 类型 | 备注 |
+|----------|------------|------|
+| object `{}` | `dict` | 可用 `object_hook` 替换为自定义类型 |
+| array `[]` | `list` | — |
+| string `""` | `str` | — |
+| number（整数） | `int` | — |
+| number（小数） | `float` | 可用 `parse_float=Decimal` 替换 |
+| `true` | `True` | — |
+| `false` | `False` | — |
+| `null` | `None` | — |
+
+### 2.4 渐进复杂化
+
+```python
+import json
+
+# 验证各类型转换
+original = {
+    "string": "hello",
+    "integer": 42,
+    "float_num": 3.14,
+    "bool_t": True,
+    "bool_f": False,
+    "nothing": None,
+    "array": [1, "two", True],
+    "nested": {"inner": 99},
+    "tuple_val": (10, 20),       # 注意：tuple → array
+}
+
+s = json.dumps(original, ensure_ascii=False)
+restored = json.loads(s)
+
+print(type(restored["tuple_val"]))   # <class 'list'>  ← tuple 变了
+print(restored["bool_t"])            # True
+print(restored["nothing"])           # None
+```
+
+---
+
+## 第三部分：自定义编解码
+
+### 3.1 概念动机
+
+`datetime`、`set`、`Path`、自定义类等 Python 类型不在 JSON 规范里，直接 `dumps` 会报 `TypeError`，需要告诉 json 模块"遇到这种类型，转成什么 JSON 值"。
+
+### 3.2 最简示例
+
+```python
+import json
+from datetime import datetime
+
+data = {"name": "张三", "created_at": datetime(2024, 1, 15, 10, 0)}
+
+# ❌ 直接序列化报错
+# json.dumps(data)  # TypeError: Object of type datetime is not JSON serializable
+
+# ✅ 用 default 参数
+def to_json(obj: object) -> str:
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError(f"{type(obj)} 不可序列化")
+
+print(json.dumps(data, default=to_json, ensure_ascii=False))
+# {"name": "张三", "created_at": "2024-01-15T10:00:00"}
+```
+
+### 3.3 详细讲解：default 函数 vs JSONEncoder 子类
+
+**方式 1：`default` 参数（简洁，适合少数类型）**
+
+```python
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+
+def custom_default(obj: Any) -> Any:
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, set):
+        return sorted(obj)   # set → 排序后的 list，保证输出稳定
+    raise TypeError(f"{type(obj).__name__} 不可序列化")
+
+
+data: dict[str, Any] = {
+    "time": datetime(2024, 1, 15, 10, 0),
+    "path": Path("/tmp/data"),
+    "tags": {"python", "web"},
+}
+print(json.dumps(data, default=custom_default, ensure_ascii=False))
+# {"time": "2024-01-15T10:00:00", "path": "/tmp/data", "tags": ["python", "web"]}
+```
+
+**方式 2：`JSONEncoder` 子类（结构清晰，适合多类型或复用）**
+
+```python
+import json
+from datetime import datetime
+from typing import Any
+
+
+class AppEncoder(json.JSONEncoder):
+    """应用级通用编码器"""
+
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, datetime):
+            return {"__type__": "datetime", "value": obj.isoformat()}
+        if isinstance(obj, set):
+            return sorted(obj)
+        return super().default(obj)  # 其他不认识的类型，交给父类抛 TypeError
+
+
+data: dict[str, Any] = {
+    "time": datetime(2024, 1, 15),
+    "tags": {"python", "web"},
+}
+print(json.dumps(data, cls=AppEncoder, indent=2))
+# {
+#   "time": {"__type__": "datetime", "value": "2024-01-15T00:00:00"},
+#   "tags": ["python", "web"]
+# }
+```
+
+### 3.4 渐进复杂化：object_hook 自定义解码
+
+`object_hook` 在每个 `{}` 解析完后被调用，可在反序列化时把特定结构还原为 Python 对象：
+
+```python
+import json
+from datetime import datetime
+from typing import Any
+
+
+def decode_hook(obj: dict[str, Any]) -> Any:
+    """把 {"__type__": "datetime", "value": "..."} 还原为 datetime"""
+    if obj.get("__type__") == "datetime":
+        return datetime.fromisoformat(obj["value"])
+    return obj
+
+
+json_str = '{"time": {"__type__": "datetime", "value": "2024-01-15T00:00:00"}, "name": "张三"}'
+data = json.loads(json_str, object_hook=decode_hook)
+
+print(data["time"])           # 2024-01-15 00:00:00
+print(type(data["time"]))     # <class 'datetime.datetime'>
+```
+
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `raise TypeError(...)` 在 `default` 末尾 | 让未处理的类型抛出有意义的错误 | 不能静默忽略，否则调用方不知道数据丢失 |
+| `super().default(obj)` 在 `JSONEncoder.default` 末尾 | 把不认识的类型交给父类处理 | 父类会抛 `TypeError`，保证未处理类型有明确报错 |
+| `{"__type__": "datetime", "value": "..."}` | 在 JSON 中嵌入类型标记 | 纯文本无法区分 `"2024-01-15"` 是日期还是普通字符串，加标记让反序列化时能识别 |
+| `sorted(obj)` 序列化 set | 固定输出顺序 | set 本身无序，每次输出顺序不同；排序后输出稳定，便于比较和测试 |
+
+---
+
+## 第四部分：实际应用
+
+### 4.1 概念动机
+
+JSON 在实际项目中最常见的两个用途：**配置文件**（读写 JSON 文件）和 **轻量级数据持久化**（用 JSON 文件替代数据库）。
+
+### 4.2 最简示例：配置文件读写
+
+```python
+import json
+from pathlib import Path
+
+config = {"debug": True, "port": 8080}
+path = Path("config.json")
+
+path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+loaded = json.loads(path.read_text(encoding="utf-8"))
+print(loaded["port"])  # 8080
+```
+
+### 4.3 详细讲解：配置管理器
+
+```python
+# config_manager.py
+import json
+from pathlib import Path
+from typing import Any
+
+
+class ConfigManager:
+    """JSON 配置文件管理器"""
+
+    def __init__(self, path: str | Path, defaults: dict[str, Any] | None = None) -> None:
+        self.path = Path(path)
+        self._data: dict[str, Any] = defaults.copy() if defaults else {}
+        if self.path.exists():
+            self._data.update(json.loads(self.path.read_text(encoding="utf-8")))
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+    def set(self, key: str, value: Any) -> None:
+        self._data[key] = value
+        self._save()
+
+    def _save(self) -> None:
+        self.path.write_text(
+            json.dumps(self._data, indent=2, ensure_ascii=False, sort_keys=True),
+            encoding="utf-8",
+        )
+
+
+# 使用
+cfg = ConfigManager("app_config.json", defaults={"debug": False, "port": 8080})
+cfg.set("debug", True)
+print(cfg.get("port"))   # 8080
+```
+
+### 4.4 渐进复杂化：轻量级键值数据库
+
+```python
+# json_db.py
+import json
+from pathlib import Path
+from typing import Any
+
+
+class JsonDB:
+    """JSON 文件键值存储"""
+
+    def __init__(self, filepath: str | Path) -> None:
+        self.filepath = Path(filepath)
+        self._data: dict[str, Any] = self._load()
+
+    def _load(self) -> dict[str, Any]:
+        if self.filepath.exists():
+            return json.loads(self.filepath.read_text(encoding="utf-8"))
+        return {}
+
+    def _save(self) -> None:
+        self.filepath.write_text(
+            json.dumps(self._data, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+    def set(self, key: str, value: Any) -> None:
+        self._data[key] = value
+        self._save()
+
+    def delete(self, key: str) -> None:
+        if key in self._data:
+            del self._data[key]
+            self._save()
+
+    def all(self) -> dict[str, Any]:
+        return dict(self._data)
+
+
+# 使用
+db = JsonDB("store.json")
+db.set("user:1", {"name": "张三", "age": 25})
+db.set("user:2", {"name": "李四", "age": 30})
+print(db.get("user:1"))          # {'name': '张三', 'age': 25}
+print(db.get("user:99", "N/A"))  # N/A
+db.delete("user:2")
+```
+
+**关键代码说明：**
+
+| 代码 | 含义 | 为什么这样写 |
+|------|------|-------------|
+| `self.filepath.read_text(encoding="utf-8")` | 用 pathlib 读文件 | 自动处理打开/关闭，比 `open/read/close` 更简洁，不会忘记关闭 |
+| `if self.filepath.exists()` | 文件不存在时返回空字典 | 首次创建数据库时文件还不存在，应初始化为空而非报错 |
+| `json.dumps(..., sort_keys=True)` | 保存时键排序 | 键顺序固定，git diff 时看不到无意义的键序变化 |
+| `_save()` 在 `set`/`delete` 末尾调用 | 写穿策略 | 每次修改立即落盘，内存和文件始终一致；简单场景不需要显式事务 |
+
+---
+
+## L2 实践层：最佳实践
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   json 模块使用指南                           │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   序列化：                                                   │
+│   ✓ 中文内容必加 ensure_ascii=False                         │
+│   ✓ 写文件用 indent=2，便于人工查看                          │
+│   ✓ 网络传输用 separators=(',',':')，减小体积               │
+│                                                              │
+│   反序列化：                                                 │
+│   ✓ 外部数据一定要 try/except JSONDecodeError               │
+│   ✓ 金融金额用 parse_float=Decimal                          │
+│   ✓ 需要自动转类型用 object_hook                            │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 推荐做法
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| `ensure_ascii=False` | 中文直接输出，可读性强 | `json.dumps(data, ensure_ascii=False)` |
+| 写配置文件加 `indent=2` | 人类可读，版本控制友好 | `json.dump(cfg, f, indent=2)` |
+| 网络传输加 `separators=(',',':')` | 去掉空格，减小传输体积 | `json.dumps(data, separators=(',',':'))` |
+| 外部 JSON 用 `try/except JSONDecodeError` | 外部数据格式不可信 | 见反模式对比 |
+| 金融金额用 `parse_float=Decimal` | 避免浮点精度问题 | `json.loads(s, parse_float=Decimal)` |
+| 保存时 `sort_keys=True` | git diff 稳定，键序不乱跳 | `json.dumps(data, sort_keys=True)` |
+
+### 反模式：不要这样做
+
+```python
+# ❌ 不加 ensure_ascii=False 存中文
+s = json.dumps({"name": "张三"})
+# '{"name": "\\u5f20\\u4e09"}'  — 不可读
+
+# ❌ 不捕获异常直接解析外部 JSON
+data = json.loads(user_input)  # 用户输入格式错误直接崩溃
+
+# ❌ 用 str() 代替 json.dumps()
+result = str({"name": "张三", "vip": True})
+# "{'name': '张三', 'vip': True}"  — 单引号，前端无法解析
+
+# ❌ 序列化 datetime 前不转换
+import json
+from datetime import datetime
+json.dumps({"time": datetime.now()})  # TypeError
+
+# ❌ 用 json 存储二进制（图片、音频等）
+# json 只处理文本，二进制需先 base64 编码
+```
+
+```python
+# ✅ 正确做法对比
+import json
+from datetime import datetime
+
+# 中文正确处理
+s = json.dumps({"name": "张三"}, ensure_ascii=False)
+
+# 安全解析外部 JSON
+try:
+    data = json.loads(user_input)
+except json.JSONDecodeError as e:
+    print(f"格式错误：{e}")
+    data = {}
+
+# datetime 正确序列化
+json.dumps({"time": datetime.now()}, default=lambda o: o.isoformat())
+```
+
+### 常见陷阱
+
+| 陷阱 | 现象 | 解决方案 |
+|------|------|---------|
+| 中文变成 `\uXXXX` | `"name": "\u5f20\u4e09"` | 加 `ensure_ascii=False` |
+| tuple 序列化后变 list | `(1,2)` → `[1,2]`，读回来是 list | JSON 无 tuple 类型，这是预期行为；需要 tuple 时读取后手动转 |
+| datetime 不可序列化 | `TypeError: Object of type datetime is not JSON serializable` | 用 `default` 参数或 `JSONEncoder` 子类 |
+| 浮点精度丢失 | `9.99` 变成 `9.990000000000001` | 金融场景用 `parse_float=Decimal` |
+| 键排序每次不同 | 同内容 JSON 字符串不等，diff 有噪声 | 加 `sort_keys=True` |
+| 解析用户输入不捕获异常 | 格式错误时程序崩溃 | `try/except json.JSONDecodeError` |
+
+### 适用场景
+
+| 场景 | 是否推荐 | 说明 |
+|------|---------|------|
+| Web API 请求/响应体 | ✅ 推荐 | JSON 是 REST API 的标准格式 |
+| 配置文件（人工编辑） | ✅ 推荐 | 用 `indent=2`，可读性好 |
+| 轻量级本地数据存储 | ✅ 推荐 | 适合数据量小、无并发的场景 |
+| 大量结构化数据 | ⚠️ 慎用 | 考虑 SQLite 或数据库 |
+| 二进制数据（图片等） | ❌ 不适合 | 需先 base64 编码，体积膨胀 |
+| 需要注释的配置文件 | ❌ 不适合 | JSON 不支持注释，改用 TOML |
+
+---
+
+## 本章小结
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   json 模块 知识要点                          │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   JSON 格式：六种类型（string/number/boolean/null/array/object）│
+│   规则：键必须双引号、无尾逗号、无注释                        │
+│                                                              │
+│   四个核心函数：                                             │
+│   dumps(obj)   Python → 字符串    loads(s)  字符串 → Python  │
+│   dump(obj,fp) Python → 文件      load(fp)  文件  → Python   │
+│                                                              │
+│   重要参数：                                                 │
+│   ensure_ascii=False   中文直接输出                          │
+│   indent=2             美化缩进                              │
+│   separators=(',',':') 紧凑格式                              │
+│   sort_keys=True       键排序                                │
+│   default=func         自定义序列化                          │
+│   object_hook=func     自定义反序列化                        │
+│   parse_float=Decimal  精确浮点数                            │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
