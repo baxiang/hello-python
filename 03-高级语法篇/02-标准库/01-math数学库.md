@@ -1,6 +1,41 @@
-# math 模块参考（详细版）
+# math 数学库
 
 > Python 3.11+
+
+---
+
+## 为什么需要 math 模块？
+
+### 问题场景
+
+你需要计算圆的面积、判断一个数是否为 NaN、或者做对数变换：
+
+```python
+# ❌ 自己定义常量：精度不够，出错风险高
+PI = 3.14159
+area = PI * r ** 2
+
+# ✅ 用 math 模块：精确到 15 位有效数字，覆盖所有数学函数
+import math
+area = math.pi * r ** 2      # math.pi = 3.141592653589793
+math.isnan(x)                # 判断 NaN，不能用 x == float('nan')
+math.log2(n)                 # 以 2 为底的对数，比 math.log(n, 2) 精度更高
+```
+
+`math` 模块提供 C 语言级别的数学运算，精度高、速度快，是科学计算的基础工具。
+
+---
+
+## 章节导航
+
+| 部分 | 内容 |
+|------|------|
+| 第一部分 | 数学常量、幂对数、三角函数、取整与绝对值 |
+| 第二部分 | 阶乘与组合、最大公约数、判断函数 |
+| 第三部分 | 实际应用（圆面积、距离、勾股数） |
+| L2 实践层 | 推荐做法、反模式、常见陷阱、适用场景 |
+
+---
 
 ## 第一部分：数学计算基础
 
@@ -229,4 +264,109 @@ def is_pythagorean_triple(a: int, b: int, c: int) -> bool:
 
 result1: bool = is_pythagorean_triple(3, 4, 5)     # True
 result2: bool = is_pythagorean_triple(5, 12, 13)   # True
+```
+
+---
+
+## L2 实践层：最佳实践
+
+### 推荐做法
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| 用 `math.pi` 而非自定义常量 | 精确到 15 位，避免累积误差 | `math.pi * r ** 2` |
+| 用 `math.isnan()` 判断 NaN | `float('nan') == float('nan')` 永远为 `False` | `math.isnan(x)` |
+| 用 `math.log2()` / `math.log10()` 而非 `math.log(x, 2)` | 专用函数数值精度更高 | `math.log2(1024)` → `10.0` |
+| 用 `math.hypot()` 计算距离 | 比手动 `sqrt(x²+y²)` 更准确，避免溢出 | `math.hypot(3, 4)` → `5.0` |
+| 用 `math.comb()` / `math.perm()` 计算组合排列 | 内置实现，大整数无溢出 | `math.comb(10, 3)` → `120` |
+| 向量/矩阵运算用 `numpy` | `math` 只处理标量，批量计算需换库 | `import numpy as np` |
+
+### 实际应用示例
+
+```python
+import math
+
+# 计算斜边（避免手写 sqrt(x²+y²) 的溢出问题）
+hypotenuse: float = math.hypot(3, 4)   # 5.0
+
+# 安全对数（避免 log(0) 报错）
+def safe_log(x: float, base: float = math.e) -> float | None:
+    if x <= 0:
+        return None
+    return math.log(x, base)
+
+# 角度转弧度再计算
+angle_deg = 45
+sin_45: float = math.sin(math.radians(angle_deg))  # 0.7071...
+```
+
+### 反模式：不要这样做
+
+```python
+# ❌ 用 == 判断 NaN
+x = float('nan')
+if x == float('nan'):       # 永远是 False，逻辑错误
+    print("是 NaN")
+
+# ✅ 正确方式
+if math.isnan(x):
+    print("是 NaN")
+
+# ❌ 用 math 处理数组（逐元素循环）
+data = [1.0, 2.0, 3.0]
+result = [math.sqrt(x) for x in data]   # 数据量大时极慢
+
+# ✅ 大量数据用 numpy
+import numpy as np
+result = np.sqrt(np.array(data))
+
+# ❌ math.pow(2, 3) 不如 2 ** 3
+# math.pow 返回 float，** 支持整数幂，更快
+x = math.pow(2, 3)   # 8.0（float）
+x = 2 ** 3           # 8（int，更自然）
+```
+
+### 常见陷阱
+
+| 陷阱 | 现象 | 解决方案 |
+|------|------|---------|
+| `math.sqrt(-1)` | `ValueError: math domain error` | 改用 `cmath.sqrt(-1)` 处理复数 |
+| `math.log(0)` | `ValueError: math domain error` | 先判断 `x > 0` 再求对数 |
+| `float('nan') == float('nan')` | 结果是 `False` | 用 `math.isnan()` |
+| 三角函数输入角度 | `math.sin(90)` ≠ 1（参数是弧度） | 先 `math.radians(90)` 转换 |
+| `math.pow` vs `**` | `math.pow(2,3)` 返回 `float`，`2**3` 返回 `int` | 整数幂用 `**`，浮点精确用 `math.pow` |
+
+### 适用场景
+
+| 场景 | 是否推荐 | 说明 |
+|------|---------|------|
+| 单个数值的数学计算 | ✅ 推荐 | 精度高、无需安装依赖 |
+| 角度/弧度转换 | ✅ 推荐 | `degrees()`/`radians()` 标准方式 |
+| 判断 NaN / 无穷 | ✅ 推荐 | 不能用 `==` 比较 |
+| 大量数组运算 | ❌ 不适合 | 用 `numpy`，速度快 100 倍以上 |
+| 复数运算 | ❌ 不适合 | 改用 `cmath` 模块 |
+
+---
+
+## 本章小结
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   math 模块 知识要点                          │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   常量：math.pi  math.e  math.inf  math.nan  math.tau        │
+│                                                              │
+│   幂对数：pow()  sqrt()  cbrt()  log()  log2()  log10()      │
+│   三角函数：sin/cos/tan + 反三角 + degrees/radians 转换       │
+│   取整：ceil()（上）floor()（下）trunc()（截断）              │
+│   组合数学：factorial()  comb()  perm()  gcd()  lcm()        │
+│   判断：isnan()  isinf()  isfinite()  isqrt()                │
+│                                                              │
+│   注意：                                                     │
+│   三角函数参数是弧度，不是角度                                │
+│   判断 NaN 必须用 isnan()，不能用 ==                         │
+│   批量数组运算请改用 numpy                                    │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```

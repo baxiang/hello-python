@@ -1,6 +1,42 @@
-# os 与 pathlib 参考（详细版）
+# os 与 pathlib 路径操作
 
 > Python 3.11+
+
+---
+
+## 为什么需要 os / pathlib？
+
+### 问题场景
+
+你需要读取一个数据文件，路径要兼容 Windows 和 macOS：
+
+```python
+# ❌ 字符串拼接路径：Windows 用 \，macOS/Linux 用 /，直接写死会报错
+path = "data" + "/" + "2024" + "/" + "report.csv"
+
+# ✅ pathlib：自动处理跨平台分隔符，代码清晰
+from pathlib import Path
+path = Path("data") / "2024" / "report.csv"   # 跨平台，Windows/macOS 均正常
+print(path.stem)     # report（文件名无扩展名）
+print(path.suffix)   # .csv（扩展名）
+print(path.parent)   # data/2024（父目录）
+```
+
+`pathlib` 是 Python 3.4+ 推荐的路径处理方式，面向对象、跨平台；`os` 模块提供环境变量、进程等系统级操作。
+
+---
+
+## 章节导航
+
+| 部分 | 内容 |
+|------|------|
+| 第一部分 | pathlib：Path 基础、属性、操作、目录、文件读写 |
+| 第二部分 | os 模块：环境变量、目录操作、文件信息 |
+| 第三部分 | os.path 传统路径操作（兼容旧代码） |
+| 第四部分 | pathlib vs os.path 功能对比表 |
+| L2 实践层 | 推荐做法、反模式、常见陷阱、适用场景 |
+
+---
 
 ## 第一部分：pathlib 现代路径操作（推荐）
 
@@ -333,3 +369,120 @@ same_file: bool = os.path.samefile('a.txt', 'b.txt')  # 是否同一文件
 | glob 匹配 | `p.glob('*.txt')` | `glob.glob('*.txt')` |
 
 **推荐使用 pathlib**：面向对象、代码更清晰、功能更强大。
+
+---
+
+## L2 实践层：最佳实践
+
+### 推荐做法
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| 新代码统一用 `pathlib.Path` | 面向对象、跨平台、可读性强 | `Path("data") / "file.txt"` |
+| 创建目录用 `mkdir(parents=True, exist_ok=True)` | 避免父目录不存在或目录已存在的报错 | `Path("a/b/c").mkdir(parents=True, exist_ok=True)` |
+| 删除文件用 `unlink(missing_ok=True)` | 避免文件不存在时报错 | `p.unlink(missing_ok=True)` |
+| 读写文件用 `read_text()`/`write_text()` | 自动处理打开/关闭，不会忘记 `close()` | `p.read_text(encoding="utf-8")` |
+| 环境变量用 `os.getenv("KEY", "默认值")` | 比 `os.environ["KEY"]` 安全，不存在不报错 | `os.getenv("DB_URL", "sqlite:///dev.db")` |
+| 遍历目录用 `iterdir()`，递归用 `rglob()` | 比 `os.listdir` 返回 `Path` 对象，可直接调用方法 | `Path(".").rglob("*.py")` |
+
+### 实际应用示例
+
+```python
+from pathlib import Path
+import os
+
+# 确保输出目录存在
+output_dir = Path("output") / "2024"
+output_dir.mkdir(parents=True, exist_ok=True)
+
+# 遍历所有 Python 文件并打印行数
+for py_file in Path("src").rglob("*.py"):
+    lines = len(py_file.read_text(encoding="utf-8").splitlines())
+    print(f"{py_file}: {lines} 行")
+
+# 读取环境变量配置
+db_host = os.getenv("DB_HOST", "localhost")
+db_port = int(os.getenv("DB_PORT", "5432"))
+```
+
+### 反模式：不要这样做
+
+```python
+# ❌ 字符串拼接路径（Windows / macOS 分隔符不同）
+path = "data/" + "file.txt"
+
+# ✅ 用 /  运算符
+from pathlib import Path
+path = Path("data") / "file.txt"
+
+# ❌ mkdir 不加 exist_ok，目录已存在时报错
+import os
+os.makedirs("output")          # FileExistsError
+
+# ✅
+Path("output").mkdir(parents=True, exist_ok=True)
+
+# ❌ 用 os.environ["KEY"] 读取可选环境变量
+import os
+host = os.environ["DB_HOST"]   # KeyError（变量不存在时）
+
+# ✅
+host = os.getenv("DB_HOST", "localhost")
+
+# ❌ 读文件不指定编码
+content = Path("file.txt").read_text()    # 不同系统默认编码不同
+
+# ✅
+content = Path("file.txt").read_text(encoding="utf-8")
+```
+
+### 常见陷阱
+
+| 陷阱 | 现象 | 解决方案 |
+|------|------|---------|
+| `Path` 对象传给只接受 `str` 的旧库 | `TypeError` | 用 `str(path)` 转换 |
+| `mkdir()` 不加 `exist_ok=True` | 目录已存在时 `FileExistsError` | 加 `exist_ok=True` |
+| `unlink()` 不加 `missing_ok=True` | 文件不存在时 `FileNotFoundError` | 加 `missing_ok=True` |
+| `iterdir()` 不过滤类型 | 目录和文件混在一起 | 用 `is_file()`/`is_dir()` 过滤 |
+| `glob("**/*.py")` 忘了 `**` | 只匹配当前层，不递归 | 用 `rglob("*.py")` 更简洁 |
+| `os.chdir()` 改了全局工作目录 | 影响所有相对路径，难以回溯 | 尽量用绝对路径，避免 `chdir` |
+
+### 适用场景
+
+| 场景 | 推荐方式 | 说明 |
+|------|---------|------|
+| 文件路径拼接与分解 | `pathlib.Path` | `/` 运算符，跨平台 |
+| 文件读写 | `pathlib` 的 `read_text()`/`write_text()` | 简洁，自动关闭 |
+| 目录遍历、glob | `pathlib` 的 `iterdir()`/`rglob()` | 返回 `Path` 对象，可直接操作 |
+| 读取环境变量 | `os.getenv()` | 带默认值，不报错 |
+| 进程操作、系统调用 | `os` / `subprocess` | `pathlib` 不覆盖这些功能 |
+| 兼容旧代码 | `os.path` | 维护遗留项目时使用 |
+
+---
+
+## 本章小结
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│              os / pathlib 知识要点                            │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   pathlib.Path（推荐）：                                     │
+│   Path("a") / "b"    路径拼接                                │
+│   p.name  p.stem  p.suffix  p.parent   路径属性              │
+│   p.exists()  p.is_file()  p.is_dir()  存在性判断            │
+│   p.mkdir(parents=True, exist_ok=True) 创建目录              │
+│   p.read_text(encoding="utf-8")        读文件                │
+│   p.write_text(...)                    写文件                │
+│   p.unlink(missing_ok=True)            删文件                │
+│   p.iterdir()  p.glob()  p.rglob()     遍历目录              │
+│                                                              │
+│   os 模块：                                                  │
+│   os.getenv("KEY", "默认值")           读环境变量             │
+│   os.getcwd()  os.chdir()              工作目录               │
+│   os.stat()                            文件属性               │
+│                                                              │
+│   原则：新代码用 pathlib，旧代码兼容用 os.path               │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```

@@ -1,6 +1,46 @@
-# random 模块参考（详细版）
+# random 随机数
 
 > Python 3.11+
+
+---
+
+## 为什么需要 random 模块？
+
+### 问题场景
+
+你需要开发一个抽奖系统，从参与者列表中随机选出 3 名获奖者：
+
+```python
+# ❌ 自己实现随机逻辑：分布不均匀，无法复现
+index = hash(str(time.time())) % len(participants)
+
+# ✅ 用 random 模块：均匀分布，可用 seed 复现
+import random
+random.seed(42)                              # 固定种子，测试可复现
+winners = random.sample(participants, k=3)  # 不重复随机抽取
+
+# 安全令牌场景（用 secrets 而非 random）
+import secrets
+token = secrets.token_urlsafe(16)           # 密码学安全的随机字符串
+```
+
+`random` 模块适合模拟、测试、游戏等非安全场景；涉及密码和令牌时改用 `secrets`。
+
+---
+
+## 章节导航
+
+| 部分 | 内容 |
+|------|------|
+| 第一部分 | 随机整数、随机浮点数 |
+| 第二部分 | 随机选择、打乱顺序 |
+| 第三部分 | 随机分布（均匀/正态/其他） |
+| 第四部分 | 随机种子与可复现性 |
+| 第五部分 | 实际应用（密码/抽奖/颜色/骰子） |
+| 第六部分 | 安全随机数（secrets 模块） |
+| L2 实践层 | 推荐做法、反模式、常见陷阱、适用场景 |
+
+---
 
 ## 第一部分：基本随机数生成
 
@@ -281,4 +321,108 @@ token_url: str = secrets.token_urlsafe(16)
 
 # 安全随机十六进制字符串
 token_hex: str = secrets.token_hex(16)
+```
+
+---
+
+## L2 实践层：最佳实践
+
+### 推荐做法
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| 安全场景用 `secrets` 而非 `random` | `random` 基于伪随机算法，可被预测 | `secrets.token_urlsafe(16)` |
+| 测试时固定 `random.seed()` | 保证测试可复现，排查问题方便 | `random.seed(42)` |
+| 不重复抽样用 `sample()`，可重复用 `choices()` | 二者语义不同，混用导致逻辑错误 | `random.sample(lst, k=3)` |
+| 带权重抽样用 `choices(weights=...)` | 模拟概率不等的抽奖、A/B 测试 | `random.choices(lst, weights=[60,30,10])` |
+| 生产代码避免在模块顶层调用 `random.seed()` | 会影响整个程序的随机状态 | 测试中局部设置 |
+
+### 实际应用示例
+
+```python
+import random
+import string
+import secrets
+
+# 带权重的抽奖（一等奖 10%，二等奖 30%，三等奖 60%）
+prizes = ["一等奖", "二等奖", "三等奖"]
+result = random.choices(prizes, weights=[10, 30, 60], k=1)[0]
+
+# 生成安全 API token
+api_token: str = secrets.token_urlsafe(32)
+
+# 可复现的随机测试数据
+rng = random.Random(42)        # 使用独立的 Random 实例，不影响全局状态
+test_data = [rng.randint(1, 100) for _ in range(10)]
+```
+
+### 反模式：不要这样做
+
+```python
+# ❌ 密码/令牌用 random
+import random
+password = ''.join(random.choices('abcdef0123456789', k=32))  # 不安全！
+
+# ✅ 用 secrets
+import secrets
+token = secrets.token_hex(16)
+
+# ❌ 混淆 sample 和 choices
+import random
+items = [1, 2, 3]
+# sample 要求 k <= len(items)
+random.sample(items, k=5)   # ValueError，元素不够
+
+# ✅ 可重复时用 choices
+random.choices(items, k=5)  # 允许重复，[2, 1, 3, 2, 1]
+
+# ❌ 在模块顶层设置 seed（影响全局随机状态）
+import random
+random.seed(42)              # 会让所有依赖 random 的代码都变成伪随机
+```
+
+### 常见陷阱
+
+| 陷阱 | 现象 | 解决方案 |
+|------|------|---------|
+| `random.sample(lst, k>len(lst))` | `ValueError` | 确认 `k <= len(lst)`，或改用 `choices` |
+| 未设种子的测试 | 每次运行结果不同，难以复现 bug | 测试前 `random.seed(固定值)` |
+| 用 `random` 生成密码 | 伪随机，可被预测 | 改用 `secrets` 模块 |
+| `shuffle` 修改原列表 | 原始数据丢失 | 先 `copy = lst[:]`，再 `shuffle(copy)` |
+| 全局 seed 污染 | 一处设了 seed，影响其他模块随机行为 | 用 `random.Random(seed)` 创建独立实例 |
+
+### 适用场景
+
+| 场景 | 推荐模块 | 说明 |
+|------|---------|------|
+| 游戏、模拟、测试数据 | `random` | 性能好，可复现 |
+| 统计分布模拟 | `random` | 内置正态、指数等分布 |
+| 密码、令牌、会话 ID | `secrets` | 密码学安全 |
+| 大规模数值模拟 | `numpy.random` | 批量生成，速度快 100 倍 |
+
+---
+
+## 本章小结
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                  random 模块 知识要点                         │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   随机整数：randint(a,b)  randrange(a,b,step)                │
+│   随机浮点：random()  uniform(a,b)                           │
+│                                                              │
+│   序列操作：                                                 │
+│   choice(seq)         随机选 1 个                            │
+│   choices(seq,k=N)    可重复选 N 个（支持 weights）          │
+│   sample(seq,k=N)     不重复选 N 个                          │
+│   shuffle(seq)        原地打乱                               │
+│                                                              │
+│   分布：gauss(mu,sigma)  normalvariate  uniform  expovariate │
+│   种子：seed(n) 固定状态，测试可复现                         │
+│                                                              │
+│   安全场景必须用 secrets：                                   │
+│   token_urlsafe()  token_hex()  token_bytes()  randbelow()   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
