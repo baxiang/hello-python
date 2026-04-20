@@ -1,7 +1,7 @@
 """任务定义"""
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -121,6 +121,8 @@ def create_download_task(
     return DownloadTask(url=url, priority=priority, max_retries=max_retries)
 
 
-def create_task_batch(urls: list[str], priority: TaskPriority = TaskPriority.NORMAL) -> list[DownloadTask]:
+def create_task_batch(
+    urls: list[str], priority: TaskPriority = TaskPriority.NORMAL
+) -> list[DownloadTask]:
     """批量创建任务"""
     return [create_download_task(url, priority) for url in urls]

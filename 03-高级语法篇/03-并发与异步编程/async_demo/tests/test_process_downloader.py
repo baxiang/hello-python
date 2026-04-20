@@ -1,7 +1,7 @@
 """多进程下载器测试"""
 
 import time
-from multiprocessing import Manager
+from concurrent.futures import ThreadPoolExecutor
 
 from app.core.process_downloader import (
     ProcessDownloader,
@@ -77,25 +77,21 @@ class TestDownloadWithProcesses:
 class TestDownloadWithProcessPool:
     def test_download_with_process_pool_map(self):
         urls = [f"http://test{i}.com" for i in range(4)]
-        results = download_with_process_pool(_mock_process_download, urls, max_workers=2)
+        results = download_with_process_pool(
+            _mock_process_download, urls, max_workers=2
+        )
         assert len(results) == 4
         assert all(r["status"] == 200 for r in results)
 
     def test_process_pool_vs_thread_pool(self):
         iterations = 10000
 
-        start = time.time()
-        from concurrent.futures import ThreadPoolExecutor
-
         with ThreadPoolExecutor(max_workers=4) as executor:
             list(executor.map(_cpu_intensive_task, [iterations] * 4))
-        thread_time = time.time() - start
 
-        start = time.time()
         results = download_with_process_pool(
             _cpu_intensive_task, [iterations] * 4, max_workers=4
         )
-        process_time = time.time() - start
 
         assert len(results) == 4
 

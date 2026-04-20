@@ -2,7 +2,8 @@
 
 import asyncio
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 async def run_with_timeout(coro: Any, timeout: float) -> Any:

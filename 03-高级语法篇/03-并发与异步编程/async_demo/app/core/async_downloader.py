@@ -1,9 +1,10 @@
 """异步下载器 - ch05"""
 
 import asyncio
-import time
+import contextlib
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass
@@ -59,9 +60,13 @@ class AsyncDownloader:
                     break
                 try:
                     data = await download_fn(url)
-                    results.append(AsyncDownloadResult(url=url, success=True, data=data))
+                    results.append(
+                        AsyncDownloadResult(url=url, success=True, data=data)
+                    )
                 except Exception as e:
-                    results.append(AsyncDownloadResult(url=url, success=False, error=str(e)))
+                    results.append(
+                        AsyncDownloadResult(url=url, success=False, error=str(e))
+                    )
                 queue.task_done()
 
         workers = [asyncio.create_task(worker()) for _ in range(self.max_concurrent)]
@@ -103,10 +108,8 @@ async def async_download_with_queue(
     await queue.join()
     for w in workers:
         w.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await w
-        except asyncio.CancelledError:
-            pass
 
     return results
 
@@ -222,7 +225,7 @@ async def async_timeout_demo(
     try:
         result = await asyncio.wait_for(coro(), timeout=timeout)
         return {"success": True, "result": result, "timed_out": False}
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {"success": False, "result": None, "timed_out": True}
 
 

@@ -1,9 +1,9 @@
 """多进程下载器 - ch04"""
 
-import time
+from collections.abc import Callable
 from concurrent.futures import Future, ProcessPoolExecutor
 from multiprocessing import Array, Manager, Process, Queue, Value
-from typing import Any, Callable
+from typing import Any
 
 
 def _process_worker(url: str, result_list: list, download_fn_id: str) -> None:
@@ -40,10 +40,10 @@ def _array_writer(array: Array, start: int, end: int) -> None:
         array[i] = i * 2
 
 
-def _manager_worker(d: dict, l: list, worker_id: int) -> None:
+def _manager_worker(d: dict, lst: list, worker_id: int) -> None:
     """Manager工作者 - 模块级"""
     d[f"worker_{worker_id}"] = worker_id
-    l.append(worker_id)
+    lst.append(worker_id)
 
 
 class ProcessDownloader:

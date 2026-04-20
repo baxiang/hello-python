@@ -216,7 +216,9 @@ class AsyncProgressTracker:
             }
 
 
-def create_progress_tracker(total: int, thread_safe: bool = True) -> ProgressTracker | ThreadSafeProgress:
+def create_progress_tracker(
+    total: int, thread_safe: bool = True
+) -> ProgressTracker | ThreadSafeProgress:
     """创建进度跟踪器"""
     if thread_safe:
         return ThreadSafeProgress(total=total)

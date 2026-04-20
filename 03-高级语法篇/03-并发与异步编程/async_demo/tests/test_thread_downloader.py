@@ -2,7 +2,6 @@
 
 import time
 from concurrent.futures import Future
-from unittest.mock import MagicMock, patch
 
 from app.core.thread_downloader import (
     ThreadDownloader,

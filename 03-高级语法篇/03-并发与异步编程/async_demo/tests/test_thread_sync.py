@@ -91,7 +91,7 @@ class TestBarrierDemo:
     def test_barrier_waits_for_all(self):
         demo = BarrierDemo(parties=2)
         start = time.time()
-        result = demo.demo_barrier()
+        demo.demo_barrier()
         elapsed = time.time() - start
         assert elapsed < 0.5
 

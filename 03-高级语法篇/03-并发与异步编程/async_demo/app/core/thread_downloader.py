@@ -1,9 +1,9 @@
 """多线程下载器 - ch02"""
 
-import time
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass
@@ -44,7 +44,9 @@ class ThreadDownloader:
         """使用map方式执行任务"""
         return list(self.executor.map(fn, items))
 
-    def gather_results(self, futures: list[Future], timeout: float | None = None) -> list:
+    def gather_results(
+        self, futures: list[Future], timeout: float | None = None
+    ) -> list:
         """收集所有结果"""
         return [f.result(timeout=timeout) for f in futures]
 

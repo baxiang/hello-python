@@ -89,7 +89,9 @@ class TestBenchmark:
             return {"url": url}
 
         urls = ["http://a.com", "http://b.com"]
-        result = benchmark.run_benchmark(mock_download, urls, strategy=ConcurrencyStrategy.THREADING)
+        result = benchmark.run_benchmark(
+            mock_download, urls, strategy=ConcurrencyStrategy.THREADING
+        )
         assert "duration" in result
         assert "success_count" in result
         assert result["success_count"] == 2
@@ -108,6 +110,8 @@ class TestCompareStrategies:
     @pytest.mark.asyncio
     async def test_compare_strategies(self):
         urls = [f"http://test{i}.com" for i in range(3)]
-        result = await compare_strategies(_mock_async_download, _mock_download_for_benchmark, urls)
+        result = await compare_strategies(
+            _mock_async_download, _mock_download_for_benchmark, urls
+        )
         assert "best_strategy" in result
         assert "results" in result

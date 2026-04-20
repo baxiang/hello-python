@@ -1,8 +1,8 @@
 """异步编程示例"""
 
 import asyncio
-from typing import Any
 import time
+from typing import Any
 
 
 async def async_task(name: str, delay: float) -> dict[str, Any]:
@@ -32,16 +32,16 @@ async def async_generator(count: int):
 
 class AsyncCounter:
     """异步计数器"""
-    
+
     def __init__(self, start: int = 0):
         self._value = start
         self._lock = asyncio.Lock()
-    
+
     async def increment(self) -> int:
         async with self._lock:
             self._value += 1
             return self._value
-    
+
     async def get_value(self) -> int:
         async with self._lock:
             return self._value

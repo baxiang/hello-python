@@ -1,6 +1,5 @@
 """并发概念演示测试"""
 
-import time
 from app.core.concept import (
     ConceptDemo,
     classify_task,

@@ -81,8 +81,13 @@ class MockDownloadServer:
 
     def _generate_content(self, url: str) -> str:
         """生成模拟内容"""
-        size = min(self.config.max_response_size, random.randint(100, self.config.max_response_size))
-        return f"Content from {url}: " + "x" * (size - len(f"Content from {url}: "))
+        size = min(
+            self.config.max_response_size,
+            random.randint(100, self.config.max_response_size),
+        )
+        return f"Content from {url}: " + "x" * (
+            size - len(f"Content from {url}: ")
+        )
 
     def get_stats(self) -> dict[str, int]:
         """获取统计"""
