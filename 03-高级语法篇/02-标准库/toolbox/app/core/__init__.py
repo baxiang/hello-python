@@ -6,6 +6,14 @@ from app.core.log_entry import (
     is_weekday,
     parse_timestamp,
 )
+from app.core.log_parser import (
+    LogParser,
+    extract_ip_addresses,
+    extract_log_level,
+    mask_sensitive_info,
+    parse_log_file,
+    parse_log_line,
+)
 from app.core.log_scanner import (
     LogScanner,
     find_log_files,
@@ -26,6 +34,12 @@ __all__ = [
     "parse_timestamp",
     "format_timestamp",
     "is_weekday",
+    "LogParser",
+    "parse_log_file",
+    "parse_log_line",
+    "mask_sensitive_info",
+    "extract_ip_addresses",
+    "extract_log_level",
     "LogScanner",
     "scan_directory",
     "find_log_files",
