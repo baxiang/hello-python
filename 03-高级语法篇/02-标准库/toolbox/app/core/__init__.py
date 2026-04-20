@@ -12,6 +12,14 @@ from app.core.log_scanner import (
     get_file_info,
     scan_directory,
 )
+from app.core.log_stats import (
+    LogStats,
+    calculate_mean,
+    calculate_percentile,
+    calculate_std_dev,
+    random_sample,
+    weighted_choice,
+)
 
 __all__ = [
     "LogEntry",
@@ -22,4 +30,10 @@ __all__ = [
     "scan_directory",
     "find_log_files",
     "get_file_info",
+    "LogStats",
+    "calculate_mean",
+    "calculate_std_dev",
+    "calculate_percentile",
+    "random_sample",
+    "weighted_choice",
 ]
