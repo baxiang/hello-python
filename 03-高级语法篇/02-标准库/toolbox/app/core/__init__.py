@@ -1,5 +1,11 @@
 """核心模块"""
 
+from app.core.log_cache import (
+    LogCache,
+    clear_cache,
+    load_cache,
+    save_cache,
+)
 from app.core.log_entry import (
     LogEntry,
     format_timestamp,
@@ -74,4 +80,8 @@ __all__ = [
     "calculate_percentile",
     "random_sample",
     "weighted_choice",
+    "LogCache",
+    "save_cache",
+    "load_cache",
+    "clear_cache",
 ]
