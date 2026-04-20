@@ -401,6 +401,90 @@ print(truthy)  # [1, 'hello', True]
 
 ---
 
+### 6.3 `any()` 与 `all()`: 逻辑聚合
+
+这两个函数用于判断可迭代对象中的元素是否**部分满足**或**全部满足**某个条件。它们是布尔逻辑的"聚合器"，非常适合与**生成器表达式**配合使用。
+
+#### `any()`: 只要有一个为真
+
+**函数签名**：`any(iterable)`
+
+| 参数 | 类型 | 说明 |
+| :--- | :--- | :--- |
+| `iterable` | 可迭代对象 | **数据源**。包含任意元素的序列 |
+
+**返回值**：`bool`。如果**至少有一个**元素的布尔值为 `True`，返回 `True`；否则返回 `False`。如果可迭代对象为空，返回 `False`。
+
+**短路特性**：一旦发现第一个为真的元素，立即返回 `True`，不再检查剩余元素。
+
+```python
+scores = [50, 60, 95, 40]
+
+# 判断是否有人及格 (>=60)
+has_passed = any(s >= 60 for s in scores)
+print(has_passed)  # True (因为 60 和 95 满足条件)
+
+# 判断是否包含特定字符
+text = "Python is fun!"
+print(any(char.isdigit() for char in text))  # False (没有数字)
+```
+
+#### `all()`: 全部为真
+
+**函数签名**：`all(iterable)`
+
+| 参数 | 类型 | 说明 |
+| :--- | :--- | :--- |
+| `iterable` | 可迭代对象 | **数据源** |
+
+**返回值**：`bool`。如果**所有**元素的布尔值都为 `True`，返回 `True`；否则返回 `False`。如果可迭代对象为空，返回 `True`（空真）。
+
+**短路特性**：一旦发现第一个为假的元素，立即返回 `False`。
+
+```python
+scores = [60, 75, 80, 90]
+
+# 判断是否全部及格
+all_passed = all(s >= 60 for s in scores)
+print(all_passed)  # True
+
+# 判断是否包含非法字符（全是字母和数字）
+password = "pass123"
+is_valid = all(c.isalnum() for c in password)
+print(is_valid)  # True
+
+# 空列表的情况
+print(all([]))  # True (空集逻辑为真)
+```
+
+#### 组合实战：数据校验
+
+这两个函数常用于数据清洗和校验：
+
+```python
+users = [
+    {"name": "Alice", "age": 20, "email": "alice@test.com"},
+    {"name": "Bob", "age": 30, "email": "bob@test.com"},
+]
+
+# 校验 1: 是否所有人的邮箱都包含 '@' ?
+valid_emails = all("@" in u["email"] for u in users)
+print(valid_emails)  # True
+
+# 校验 2: 是否有人未成年 (<18) ?
+has_minor = any(u["age"] < 18 for u in users)
+print(has_minor)  # False
+
+# 常见陷阱：不要用 list 推导式，用生成器表达式省内存
+# ✅ 推荐（惰性求值，短路后停止）
+any(x > 100 for x in range(1000000))
+
+# ❌ 不推荐（立即创建完整列表，浪费内存）
+any([x > 100 for x in range(1000000)])
+```
+
+---
+
 ## 7. 对象属性与类型检查
 
 ### 7.1 `type()` 与 `isinstance()`
@@ -505,7 +589,7 @@ print(f"总和: {total}, 平均值: {average}")
 │  类型转换：int, float, str, bool, list, tuple, set, dict    │
 │  数值运算：abs, round, max, min, sum, divmod, pow           │
 │  迭代操作：range, len, enumerate, zip, sorted, reversed     │
-│  高阶函数：map, filter                                      │
+│  高阶函数：map, filter, any, all                              │
 │  对象检查：type, isinstance, id, dir, callable              │
 │                                                             │
 │  ★ 重点推荐：                                               │
