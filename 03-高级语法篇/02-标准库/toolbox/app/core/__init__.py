@@ -21,6 +21,13 @@ from app.core.log_parser import (
     parse_log_file,
     parse_log_line,
 )
+from app.core.log_report import (
+    LogReport,
+    export_to_json,
+    generate_report,
+    load_report,
+    save_report,
+)
 from app.core.log_scanner import (
     LogScanner,
     find_log_files,
@@ -52,6 +59,11 @@ __all__ = [
     "mask_sensitive_info",
     "extract_ip_addresses",
     "extract_log_level",
+    "LogReport",
+    "generate_report",
+    "save_report",
+    "load_report",
+    "export_to_json",
     "LogScanner",
     "scan_directory",
     "find_log_files",
