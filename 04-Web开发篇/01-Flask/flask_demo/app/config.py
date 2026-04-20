@@ -6,10 +6,15 @@ from pathlib import Path
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "jwt-secret-key-change-in-production")
+    JWT_SECRET_KEY = os.environ.get(
+        "JWT_SECRET_KEY", "jwt-secret-key-change-in-production"
+    )
+    JWT_TOKEN_LOCATION = ["headers"]
+    JWT_HEADER_NAME = "Authorization"
+    JWT_HEADER_TYPE = "Bearer"
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
-        f"sqlite:///{Path(__file__).parent.parent.joinpath('instance', 'cms.db')}"
+        f"sqlite:///{Path(__file__).parent.parent.joinpath('instance', 'cms.db')}",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = Path(__file__).parent.parent.joinpath("uploads")
