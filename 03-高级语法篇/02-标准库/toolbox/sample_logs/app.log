@@ -1,0 +1,16 @@
+2024-04-20T08:00:00 INFO Application started successfully
+2024-04-20T08:05:00 INFO User admin@example.com logged in from 192.168.1.100
+2024-04-20T08:10:00 WARN Memory usage at 85%
+2024-04-20T08:15:00 INFO Processing batch job #1234
+2024-04-20T08:20:00 ERROR Database connection failed (E500)
+2024-04-20T08:25:00 INFO Retrying database connection
+2024-04-20T08:30:00 INFO Database connection restored
+2024-04-20T08:35:00 INFO Batch job #1234 completed successfully
+2024-04-20T08:40:00 INFO User logout detected for session abc123
+2024-04-20T09:00:00 INFO Scheduled maintenance started
+2024-04-20T09:30:00 INFO Scheduled maintenance completed
+2024-04-20T10:00:00 INFO New user registered: test@example.com
+2024-04-20T10:05:00 INFO Email sent to test@example.com
+2024-04-20T10:10:00 WARN API response time exceeded threshold: 1500ms
+2024-04-20T10:15:00 INFO Cache cleared for module A
+2024-04-20T10:20:00 INFO Performance metrics collected

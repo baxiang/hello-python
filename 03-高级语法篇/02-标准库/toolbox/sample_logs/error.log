@@ -1,0 +1,10 @@
+2024-04-20T08:20:00 ERROR Database connection failed (E500)
+2024-04-20T08:22:00 ERROR SQL syntax error near 'SELECT * FROM' (E400)
+2024-04-20T09:45:00 ERROR Authentication failed for user guest (E401)
+2024-04-20T10:30:00 ERROR File not found: /data/config.json (E404)
+2024-04-20T11:00:00 ERROR Out of memory during processing (E500)
+2024-04-20T11:30:00 ERROR Network timeout after 30s (E503)
+2024-04-20T12:00:00 ERROR Permission denied for operation (E403)
+2024-04-20T13:00:00 CRITICAL System crash detected
+2024-04-20T13:05:00 CRITICAL Emergency shutdown initiated
+2024-04-20T13:10:00 ERROR Recovery attempt failed (E500)
