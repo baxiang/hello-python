@@ -1,9 +1,6 @@
 """PluginPackage 测试 - 包结构处理"""
 
 from pathlib import Path
-from types import ModuleType
-
-import pytest
 
 from app.core.plugin_package import PluginPackage
 

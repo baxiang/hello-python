@@ -53,7 +53,6 @@ class TestPathManager:
 
     def test_resolve_module_path_returns_path_or_none(self) -> None:
         """resolve_module_path 返回路径或 None"""
-        import os
 
         path = PathManager.resolve_module_path("os")
         assert path is None or isinstance(path, str)

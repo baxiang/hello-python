@@ -1,6 +1,5 @@
 """包结构处理工具"""
 
-import os
 from pathlib import Path
 from types import ModuleType
 

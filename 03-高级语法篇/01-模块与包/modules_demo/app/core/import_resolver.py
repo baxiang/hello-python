@@ -123,7 +123,7 @@ class ImportResolver:
         """
         deps: set[str] = set()
 
-        for name, value in vars(module).items():
+        for _name, value in vars(module).items():
             if isinstance(value, ModuleType):
                 deps.add(value.__name__)
 

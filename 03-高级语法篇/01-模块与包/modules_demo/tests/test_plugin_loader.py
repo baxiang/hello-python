@@ -1,10 +1,6 @@
 """PluginLoader 测试 - 核心插件加载器"""
 
 from pathlib import Path
-from types import ModuleType
-from unittest.mock import MagicMock
-
-import pytest
 
 from app.core.plugin_loader import PluginLoader
 

@@ -3,9 +3,10 @@
 import importlib
 import importlib.util
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable
+from typing import Any
 
 
 class PluginLoader:
@@ -221,10 +222,7 @@ class PluginLoader:
         deps: set[str] = set()
 
         for line in content.splitlines():
-            if line.startswith("import "):
-                module = line.split()[1].split(".")[0]
-                deps.add(module)
-            elif line.startswith("from "):
+            if line.startswith("import ") or line.startswith("from "):
                 module = line.split()[1].split(".")[0]
                 deps.add(module)
 

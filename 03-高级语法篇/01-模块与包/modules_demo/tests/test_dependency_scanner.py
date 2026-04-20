@@ -1,7 +1,6 @@
 """DependencyScanner 测试 - 依赖分析"""
 
 from pathlib import Path
-from types import ModuleType
 
 from app.core.dependency_scanner import DependencyScanner
 

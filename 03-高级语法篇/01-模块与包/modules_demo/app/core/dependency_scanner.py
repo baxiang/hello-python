@@ -1,7 +1,6 @@
 """依赖分析工具"""
 
 import ast
-import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -36,9 +35,8 @@ class DependencyScanner:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     imports.append(alias.name.split(".")[0])
-            elif isinstance(node, ast.ImportFrom):
-                if node.module:
-                    imports.append(node.module.split(".")[0])
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imports.append(node.module.split(".")[0])
 
         return list(set(imports))
 
@@ -109,7 +107,9 @@ class DependencyScanner:
             relative_path = py_file.relative_to(p)
             if relative_path.parent != Path("."):
                 parts = list(relative_path.parts[:-1])
-                parts.append(module_name if py_file.name == "__init__.py" else py_file.stem)
+                is_init = py_file.name == "__init__.py"
+                mod_part = module_name if is_init else py_file.stem
+                parts.append(mod_part)
                 module_name = ".".join(parts)
 
             deps = DependencyScanner.scan_file_imports(str(py_file))
@@ -154,25 +154,9 @@ class DependencyScanner:
             标准库模块名列表
         """
         if DependencyScanner._STDLIB_MODULES is None:
-            if sys.version_info >= (3, 10):
-                from sys import stdlib_module_names
+            from sys import stdlib_module_names
 
-                DependencyScanner._STDLIB_MODULES = set(stdlib_module_names)
-            else:
-                import sysconfig
-                from sysconfig import get_path
-
-                stdlib_path = get_path("stdlib")
-                stdlib_modules: set[str] = set()
-
-                for item in Path(stdlib_path).iterdir():
-                    if item.is_file() and item.suffix == ".py":
-                        stdlib_modules.add(item.stem)
-                    elif item.is_dir() and not item.name.startswith("_"):
-                        if (item / "__init__.py").exists():
-                            stdlib_modules.add(item.name)
-
-                DependencyScanner._STDLIB_MODULES = stdlib_modules
+            DependencyScanner._STDLIB_MODULES = set(stdlib_module_names)
 
         return sorted(DependencyScanner._STDLIB_MODULES)
 

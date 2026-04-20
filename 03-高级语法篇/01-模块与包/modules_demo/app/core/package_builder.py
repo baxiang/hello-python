@@ -23,8 +23,6 @@ class PackageBuilder:
         if not p.is_dir():
             return ""
 
-        output = Path(output_dir) if output_dir else p / "dist"
-
         try:
             result = subprocess.run(
                 ["python", "-m", "build", "--sdist", str(p)],
@@ -212,9 +210,6 @@ description = "{description}"
         Returns:
             构建产物路径列表
         """
-        p = Path(package_path)
-        out = Path(output_dir)
-
         sdist = PackageBuilder.create_sdist(package_path, output_dir)
         wheel = PackageBuilder.create_wheel(package_path, output_dir)
 
@@ -293,7 +288,9 @@ description = "{description}"
         return total_size
 
     @staticmethod
-    def list_package_files(package_path: str, include_hidden: bool = False) -> list[str]:
+    def list_package_files(
+        package_path: str, include_hidden: bool = False
+    ) -> list[str]:
         """列出包中的文件
 
         Args:
@@ -307,9 +304,8 @@ description = "{description}"
         files: list[str] = []
 
         for item in p.iterdir():
-            if item.is_file():
-                if include_hidden or not item.name.startswith("."):
-                    files.append(item.name)
+            if item.is_file() and (include_hidden or not item.name.startswith(".")):
+                files.append(item.name)
 
         return sorted(files)
 

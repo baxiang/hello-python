@@ -1,7 +1,6 @@
 """ImportResolver 测试 - 导入机制"""
 
 from types import ModuleType
-from unittest.mock import patch
 
 import pytest
 
@@ -89,7 +88,6 @@ class TestImportResolver:
 
     def test_cache_control_clears_module(self) -> None:
         """缓存控制可以清除模块"""
-        import json
 
         ImportResolver.import_module("json")
         result = ImportResolver.clear_from_cache("json")
@@ -97,7 +95,6 @@ class TestImportResolver:
 
     def test_get_cached_module_returns_module_or_none(self) -> None:
         """get_cached_module 返回缓存的模块或 None"""
-        import os
 
         mod = ImportResolver.get_cached_module("os")
         assert mod is not None
