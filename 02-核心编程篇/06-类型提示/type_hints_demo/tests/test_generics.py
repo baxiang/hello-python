@@ -1,14 +1,14 @@
 """泛型测试"""
 
 from app.core.generics import (
-    first,
-    reverse,
-    get_middle,
-    double,
-    add_numbers,
-    Stack,
-    Repository,
     Entity,
+    Repository,
+    Stack,
+    add_numbers,
+    double,
+    first,
+    get_middle,
+    reverse,
 )
 
 
@@ -81,9 +81,9 @@ def test_repository_operations():
     repo.add(e1)
     repo.add(e2)
 
-    assert repo.update(0, Entity(id=10)) == True
+    assert repo.update(0, Entity(id=10))
     assert repo.get(0) is not None
     assert repo.get(0).id == 10
 
-    assert repo.delete(1) == True
+    assert repo.delete(1)
     assert len(repo.get_all()) == 1

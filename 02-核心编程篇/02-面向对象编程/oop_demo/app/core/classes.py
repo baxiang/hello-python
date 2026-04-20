@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from app.core.catalog import Catalogable, Borrowable
+from app.core.catalog import Catalogable
 
 
 # ---------------------------------------------------------------------------

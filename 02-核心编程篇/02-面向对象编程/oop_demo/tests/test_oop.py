@@ -6,7 +6,14 @@ from app.core.catalog import Borrowable, Catalogable
 from app.core.classes import AudioBook, BookItem, EBook, PhysicalBook
 from app.core.library import Library, SilentNotification
 from app.core.member import Member
-from app.core.meta import BookPlugin, HardcoverPlugin, LibraryConfig, MagazinePlugin, PaperbackPlugin, SingletonMeta
+from app.core.meta import (
+    BookPlugin,
+    HardcoverPlugin,
+    LibraryConfig,
+    MagazinePlugin,
+    PaperbackPlugin,
+    SingletonMeta,
+)
 from app.core.record import BorrowRecord, IsbnSnapshot
 from app.utils.helpers import format_book_list, generate_member_id
 

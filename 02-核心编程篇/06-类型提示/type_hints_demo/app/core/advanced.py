@@ -1,14 +1,15 @@
-"""高级类型特性示例"""
+"""高级类型特性示例 — ch03：ParamSpec, Concatenate, Final, ClassVar, TypeGuard"""
 
+import functools
+from collections.abc import Callable
 from typing import (
-    ParamSpec,
-    Concatenate,
-    Callable,
-    TypeVar,
-    Final,
-    ClassVar,
-    TypeGuard,
     Any,
+    ClassVar,
+    Concatenate,
+    Final,
+    ParamSpec,
+    TypeGuard,
+    TypeVar,
 )
 
 P = ParamSpec("P")
@@ -16,8 +17,9 @@ R = TypeVar("R")
 
 
 def log_call(func: Callable[P, R]) -> Callable[P, R]:
-    """日志装饰器"""
+    """日志装饰器（ch03：ParamSpec 保留签名）"""
 
+    @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         print(f"调用 {func.__name__}")
         return func(*args, **kwargs)
@@ -26,8 +28,9 @@ def log_call(func: Callable[P, R]) -> Callable[P, R]:
 
 
 def with_context(func: Callable[Concatenate[str, P], R]) -> Callable[P, R]:
-    """注入上下文参数"""
+    """注入上下文参数（ch03：Concatenate 扩展签名）"""
 
+    @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         context = "默认上下文"
         return func(context, *args, **kwargs)

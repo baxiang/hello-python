@@ -2,14 +2,14 @@
 
 from app.core.protocols import (
     Circle,
-    Square,
-    render,
     Person,
-    User,
     Serializable,
+    Square,
+    User,
     UserDict,
     create_user,
     find_max,
+    render,
 )
 
 

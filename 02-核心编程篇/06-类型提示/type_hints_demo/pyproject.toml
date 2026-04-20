@@ -1,11 +1,8 @@
 [project]
 name = "type-hints-demo"
-version = "0.2.0"
-description = "Python 类型提示示例项目"
+version = "0.1.0"
+description = "Python 类型提示示例项目：基础类型 → 泛型 → Protocol → 高级特性"
 requires-python = ">=3.11"
-
-[project.optional-dependencies]
-dev = ["pytest>=7.0.0", "mypy>=1.0.0"]
 
 [build-system]
 requires = ["hatchling"]
@@ -14,7 +11,25 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2",
+    "pytest>=9.0.3",
+    "mypy>=1.0.0",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+check_untyped_defs = true

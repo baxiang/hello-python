@@ -6,15 +6,22 @@ Python tutorial repo with Chinese markdown docs + 49 sample Python projects acro
 
 ## Architecture
 
-**Multi-project monorepo**: No root-level config. Each project has its own `pyproject.toml`.
+**Multi-project monorepo**: No root-level config. 49 independent projects, each with its own `pyproject.toml`.
 
 ```
 <chapter_dir>/<project>/
 ├── pyproject.toml
-├── app/ or src/              # Source code (most use app/)
-├── tests/                    # Test suite
-└── uv.lock                   # If deps exist
+├── app/ or <custom_pkg>/     # Source (most use app/)
+│   ├── core/                 # Core logic (optional)
+│   └── utils/                # Helpers (optional)
+├── tests/                    # pytest suite (optional)
+└── uv.lock                   # If deps installed
 ```
+
+- **Build system**: hatchling (all projects)
+- **Source package**: `app/` in most projects; a few use custom names (e.g., `processor/`)
+- **Ruff/pytest config**: Only present in ~14 of 49 projects; absent projects have no lint/test setup
+- **No CI/CD**, no pre-commit hooks
 
 ## Commands
 
@@ -22,15 +29,18 @@ Python tutorial repo with Chinese markdown docs + 49 sample Python projects acro
 
 ```bash
 cd <project_directory>
-uv run pytest                   # Run tests
+uv run pytest                   # Run tests (if tests/ exists)
 uv run pytest tests/test_x.py   # Single test file
 uv run pytest -k "test_name"    # Run specific test by name
-uv run ruff check .             # Lint
+uv run ruff check .             # Lint (if [tool.ruff] exists)
 uv run ruff check --fix .       # Auto-fix
 uv run ruff format .            # Format
 uv run uvicorn app.main:app --reload  # FastAPI apps
 uv add <package>                # Add dependency
+uv remove <package>             # Remove dependency
 ```
+
+**Dev dependencies**: Projects use either `[project.optional-dependencies]` (dev) or `[[dependency-groups]]` (dev) — both work with `uv sync --group dev`.
 
 ## Sections
 
@@ -52,10 +62,3 @@ uv add <package>                # Add dependency
 - **Package manager**: uv (not pip)
 - **Test**: pytest
 - **Lint/Format**: ruff (line-length 88, py311, rules: E,F,I,N,W,UP,B,SIM)
-
-## Writing Conventions
-
-- **Language**: Simplified Chinese prose; code comments may be Chinese or English
-- **Audience**: Beginners — explain "why", avoid undefined jargon
-- **Markdown format**: `# 第 N 章 - <标题>（详细版）` → `### N.N` subsections → `#### 概念说明` → `#### 示例代码` → `#### 常见错误` → `#### 练习题`
-- **ASCII diagrams**: Use box-drawing characters (┌─┬─┐)

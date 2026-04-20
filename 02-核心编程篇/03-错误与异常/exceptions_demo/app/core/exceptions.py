@@ -15,8 +15,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import Generator
-
+from collections.abc import Generator
 
 # ---------------------------------------------------------------------------
 # ch01 / ch03: 自定义异常层次
@@ -84,8 +83,12 @@ class BankAccount:
     def deposit(self, amount: float) -> float:
         """存款（ch02：try/except/else/finally 完整结构）
 
+        Raises:
+            AccountLockedError: 账户已锁定时抛出
+            InvalidAmountError: 金额无效时抛出
+
         else  → 仅在 try 无异常时执行（记录日志）
-        finally → 无论如何都执行（保证资源清理）
+        finally → 无论成功/失败都执行（可在此做资源清理）
         """
         try:
             if self._locked:
@@ -98,7 +101,7 @@ class BankAccount:
         else:
             self._transaction_log.append(f"+{amount:.2f}")   # ch02: else
         finally:
-            pass                               # ch02: finally（实际场景可关闭连接等）
+            self._transaction_log.append("deposit:cleanup")   # ch02: finally（演示清理逻辑）
         return self._balance
 
     def withdraw(self, amount: float) -> float:
@@ -113,7 +116,7 @@ class BankAccount:
         self._transaction_log.append(f"-{amount:.2f}")
         return self._balance
 
-    def transfer(self, target: "BankAccount", amount: float) -> None:
+    def transfer(self, target: BankAccount, amount: float) -> None:
         """转账（ch03：raise ... from ... 异常链）"""
         try:
             self.withdraw(amount)
@@ -158,7 +161,7 @@ class TransactionContext:
         self._account = account
         self._snapshot: float = 0.0
 
-    def __enter__(self) -> "TransactionContext":
+    def __enter__(self) -> TransactionContext:
         self._snapshot = self._account.balance   # 保存进入时余额
         return self
 

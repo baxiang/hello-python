@@ -13,18 +13,23 @@ from __future__ import annotations
 
 import functools
 import time
-from typing import Any, Callable
-
+from collections.abc import Callable
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # ch01: 装饰器基础
 # ---------------------------------------------------------------------------
 
 def log_call(func: Callable) -> Callable:
-    """记录函数调用（ch01：最基础的装饰器 + @wraps）"""
+    """记录函数调用（ch01：最基础的装饰器 + @wraps）
+
+    调用时打印函数名和参数，演示装饰器的副作用。
+    """
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
+        print(f"[log_call] 调用 {func.__name__}({args!r}, {kwargs!r})")
         result = func(*args, **kwargs)
+        print(f"[log_call] {func.__name__} 返回 {result!r}")
         return result
     wrapper._decorated = True          # type: ignore[attr-defined]
     return wrapper

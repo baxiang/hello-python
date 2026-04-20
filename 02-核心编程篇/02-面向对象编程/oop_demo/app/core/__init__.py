@@ -2,9 +2,21 @@
 
 from app.core.catalog import Borrowable, Catalogable
 from app.core.classes import AudioBook, BookItem, DigitalMixin, EBook, PhysicalBook
-from app.core.library import ConsoleNotification, Library, NotificationService, SilentNotification
+from app.core.library import (
+    ConsoleNotification,
+    Library,
+    NotificationService,
+    SilentNotification,
+)
 from app.core.member import Member
-from app.core.meta import BookPlugin, HardcoverPlugin, LibraryConfig, MagazinePlugin, PaperbackPlugin, SingletonMeta
+from app.core.meta import (
+    BookPlugin,
+    HardcoverPlugin,
+    LibraryConfig,
+    MagazinePlugin,
+    PaperbackPlugin,
+    SingletonMeta,
+)
 from app.core.record import BorrowRecord, IsbnSnapshot
 
 __all__ = [

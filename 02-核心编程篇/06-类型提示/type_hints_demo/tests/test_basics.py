@@ -1,13 +1,13 @@
 """基础类型提示测试"""
 
 from app.core.basics import (
-    count_words,
-    get_point,
-    unique_items,
-    find_user,
-    parse_value,
     apply_operation,
+    count_words,
+    find_user,
+    get_point,
     get_user_score,
+    parse_value,
+    unique_items,
 )
 
 
@@ -40,8 +40,8 @@ def test_find_user():
 def test_parse_value():
     assert parse_value("123") == 123
     assert parse_value("3.14") == 3.14
-    assert parse_value("true") == True
-    assert parse_value("false") == False
+    assert parse_value("true")
+    assert not parse_value("false")
 
 
 def test_apply_operation():

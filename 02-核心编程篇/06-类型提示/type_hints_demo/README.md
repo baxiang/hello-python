@@ -1,54 +1,80 @@
-# 类型提示示例项目
+# 类型提示
 
-本项目包含 Python 类型提示的实用示例，覆盖基础到高级特性。
+Python 类型提示示例项目，覆盖第 01-03 章（基础类型 → 泛型/Protocol/TypedDict → ParamSpec/TypeGuard/Final/ClassVar）。
+
+## 场景
+
+数据处理系统：通过用户查询、泛型容器、协议模式、类型守卫等，演示 Python 类型系统的完整用法。
 
 ## 项目结构
 
 ```
-app/
-├── core/
-│   ├── basics.py      # 容器类型、Optional/Union、Callable 示例
-│   ├── generics.py    # 泛型函数、Stack、Repository 示例
-│   ├── protocols.py   # Protocol、TypedDict 示例
-│   └── advanced.py    # ParamSpec、Final、TypeGuard 示例
+type_hints_demo/
+├── pyproject.toml
+├── app/
+│   ├── __init__.py
+│   ├── core/
+│   │   ├── basics.py      # ch01: 容器类型、Optional/Union、Callable、类型别名
+│   │   ├── generics.py    # ch02: TypeVar、泛型函数/类、Protocol、TypedDict
+│   │   ├── protocols.py   # ch02: Protocol、TypedDict、runtime_checkable
+│   │   └── advanced.py    # ch03: ParamSpec、Concatenate、Final、ClassVar、TypeGuard
 │   └── utils/
-│       └── helpers.py # 辅助函数
-tests/
-├── test_basics.py     # basics 模块测试
-├── test_generics.py   # generics 模块测试
-├── test_protocols.py  # protocols 模块测试
-├── test_advanced.py   # advanced 模块测试
+│       └── helpers.py     # ch02: 泛型工具函数（first/reverse/safe_get）
+└── tests/
+    └── test_basics.py     # 29 个测试
+```
+
+## 安装
+
+```bash
+uv sync
+```
+
+## 使用示例
+
+```python
+from app.core.basics import parse_value, apply_operation, find_user
+from app.core.generics import Stack, Repository, first, get_middle
+from app.core.protocols import Drawable, render, Person, find_max
+from app.core.advanced import log_call, is_string_list, Config, BaseService
+
+# ch01: 基础类型
+parse_value("42")       # → 42 (int)
+parse_value("3.14")     # → 3.14 (float)
+parse_value("true")     # → True (bool)
+parse_value("hello")    # → "hello" (str)
+
+# ch02: 泛型
+stack = Stack[int]()
+stack.push(1); stack.push(2)
+stack.pop()  # → 2
+
+repo = Repository([{"id": 1}, {"id": 2}])
+repo.get(0)
+
+# ch02: Protocol
+from app.core.protocols import Circle
+render(Circle())  # 鸭子类型：无需继承
+
+# ch03: TypeGuard
+items: list[object] = ["a", "b"]
+if is_string_list(items):
+    " ".join(items)  # mypy 知道 items 是 list[str]
 ```
 
 ## 运行测试
 
 ```bash
-# 运行所有测试
-uv run pytest -v
-
-# 运行特定模块测试
-uv run pytest tests/test_basics.py -v
-uv run pytest tests/test_generics.py -v
+uv run pytest               # 全部测试
+uv run mypy app/            # 类型检查（需安装 mypy）
 ```
 
-## 类型检查（可选）
+## 章节映射
 
-```bash
-uv run mypy app/
-```
-
-## 学习建议
-
-1. 先阅读对应章节文档（01-基础、02-进阶、03-高级）
-2. 查看示例代码理解语法
-3. 运行测试验证行为
-4. 修改代码尝试变体
-
-## 示例对照
-
-| 文档章节 | 示例模块 | 测试文件 |
+| 代码文件 | 对应章节 | 核心内容 |
 |---------|---------|---------|
-| 容器类型、Optional、Callable | basics.py | test_basics.py |
-| 泛型深入 | generics.py | test_generics.py |
-| 协议、TypedDict | protocols.py | test_protocols.py |
-| ParamSpec、Final、TypeGuard | advanced.py | test_advanced.py |
+| `basics.py` | ch01 | 容器类型注解、Optional/Union、Callable、类型别名、回调模式 |
+| `generics.py` | ch02 | TypeVar、泛型函数、泛型类(Generic)、约束泛型 |
+| `protocols.py` | ch02 | Protocol、TypedDict、runtime_checkable、鸭子类型 |
+| `advanced.py` | ch03 | ParamSpec、Concatenate、Final、ClassVar、TypeGuard |
+| `helpers.py` | ch02 | 泛型工具函数（TypeVar 应用） |

@@ -1,31 +1,28 @@
-"""类型提示工具函数"""
+"""类型提示工具函数 — ch02：泛型函数"""
 
-from typing import TypeVar, Any
+from __future__ import annotations
 
+from typing import TypeVar
 
 T = TypeVar("T")
 
 
 def first(items: list[T]) -> T:
-    """返回列表第一个元素"""
+    """返回列表第一个元素（ch02：泛型函数）
+
+    Raises:
+        ValueError: 列表为空时抛出
+    """
     if not items:
         raise ValueError("列表为空")
     return items[0]
 
 
 def reverse(items: list[T]) -> list[T]:
-    """反转列表"""
+    """反转列表（ch02：泛型函数）"""
     return items[::-1]
 
 
-def count_words(text: str) -> dict[str, int]:
-    """统计单词出现次数"""
-    result: dict[str, int] = {}
-    for word in text.split():
-        result[word] = result.get(word, 0) + 1
-    return result
-
-
-def safe_get(data: dict[str, Any], key: str) -> str | None:
-    """安全获取字典值"""
+def safe_get(data: dict[str, T], key: str) -> T | None:
+    """安全获取字典值（ch02：泛型 + Optional）"""
     return data.get(key)

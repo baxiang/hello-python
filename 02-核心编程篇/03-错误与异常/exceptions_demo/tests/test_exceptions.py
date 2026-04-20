@@ -63,11 +63,14 @@ class TestExceptionHandling:
         assert "+100.00" in account.get_log()
 
     def test_deposit_invalid_amount_no_log(self):
-        """异常发生时 else 不执行，日志不被记录"""
+        """异常发生时 else 不执行，交易日志不被记录，但 finally 清理日志会被记录"""
         account = BankAccount("ACC001")
         with pytest.raises(InvalidAmountError):
             account.deposit(-10.0)
-        assert len(account.get_log()) == 0
+        # else 分支未执行 → 没有 "+..." 记录
+        assert not any(e.startswith("+") for e in account.get_log())
+        # finally 分支总是执行 → 有清理记录
+        assert "deposit:cleanup" in account.get_log()
 
     def test_withdraw_insufficient_funds(self):
         account = BankAccount("ACC001", 50.0)
@@ -150,7 +153,7 @@ class TestContextManager:
     def test_transaction_context_commit(self):
         """正常退出 → COMMIT 被记录"""
         account = BankAccount("ACC001", 200.0)
-        with TransactionContext(account) as txn:
+        with TransactionContext(account):
             account.deposit(50.0)
         assert "COMMIT" in account.get_log()
         assert account.balance == pytest.approx(250.0)
@@ -158,9 +161,8 @@ class TestContextManager:
     def test_transaction_context_rollback_on_exception(self):
         """异常退出 → 余额回滚到进入前，ROLLBACK 被记录"""
         account = BankAccount("ACC001", 200.0)
-        with pytest.raises(InvalidAmountError):
-            with TransactionContext(account):
-                account.deposit(-50.0)   # 触发异常
+        with pytest.raises(InvalidAmountError), TransactionContext(account):
+            account.deposit(-50.0)   # 触发异常
         assert account.balance == pytest.approx(200.0)   # 回滚
         assert "ROLLBACK" in account.get_log()
 

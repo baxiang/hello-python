@@ -1,24 +1,24 @@
 """协议示例"""
 
-from typing import Protocol, runtime_checkable, TypedDict
+from typing import Protocol, TypedDict, runtime_checkable
 
 
 class Drawable(Protocol):
     """绘制协议"""
-    
+
     def draw(self) -> None: ...
 
 
 class Circle:
     """圆形"""
-    
+
     def draw(self) -> None:
         print("画圆")
 
 
 class Square:
     """正方形"""
-    
+
     def draw(self) -> None:
         print("画正方形")
 
@@ -30,17 +30,20 @@ def render(shape: Drawable) -> None:
 
 class Comparable(Protocol):
     """可比较协议"""
-    
+
     def compare_to(self, other: "Comparable") -> int: ...
 
 
 class Person:
-    """人员类"""
-    
+    """人员类（ch02：实例变量类型注解）"""
+
+    name: str
+    age: int
+
     def __init__(self, name: str, age: int) -> None:
         self.name = name
         self.age = age
-    
+
     def compare_to(self, other: "Person") -> int:
         return self.age - other.age
 
@@ -48,24 +51,27 @@ class Person:
 @runtime_checkable
 class Serializable(Protocol):
     """可序列化协议"""
-    
+
     def to_json(self) -> str: ...
 
 
 class User:
-    """用户类"""
-    
+    """用户类（ch02：实例变量类型注解）"""
+
+    name: str
+    age: int
+
     def __init__(self, name: str, age: int) -> None:
         self.name = name
         self.age = age
-    
+
     def to_json(self) -> str:
         return f'{{"name": "{self.name}", "age": {self.age}}}'
 
 
 class UserDict(TypedDict):
     """用户字典类型"""
-    
+
     id: int
     name: str
     email: str
@@ -74,7 +80,7 @@ class UserDict(TypedDict):
 
 class ConfigDict(TypedDict, total=False):
     """配置字典类型（所有字段可选）"""
-    
+
     host: str
     port: int
     debug: bool

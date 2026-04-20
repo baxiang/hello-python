@@ -5,8 +5,8 @@ import pytest
 from app.core.builtins import (
     all_passed,
     any_excellent,
-    classify_items,
     clamp_score,
+    classify_items,
     filter_passing,
     pair_name_score,
     rank_students,

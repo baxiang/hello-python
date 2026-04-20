@@ -1,14 +1,14 @@
 """高级特性测试"""
 
 from app.core.advanced import (
-    log_call,
-    with_context,
-    Config,
     BaseService,
-    is_string_list,
+    Config,
     is_positive_dict,
+    is_string_list,
+    log_call,
     process_data,
     sum_values,
+    with_context,
 )
 
 
@@ -45,15 +45,15 @@ def test_base_service():
 
 
 def test_is_string_list():
-    assert is_string_list(["a", "b", "c"]) == True
-    assert is_string_list([1, "b", 3]) == False
-    assert is_string_list([]) == True
+    assert is_string_list(["a", "b", "c"])
+    assert not is_string_list([1, "b", 3])
+    assert is_string_list([])
 
 
 def test_is_positive_dict():
-    assert is_positive_dict({"a": 1, "b": 2}) == True
-    assert is_positive_dict({"a": 0, "b": 2}) == False
-    assert is_positive_dict({"a": -1, "b": 2}) == False
+    assert is_positive_dict({"a": 1, "b": 2})
+    assert not is_positive_dict({"a": 0, "b": 2})
+    assert not is_positive_dict({"a": -1, "b": 2})
 
 
 def test_process_data():

@@ -1,7 +1,6 @@
 """基础类型提示示例"""
 
-from typing import Callable, Any
-
+from collections.abc import Callable
 
 UserId = int
 UserName = str
@@ -35,14 +34,24 @@ def find_user(user_id: int) -> dict[str, str] | None:
     return users.get(user_id)
 
 
-def parse_value(value: str) -> int | float | bool:
-    """解析字符串值"""
+def parse_value(value: str) -> int | float | bool | str:
+    """解析字符串值为最合适的类型（ch01：Union 类型返回）
+
+    >>> parse_value("42")       → 42 (int)
+    >>> parse_value("3.14")     → 3.14 (float)
+    >>> parse_value("true")     → True (bool)
+    >>> parse_value("hello")    → "hello" (str, 原样返回)
+    """
     if value.isdigit():
         return int(value)
     try:
         return float(value)
     except ValueError:
-        return value.lower() == "true"
+        if value.lower() == "true":
+            return True
+        if value.lower() == "false":
+            return False
+        return value  # 无法解析时原样返回
 
 
 def apply_operation(

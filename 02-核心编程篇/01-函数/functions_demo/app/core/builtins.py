@@ -13,7 +13,6 @@ from __future__ import annotations
 from functools import reduce
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # ch04: lambda 匿名函数
 # ---------------------------------------------------------------------------

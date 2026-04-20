@@ -14,9 +14,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import itertools
-from typing import Generator, Iterator
-
+from collections.abc import AsyncGenerator, Generator
 
 # ---------------------------------------------------------------------------
 # ch01: 迭代基础 — iter() / next() / 可迭代对象
@@ -59,7 +59,7 @@ class LogIterator:
         self._entries = entries
         self._index: int = 0
 
-    def __iter__(self) -> "LogIterator":
+    def __iter__(self) -> LogIterator:
         return self
 
     def __next__(self) -> LogEntry:
@@ -74,7 +74,7 @@ class LogCollection:
     """日志集合（ch02：可迭代类——每次 iter() 返回新的独立迭代器，支持多次遍历）"""
 
     def __init__(self, entries: list[LogEntry]) -> None:
-        self._entries = entries
+        self._entries: list[LogEntry] = list(entries)
 
     def __iter__(self) -> LogIterator:
         """每次调用都新建一个 LogIterator，互不干扰"""
@@ -84,6 +84,7 @@ class LogCollection:
         return len(self._entries)
 
     def add(self, entry: LogEntry) -> None:
+        """添加日志条目"""
         self._entries.append(entry)
 
 
@@ -130,18 +131,21 @@ def log_accumulator() -> Generator[int, LogEntry | None, str]:
         gen = log_accumulator()
         next(gen)           → 启动，产出 0（当前计数）
         gen.send(entry)     → 传入一条日志，产出新计数
-        gen.close()         → 结束
+        gen.close()         → 结束，触发 finally 清理
     """
     count = 0
-    while True:
-        entry = yield count
-        if entry is not None:
-            count += 1
+    try:
+        while True:
+            entry = yield count
+            if entry is not None:
+                count += 1
+    except GeneratorExit:
+        pass  # ch04: 清理资源（演示 GeneratorExit 处理）
 
 
 def safe_log_reader(
     entries: list[LogEntry],
-) -> Generator[LogEntry | str, type[Exception] | None, None]:
+) -> Generator[LogEntry | str, None, None]:
     """支持 throw() 注入异常（ch04：throw() 向生成器注入异常）
 
     gen.throw(ValueError) → 生成器捕获后产出错误消息，继续运行
@@ -150,7 +154,7 @@ def safe_log_reader(
         try:
             yield entry
         except ValueError:
-            yield f"[跳过无效条目]"
+            yield "[跳过无效条目]"
 
 
 def merge_logs(
@@ -204,23 +208,22 @@ def generate_ids(start: int = 1, count: int = 5) -> list[int]:
 
 async def async_log_stream(
     entries: list[LogEntry], delay: float = 0.0
-) -> None:
+) -> AsyncGenerator[LogEntry, None]:
     """异步生成器示例（ch06：async def + yield）
 
     实际使用：
         async for entry in async_log_stream(entries):
             process(entry)
     """
-    import asyncio
     for entry in entries:
         if delay > 0:
             await asyncio.sleep(delay)
-        yield entry   # type: ignore[misc]  # async generator yield
+        yield entry
 
 
 async def collect_async(entries: list[LogEntry]) -> list[LogEntry]:
     """收集异步生成器的所有条目（ch06：async for）"""
     result = []
-    async for entry in async_log_stream(entries):   # type: ignore[misc]
+    async for entry in async_log_stream(entries):
         result.append(entry)
     return result

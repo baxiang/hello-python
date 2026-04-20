@@ -12,8 +12,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
-
+from collections.abc import Callable
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # ch01: 函数基础 — 定义、调用、返回值、高阶函数、递归

@@ -1,7 +1,7 @@
 """泛型示例"""
 
-from typing import TypeVar, Generic
 from dataclasses import dataclass
+from typing import Generic, TypeVar
 
 T = TypeVar('T')
 Number = TypeVar('Number', int, float)
@@ -34,23 +34,23 @@ def add_numbers(a: Number, b: Number) -> Number:
 
 class Stack(Generic[T]):
     """泛型栈"""
-    
+
     def __init__(self) -> None:
         self._items: list[T] = []
-    
+
     def push(self, item: T) -> None:
         self._items.append(item)
-    
+
     def pop(self) -> T:
         if not self._items:
             raise IndexError("栈为空")
         return self._items.pop()
-    
+
     def peek(self) -> T:
         if not self._items:
             raise IndexError("栈为空")
         return self._items[-1]
-    
+
     def is_empty(self) -> bool:
         return len(self._items) == 0
 
@@ -62,28 +62,28 @@ class Entity:
 
 class Repository(Generic[T]):
     """泛型仓储"""
-    
+
     def __init__(self) -> None:
         self._storage: list[T] = []
-    
+
     def add(self, item: T) -> int:
         self._storage.append(item)
         return len(self._storage) - 1
-    
+
     def get(self, index: int) -> T | None:
         if 0 <= index < len(self._storage):
             return self._storage[index]
         return None
-    
+
     def get_all(self) -> list[T]:
         return self._storage.copy()
-    
+
     def update(self, index: int, item: T) -> bool:
         if 0 <= index < len(self._storage):
             self._storage[index] = item
             return True
         return False
-    
+
     def delete(self, index: int) -> bool:
         if 0 <= index < len(self._storage):
             self._storage.pop(index)
