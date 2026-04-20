@@ -1,7 +1,7 @@
 """辅助函数"""
 
-from typing import Any
 import json
+from typing import Any
 
 
 def pretty_print(data: Any) -> str:
