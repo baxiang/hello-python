@@ -1,0 +1,8 @@
+[
+  {"id": 1, "name": "Alice", "category": "premium", "value": 1000, "timestamp": "2024-01-01"},
+  {"id": 2, "name": "Bob", "category": "standard", "value": 500, "timestamp": "2024-01-02"},
+  {"id": 3, "name": "Charlie", "category": "premium", "value": 1500, "timestamp": "2024-01-03"},
+  {"id": 4, "name": "Diana", "category": "standard", "value": 300, "timestamp": "2024-01-04"},
+  {"id": 5, "name": "Eve", "category": "premium", "value": 2000, "timestamp": "2024-01-05"},
+  {"id": 6, "name": "Frank", "category": "standard", "value": 400, "timestamp": "2024-01-06"}
+]

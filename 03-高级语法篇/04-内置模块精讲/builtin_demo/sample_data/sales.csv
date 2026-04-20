@@ -1,0 +1,11 @@
+id,name,category,value,timestamp
+1,Product A,electronics,100,2024-01-01
+2,Product B,electronics,150,2024-01-02
+3,Product C,clothing,80,2024-01-03
+4,Product D,clothing,120,2024-01-04
+5,Product E,electronics,200,2024-01-05
+6,Product F,clothing,90,2024-01-06
+7,Product G,electronics,180,2024-01-07
+8,Product H,clothing,110,2024-01-08
+9,Product I,electronics,250,2024-01-09
+10,Product J,clothing,75,2024-01-10
