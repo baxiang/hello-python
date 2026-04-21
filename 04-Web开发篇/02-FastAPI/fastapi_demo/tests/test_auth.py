@@ -1,6 +1,5 @@
 """认证API测试"""
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -35,9 +34,7 @@ class TestAuthRegister:
 class TestAuthLogin:
     """登录测试"""
 
-    def test_login_success(
-        self, client: TestClient, test_user
-    ) -> None:
+    def test_login_success(self, client: TestClient, test_user) -> None:
         """测试成功登录"""
         response = client.post(
             "/api/auth/login",
@@ -48,9 +45,7 @@ class TestAuthLogin:
         assert "access_token" in data
         assert data["token_type"] == "bearer"
 
-    def test_login_wrong_password(
-        self, client: TestClient, test_user
-    ) -> None:
+    def test_login_wrong_password(self, client: TestClient, test_user) -> None:
         """测试错误密码"""
         response = client.post(
             "/api/auth/login",
