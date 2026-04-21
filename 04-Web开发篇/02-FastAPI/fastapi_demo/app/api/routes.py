@@ -1,34 +1,29 @@
-"""路由"""
+"""路由聚合"""
 
-from fastapi import APIRouter, HTTPException
-from app.models.user import UserCreate, UserResponse
-from app.services.user_service import user_service
+from fastapi import WebSocket
 
-router = APIRouter()
+from app.api.auth import router as auth_router
+from app.api.tasks import router as tasks_router
+from app.api.ws import task_websocket_endpoint
 
+api_router = APIRouter()
+api_router.include_router(auth_router)
+api_router.include_router(tasks_router)
 
-@router.get("/hello")
-def hello():
-    """问候接口"""
-    return {"message": "Hello, FastAPI!"}
-
-
-@router.post("/users", response_model=UserResponse, status_code=201)
-def create_user(user: UserCreate):
-    """创建用户"""
-    return user_service.create(user.name, user.email)
+health_router = APIRouter(tags=["健康检查"])
 
 
-@router.get("/users", response_model=list[UserResponse])
-def get_users():
-    """获取用户列表"""
-    return user_service.get_all()
+@health_router.get("/health")
+async def health_check() -> dict[str, str]:
+    """健康检查"""
+    return {"status": "healthy", "service": "Task Manager API"}
 
 
-@router.get("/users/{user_id}", response_model=UserResponse)
-def get_user(user_id: int):
-    """获取用户"""
-    user = user_service.get(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
-    return user
+@health_router.get("/")
+async def root() -> dict[str, str]:
+    """根路径"""
+    return {
+        "message": "Task Manager API",
+        "docs": "/docs",
+        "redoc": "/redoc",
+    }
