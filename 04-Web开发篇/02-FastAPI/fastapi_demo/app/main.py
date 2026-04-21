@@ -16,48 +16,38 @@ Example:
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from logging import basicConfig, INFO
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app import __version__
 from app.api.routes import api_router, health_router
+from app.api.ws import task_websocket_endpoint
 from app.core.config import get_settings
+from app.core.database import init_db
+from app.middleware.logging import LoggingMiddleware
+
+basicConfig(level=INFO)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    应用生命周期管理
-
-    在应用启动和关闭时执行操作。
-
-    Args:
-        app: FastAPI 应用实例
-    """
-    # 启动时
+    """应用生命周期管理"""
     settings = get_settings()
     print(f"启动 {settings.APP_NAME} v{__version__}")
     print(f"环境: {settings.APP_ENV}")
 
+    await init_db()
+
     yield
 
-    # 关闭时
     print("关闭应用")
 
 
 def create_app() -> FastAPI:
-    """
-    创建 FastAPI 应用实例
-
-    Returns:
-        配置好的 FastAPI 应用
-
-    Example:
-        >>> app = create_app()
-        >>> app.title
-        'FastAPI Demo API'
-    """
+    """创建 FastAPI 应用实例"""
     settings = get_settings()
 
     app = FastAPI(
@@ -70,21 +60,24 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
 
-    # CORS 中间件
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # 生产环境应限制
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    # 注册路由
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+    app.add_middleware(LoggingMiddleware)
+
     app.include_router(health_router)
-    app.include_router(api_router)
+    app.include_router(api_router, prefix="/api")
+
+    app.add_api_websocket_route("/api/ws/tasks", task_websocket_endpoint)
 
     return app
 
 
-# 创建应用实例
 app = create_app()
