@@ -16,9 +16,9 @@ Example:
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from logging import basicConfig, INFO
+from logging import INFO, basicConfig
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 

@@ -1,6 +1,7 @@
 """数据库配置"""
 
 from collections.abc import AsyncGenerator
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -22,6 +23,7 @@ async_session_maker = async_sessionmaker(
 
 class Base(DeclarativeBase):
     """SQLAlchemy基类"""
+
     pass
 
 

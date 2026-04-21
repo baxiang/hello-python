@@ -1,11 +1,10 @@
 """请求日志中间件"""
 
+import logging
 import time
 from typing import Any
 
 from fastapi import Request, Response
-
-import logging
 
 logger = logging.getLogger(__name__)
 

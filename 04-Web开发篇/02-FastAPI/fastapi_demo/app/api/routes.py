@@ -1,10 +1,9 @@
 """路由聚合"""
 
-from fastapi import WebSocket
+from fastapi import APIRouter
 
 from app.api.auth import router as auth_router
 from app.api.tasks import router as tasks_router
-from app.api.ws import task_websocket_endpoint
 
 api_router = APIRouter()
 api_router.include_router(auth_router)

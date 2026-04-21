@@ -10,16 +10,22 @@ class TaskCreate(BaseModel):
 
     title: str = Field(..., min_length=1, max_length=200, description="任务标题")
     description: str | None = Field(None, max_length=1000, description="任务描述")
-    status: str = Field("draft", description="状态: draft/pending/in_progress/completed")
+    status: str = Field(
+        "draft", description="状态: draft/pending/in_progress/completed"
+    )
     priority: str = Field("medium", description="优先级: low/medium/high")
 
 
 class TaskUpdate(BaseModel):
     """任务更新模型"""
 
-    title: str | None = Field(None, min_length=1, max_length=200, description="任务标题")
+    title: str | None = Field(
+        None, min_length=1, max_length=200, description="任务标题"
+    )
     description: str | None = Field(None, max_length=1000, description="任务描述")
-    status: str | None = Field(None, description="状态: draft/pending/in_progress/completed")
+    status: str | None = Field(
+        None, description="状态: draft/pending/in_progress/completed"
+    )
     priority: str | None = Field(None, description="优先级: low/medium/high")
 
 

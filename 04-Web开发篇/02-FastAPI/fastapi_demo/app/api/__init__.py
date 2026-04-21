@@ -1,7 +1,5 @@
 """API模块"""
 
-from fastapi import APIRouter
-
 from app.api.auth import router as auth_router
 from app.api.deps import get_current_user
 from app.api.routes import api_router, health_router
