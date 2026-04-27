@@ -24,7 +24,7 @@ def _sync_slow_operation(delay_ms: float) -> dict:
     return {"delay_ms": delay_ms, "status": "done"}
 
 
-@router.get("/{delay_ms}")
+@router.get("/call/{delay_ms}")
 async def demo_async(delay_ms: float = 100) -> dict:
     """异步操作 — 装饰器正确 await"""
     result = await _slow_operation(delay_ms)

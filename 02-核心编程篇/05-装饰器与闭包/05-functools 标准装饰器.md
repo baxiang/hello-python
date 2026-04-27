@@ -1,5 +1,8 @@
 # 第 5 章 — functools 标准装饰器
 
+> **Python 版本要求**：Python 3.11+
+> **贯穿项目**：Web API 请求处理系统
+
 ## 为什么需要 functools？
 
 Python 标准库 `functools` 模块提供了 **生产环境必备** 的装饰器和工具函数。与手写装饰器不同，这些装饰器由 CPython 核心团队维护，经过充分测试和性能优化。
@@ -305,6 +308,23 @@ $ curl "http://localhost:8000/api/v1/cache/config/db_host"
 ```
 
 代码实现见 `app/routers/cache.py`。
+
+---
+
+## 自检清单
+
+- **`@lru_cache(128)` 和 `@cache` 有什么区别？什么场景用哪个？**
+- **`cache_info()` 返回的 `hits` 和 `misses` 如何计算命中率？**
+- **`@cached_property` 和 `@property` 的核心区别是什么？**
+- **`@singledispatch` 比 if-elif 好在哪里？**
+- **`partial` 和 `lambda` 固定参数有什么优劣？**
+
+**答案：**
+1. `@lru_cache(128)` 有容量上限，超限时自动淘汰最久未使用的条目；`@cache` 无限缓存。输入空间大且不确定时用 `lru_cache`，小而确定时用 `cache`。
+2. 命中率 = `hits / (hits + misses)`。越接近 100% 缓存效果越好。
+3. `@property` 每次访问都重新执行函数体；`@cached_property` 只执行一次，结果缓存到实例 `__dict__` 中。
+4. 可扩展性（可在任意位置 `@register`）、可读性（扁平）、测试性（分支独立）。
+5. `partial` 保留函数元信息（`__name__`、`__doc__`），可序列化；`lambda` 丢失元信息且不可序列化。
 
 ---
 

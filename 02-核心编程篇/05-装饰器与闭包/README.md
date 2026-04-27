@@ -69,7 +69,7 @@ uv run pytest -v
 | `POST /api/v1/retry/fetch` | ch04 | 重试机制演示 |
 | `GET /api/v1/cache/fibonacci/:n` | ch05 | lru_cache 性能对比 |
 | `GET /api/v1/cache/config/:key` | ch05 | 缓存命中率监控 |
-| `GET /api/v1/async/:delay` | ch06 | 异步装饰器 |
+| `GET /api/v1/async/call/{delay}` | ch06 | 异步装饰器 |
 | `GET /api/v1/async/sync/:delay` | ch06 | 同步操作对比 |
 | `GET /api/v1/async/count-calls` | ch06 | 类装饰器计数 |
 
