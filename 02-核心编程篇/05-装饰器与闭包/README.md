@@ -1,80 +1,85 @@
 # 装饰器与闭包
 
-本章讲解 Python 装饰器与闭包的完整知识体系。
+本章讲解 Python 装饰器与闭包的完整知识体系，从函数是一等公民到生产环境装饰器最佳实践。
 
 ---
 
-## 贯穿项目：Web API 请求处理系统
+## 快速开始
 
-本章以 **Web API 请求处理系统** 贯穿各节，从函数参数化到装饰器应用：
+```bash
+# 进入示例项目
+cd decorators_demo
+
+# 安装依赖
+uv sync
+
+# 启动 Web 服务（ch03-ch06 章节演示）
+uv run uvicorn app.main:app --reload
+# → 访问 http://localhost:8000/docs 查看交互式 API 文档
+
+# 运行测试（所有章节验证）
+uv run pytest -v
+```
+
+---
+
+## 知识地图
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Web API 请求处理系统演进                                      │
-│                                                             │
-│  第1节 函数进阶                                               │
-│  ─────────────────────────────────────────────              │
-│  → 将处理函数作为参数传递                                     │
-│  → 实现路由分发系统                                           │
-│                                                             │
-│  第2节 闭包详解                                               │
-│  ─────────────────────────────────────────────              │
-│  → 用闭包管理请求计数器                                       │
-│  → 实现私有状态管理                                           │
-│                                                             │
-│  第3节 装饰器基础                                             │
-│  ─────────────────────────────────────────────              │
-│  → 用装饰器添加日志、计时                                     │
-│  → 实现 @timer、@logger                                      │
-│                                                             │
-│  第4节 装饰器进阶                                             │
-│  ─────────────────────────────────────────────              │
-│  → 带参数装饰器实现权限验证                                   │
-│  → 实现 @auth_required(role="admin")                        │
-│  → 实现 @retry(times=3)                                     │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+函数是一等公民 ──→ 闭包与作用域 ──→ 装饰器核心原理 ──→ 带参数装饰器
+      ↓                   ↓                  ↓                    ↓
+  函数传递能力       LEGB + nonlocal    @语法 + wraps      三层嵌套 + 工厂
+  Callable 类型      闭包内存模型       定义时 vs 调用时    装饰器兼容性
+       │                   │                  │                    │
+       └───────────────────┴──────────────────┴────────────────────┘
+                                ↓
+                    functools 标准装饰器 ──→ 装饰器高级用法
+                                ↓                        ↓
+                            lru_cache / cache         ParamSpec + Concatenate
+                            cached_property           async 装饰器
+                            singledispatch            wrapt 库
+                            partial                   调试技巧
 ```
 
 ---
 
 ## 章节导航
 
-| 章节 | 文件 | 主题 | 贯穿实战 |
+| 章节 | 文件 | 主题 | 验证方式 |
 |------|------|------|---------|
-| 01 | [01-函数进阶.md](./01-函数进阶.md) | 函数是一等公民 | 路由分发系统 |
-| 02 | [02-闭包详解.md](./02-闭包详解.md) | 闭包、nonlocal | 请求计数器 |
-| 03 | [03-装饰器基础.md](./03-装饰器基础.md) | 装饰器语法 | 日志/计时装饰器 |
-| 04 | [04-装饰器进阶.md](./04-装饰器进阶.md) | 带参数装饰器 | 权限验证/重试 |
+| 01 | [函数是一等公民](./01-函数是一等公民.md) | 函数传递 + Callable | `pytest tests/test_ch01.py` |
+| 02 | [闭包与作用域链](./02-闭包与作用域链.md) | LEGB + nonlocal + 闭包原理 | `pytest tests/test_ch02.py` |
+| 03 | [装饰器核心原理](./03-装饰器核心原理.md) | @语法 + wraps + 执行时序 | `curl localhost:8000/api/v1/demo` |
+| 04 | [带参数装饰器](./04-带参数装饰器与装饰器工厂.md) | 三层嵌套 + 工厂模式 | `curl localhost:8000/api/v1/auth` |
+| 05 | [functools 标准装饰器](./05-functools 标准装饰器.md) | lru_cache/cached_property | `curl localhost:8000/api/v1/cache` |
+| 06 | [装饰器高级用法](./06-装饰器高级用法与最佳实践.md) | async + 类型精化 + wrapt | `curl localhost:8000/api/v1/async` |
 
 ---
 
-## 核心概念预览
+## API 端点一览
 
-### 函数是一等公民
+启动服务后，以下端点可用：
 
-```python
-def route(path: str, handler: Callable) -> None:
-    handler(request)  # 函数作为参数传递
-```
+| 端点 | 章节 | 说明 |
+|------|------|------|
+| `GET /api/v1/demo/hello` | ch03 | 日志 + 计时装饰器演示 |
+| `GET /api/v1/demo/wraps-comparison` | ch03 | @wraps 对比 |
+| `GET /api/v1/auth/profile` | ch04 | 权限验证（user 角色） |
+| `DELETE /api/v1/auth/users/:id` | ch04 | 权限验证（admin 角色） |
+| `POST /api/v1/retry/fetch` | ch04 | 重试机制演示 |
+| `GET /api/v1/cache/fibonacci/:n` | ch05 | lru_cache 性能对比 |
+| `GET /api/v1/cache/config/:key` | ch05 | 缓存命中率监控 |
+| `GET /api/v1/async/:delay` | ch06 | 异步装饰器 |
+| `GET /api/v1/async/sync/:delay` | ch06 | 同步操作对比 |
+| `GET /api/v1/async/count-calls` | ch06 | 类装饰器计数 |
 
-### 闭包
+---
 
-```python
-def create_counter():
-    count = 0  # 私有变量
-    def increment():
-        nonlocal count
-        count += 1
-        return count
-    return increment
-```
+## 装饰器最佳实践清单
 
-### 装饰器
-
-```python
-@timer
-@logger
-def handle_request(request):
-    return process(request)
-```
+1. **始终使用 @wraps** — 保留原函数元信息
+2. **一个装饰器只做一件事** — 保持简单和可组合
+3. **用 ParamSpec 保留类型签名** — 让 IDE 提供更好的提示
+4. **async 装饰器记得 await** — 否则返回 coroutine 而非结果
+5. **优先用 functools 标准装饰器** — lru_cache, singledispatch 等
+6. **装饰器在定义时执行** — 不是调用时
