@@ -1,4 +1,4 @@
-"""辅助函数 — 图书馆常用工具"""
+"""图书馆常用工具函数"""
 
 from __future__ import annotations
 
