@@ -10,10 +10,12 @@
 
 from fastapi import FastAPI
 
+from app.routers import demo
+
 app = FastAPI(
     title="Python 装饰器与闭包示例",
     description="每章的装饰器通过 API 路由进行演示",
     version="0.2.0",
 )
 
-# 路由将在后续 Task 中逐步挂载
+app.include_router(demo.router)
