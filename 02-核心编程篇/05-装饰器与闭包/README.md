@@ -30,15 +30,15 @@ uv run pytest -v
       ↓                   ↓                  ↓                    ↓
   函数传递能力       LEGB + nonlocal    @语法 + wraps      三层嵌套 + 工厂
   Callable 类型      闭包内存模型       定义时 vs 调用时    装饰器兼容性
-       │                   │                  │                    │
-       └───────────────────┴──────────────────┴────────────────────┘
-                                ↓
-                    functools 标准装饰器 ──→ 装饰器高级用法
-                                ↓                        ↓
-                            lru_cache / cache         ParamSpec + Concatenate
-                            cached_property           async 装饰器
-                            singledispatch            wrapt 库
-                            partial                   调试技巧
+        │                   │                  │                    │
+        └───────────────────┴──────────────────┴────────────────────┘
+                                 ↓
+                     functools 标准装饰器 ──→ 装饰器高级用法 ──→ 边界情况与调试
+                                 ↓                        ↓                  ↓
+                             lru_cache / cache         ParamSpec         叠加顺序问题
+                             cached_property           async 装饰器      闭包陷阱排查
+                             singledispatch            wrapt 库          调试工具函数
+                             partial                   调试技巧          生产排查清单
 ```
 
 ---
@@ -53,6 +53,7 @@ uv run pytest -v
 | 04 | [带参数装饰器](./04-带参数装饰器与装饰器工厂.md) | 三层嵌套 + 工厂模式 | `curl localhost:8000/api/v1/auth` |
 | 05 | [functools 标准装饰器](./05-functools 标准装饰器.md) | lru_cache/cached_property | `curl localhost:8000/api/v1/cache` |
 | 06 | [装饰器高级用法](./06-装饰器高级用法与最佳实践.md) | async + 类型精化 + wrapt | `curl localhost:8000/api/v1/async` |
+| 07 | [边界情况与调试实战](./07-装饰器边界情况与调试实战.md) | 叠加顺序 + 闭包陷阱 + 调试工具 | `curl localhost:8000/api/v1/debug` |
 
 ---
 
@@ -72,6 +73,11 @@ uv run pytest -v
 | `GET /api/v1/async/call/{delay}` | ch06 | 异步装饰器 |
 | `GET /api/v1/async/sync/:delay` | ch06 | 同步操作对比 |
 | `GET /api/v1/async/count-calls` | ch06 | 类装饰器计数 |
+| `GET /api/v1/debug/order-conflict` | ch07 | 装饰器叠加顺序 |
+| `GET /api/v1/debug/closure-trap` | ch07 | 循环变量陷阱 |
+| `GET /api/v1/debug/async-await-missing` | ch07 | async await 遗漏 |
+| `GET /api/v1/debug/signature-lost` | ch07 | 函数签名丢失 |
+| `GET /api/v1/debug/stack-swallowed` | ch07 | 异常栈被吞掉 |
 
 ---
 
