@@ -6,6 +6,8 @@
 
 ---
 
+## L1 理解层：会用
+
 ## 1. 核心概念与模型
 
 ### 1.1 为什么需要 asyncio？
@@ -50,6 +52,8 @@
 
 **asyncio三要素：** async、await、事件循环。
 
+**asyncio三要素：** async、await、事件循环。
+
 ```
 asyncio语法：
 ┌─────────────────────────────────────────────────────────────┐
@@ -78,13 +82,14 @@ asyncio语法：
 ### 最简示例
 
 ```python
+# asyncio_hello_world.py
 import asyncio
 
-async def say_after(delay, what):
+async def say_after(delay: float, what: str) -> None:
     await asyncio.sleep(delay)
     print(what)
 
-async def main():
+async def main() -> None:
     print(f"开始")
     await say_after(1, 'hello')
     await say_after(2, 'world')
@@ -110,17 +115,18 @@ asyncio.run(main())
 **对比实验：**
 
 ```python
+# blocking_vs_nonblocking.py
 import time
 import asyncio
 
 # ❌ 错误写法：阻塞了整个循环
-async def bad_task(name):
+async def bad_task(name: str) -> None:
     print(f"{name} 开始")
     time.sleep(2)  # 同步阻塞，其他任务无法执行
     print(f"{name} 结束")
 
 # ✅ 正确写法：非阻塞
-async def good_task(name):
+async def good_task(name: str) -> None:
     print(f"{name} 开始")
     await asyncio.sleep(2)  # 让出控制权
     print(f"{name} 结束")
@@ -160,10 +166,13 @@ async def main():
 **代码示例：**
 
 ```python
-async def fetch():
+# await_demo.py
+import asyncio
+
+async def fetch() -> str:
     return "data"
 
-async def main():
+async def main() -> None:
     # ✅ 正确：await 一个协程对象
     res = await fetch()
     
@@ -183,8 +192,9 @@ async def main():
 **解决**：加上 `await` 或者用 `asyncio.create_task()`。
 
 ```python
+# unawaited_coroutine_demo.py
 # 警告代码
-async def main():
+async def main() -> None:
     fetch()  # 警告！函数没执行
 ```
 
@@ -193,6 +203,8 @@ async def main():
 **解决**：检查你的返回值，确保调用的是异步函数，而不是已经计算好的结果。
 
 ---
+
+## L2 实践层：用好
 
 ## 3. 进阶并发控制
 
@@ -231,15 +243,16 @@ asyncio.run(main())
 *   `create_task` 关注的是**任务对象**。
 
 ```python
+# create_task_demo.py
 import asyncio
 
-async def background_work():
+async def background_work() -> int:
     print("后台任务：开始")
     await asyncio.sleep(2)
     print("后台任务：完成")
     return 42
 
-async def main():
+async def main() -> None:
     # 立即将协程包装为 Task 并排入事件循环
     task = asyncio.create_task(background_work())
     
@@ -261,14 +274,15 @@ asyncio.run(main())
 防止某个任务卡死导致程序永远挂起。
 
 ```python
+# wait_for_timeout_demo.py
 import asyncio
 
-async def slow_task():
+async def slow_task() -> str:
     print("开始执行慢任务...")
     await asyncio.sleep(10) # 模拟卡死
     return "Done"
 
-async def main():
+async def main() -> None:
     try:
         # 最多等待 2 秒
         result = await asyncio.wait_for(slow_task(), timeout=2.0)
@@ -283,19 +297,20 @@ asyncio.run(main())
 如果你有成千上万个 URL 要爬，直接全部 `gather` 会打满带宽或被封 IP。使用信号量限制同时运行的任务数。
 
 ```python
+# semaphore_limited_demo.py
 import asyncio
 import random
 
 sem = asyncio.Semaphore(3) # 最多允许 3 个并发
 
-async def limited_task(task_id):
+async def limited_task(task_id: int) -> None:
     # 获取信号量（如果已满 3 个，则在此等待）
     async with sem:
         print(f"任务 {task_id} 开始执行 (当前并发受限)")
         await asyncio.sleep(random.uniform(0.5, 1.5))
         print(f"任务 {task_id} 完成")
 
-async def main():
+async def main() -> None:
     tasks = [asyncio.create_task(limited_task(i)) for i in range(10)]
     await asyncio.gather(*tasks)
 
@@ -310,9 +325,10 @@ asyncio.run(main())
 2.  **错误隔离与清理**：任何一个任务抛出异常，组内其他任务会被自动取消，并清理资源。
 
 ```python
+# taskgroup_demo.py
 import asyncio
 
-async def risky_task(name: str, fail: bool = False):
+async def risky_task(name: str, fail: bool = False) -> str:
     print(f"{name} 开始")
     await asyncio.sleep(1)
     if fail:
@@ -320,7 +336,7 @@ async def risky_task(name: str, fail: bool = False):
     print(f"{name} 完成")
     return name
 
-async def main():
+async def main() -> None:
     # 使用 TaskGroup
     async with asyncio.TaskGroup() as tg:
         task1 = tg.create_task(risky_task("Task-1"))
@@ -339,16 +355,17 @@ asyncio.run(main())
 如果在 `async def` 里直接调用，会卡死整个程序。此时需要**线程池执行器**。
 
 ```python
+# run_in_executor_demo.py
 import asyncio
 import time
 
 # 这是一个无法修改的同步阻塞函数
-def blocking_sync_code():
+def blocking_sync_code() -> str:
     print("阻塞中...")
     time.sleep(2)  # 这里的 sleep 是阻塞的
     return "同步任务完成"
 
-async def main():
+async def main() -> None:
     loop = asyncio.get_running_loop()
     
     # 将同步函数扔进默认的线程池中运行，不会阻塞主循环
@@ -367,9 +384,10 @@ asyncio.run(main())
 使用 `asyncio.Queue` 在协程间安全地传递数据。这是构建异步爬虫、消息处理系统的核心模式。
 
 ```python
+# async_producer_consumer.py
 import asyncio
 
-async def producer(queue: asyncio.Queue):
+async def producer(queue: asyncio.Queue[int]) -> None:
     for i in range(5):
         print(f"生产数据: {i}")
         await queue.put(i)  # 放入队列
@@ -378,7 +396,7 @@ async def producer(queue: asyncio.Queue):
     # 放入结束标记
     await queue.put(None)
 
-async def consumer(queue: asyncio.Queue):
+async def consumer(queue: asyncio.Queue[int]) -> None:
     while True:
         item = await queue.get()  # 阻塞直到有数据
         if item is None:
@@ -387,8 +405,8 @@ async def consumer(queue: asyncio.Queue):
         print(f"消费数据: {item} (处理耗时)")
         await asyncio.sleep(0.3)  # 模拟处理耗时
 
-async def main():
-    queue = asyncio.Queue(maxsize=10)
+async def main() -> None:
+    queue: asyncio.Queue[int] = asyncio.Queue(maxsize=10)
     
     # 启动生产者和多个消费者
     await asyncio.gather(
@@ -415,20 +433,20 @@ asyncio.run(main())
 ## 5. 异步迭代与上下文
 
 ### 5.1 async for 与 async with
-用于处理异步数据流或异步资源管理（如异步数据库连接）。
 
 ```python
+# async_iterator_demo.py
 import asyncio
 
 class AsyncIterator:
-    def __init__(self, count):
+    def __init__(self, count: int) -> None:
         self.count = count
         self.current = 0
     
-    def __aiter__(self):
+    def __aiter__(self) -> "AsyncIterator":
         return self
     
-    async def __anext__(self):
+    async def __anext__(self) -> int:
         if self.current >= self.count:
             raise StopAsyncIteration
         
@@ -436,7 +454,7 @@ class AsyncIterator:
         self.current += 1
         return self.current
 
-async def main():
+async def main() -> None:
     # 异步遍历
     async for item in AsyncIterator(3):
         print(f"获取到 item: {item}")
@@ -474,18 +492,19 @@ asyncio.run(main())
 3.  **添加 `add_done_callback`**：为任务绑定一个回调函数来处理错误。
 
 ```python
+# async_debug_callback_demo.py
 import asyncio
 
-async def buggy_task():
+async def buggy_task() -> None:
     print("任务开始")
     await asyncio.sleep(0.5)
     raise ValueError("出错了！")
 
-def handle_exception(task: asyncio.Task):
+def handle_exception(task: asyncio.Task) -> None:
     if task.exception():
         print(f"捕获到后台任务异常: {task.exception()}")
 
-async def main():
+async def main() -> None:
     # 创建任务
     task = asyncio.create_task(buggy_task())
     
@@ -503,10 +522,11 @@ asyncio.run(main())
 使用 `asyncio.gather` 配合信号处理。
 
 ```python
+# graceful_shutdown_demo.py
 import asyncio
 import signal
 
-async def main():
+async def main() -> None:
     stop_event = asyncio.Event()
     
     # 监听退出信号
@@ -529,12 +549,13 @@ asyncio.run(main())
 **⚠️ 警告**：千万不要在 async 代码中使用 `threading.Lock`，因为它会阻塞整个事件循环！
 
 ```python
+# async_lock_demo.py
 import asyncio
 
-balance = 100
+balance: int = 100
 lock = asyncio.Lock()
 
-async def withdraw(amount):
+async def withdraw(amount: int) -> None:
     global balance
     # 获取锁
     async with lock:
@@ -546,7 +567,7 @@ async def withdraw(amount):
         else:
             print("余额不足")
 
-async def main():
+async def main() -> None:
     # 并发取款，Lock 保证数据安全
     await asyncio.gather(withdraw(50), withdraw(60))
 
@@ -554,6 +575,8 @@ asyncio.run(main())
 ```
 
 ---
+
+## L3 专家层：深入
 
 ## 7. 最佳实践与原则
 
@@ -568,8 +591,136 @@ asyncio.run(main())
     *   🧮 **CPU 密集型**（图像处理、加密、复杂计算）：**用 Multiprocessing**。Asyncio 无法加速 CPU 计算。
 
 ### 7.2 什么时候用 TaskGroup vs Gather？
-*   **Gather**：适合“一荣俱荣”或需要收集所有结果（即使部分失败）。
-*   **TaskGroup**：适合“一损俱损”的场景。如果子任务失败，自动取消兄弟任务，防止资源浪费。推荐 Python 3.11+ 优先使用。
+*   **Gather**：适合"一荣俱荣"或需要收集所有结果（即使部分失败）。
+*   **TaskGroup**：适合"一损俱损"的场景。如果子任务失败，自动取消兄弟任务，防止资源浪费。推荐 Python 3.11+ 优先使用。
+
+---
+
+## 8. L3 专家层 — 底层原理
+
+### 8.1 事件循环的 OS 级实现
+
+事件循环是对 OS **I/O 多路复用**机制的封装：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              事件循环底层机制                                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   操作系统 I/O 多路复用：                                    │
+│   ┌──────────────────────────────────────────────────┐      │
+│   │  Linux:    epoll (O(1) 就绪检查)                  │      │
+│   │  macOS:    kqueue (类似 epoll)                    │      │
+│   │  Windows:  IOCP (完成端口)                        │      │
+│   └──────────────────────────────────────────────────┘      │
+│                                                             │
+│   事件循环工作流程：                                          │
+│   1. 注册 I/O 事件到 epoll/kqueue                           │
+│   2. epoll_wait() 阻塞等待                                  │
+│   3. 有 I/O 事件就绪 → 返回就绪列表                         │
+│   4. 将就绪的回调加入任务队列                               │
+│   5. 执行回调函数                                           │
+│   6. 重复步骤 2-5                                           │
+│                                                             │
+│   为什么高效？                                                │
+│   • 单线程处理成千上万个连接                                │
+│   • 不需要为每个连接创建线程                                │
+│   • epoll 的 O(1) 就绪检查比 select 的 O(n) 快             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 8.2 协程与生成器的关系
+
+`async def` 在字节码层面是基于 **生成器（generator）** 实现的：
+
+```python
+# generator_coroutine_relation.py
+"""
+协程本质上是增强的生成器。
+
+Python 3.5+ 的 async def 是基于 yield from 的语法糖。
+在字节码层面，协程就是带特殊标志的生成器对象。
+"""
+import asyncio
+
+# 等价关系：
+async def my_coro() -> str:
+    await asyncio.sleep(1)
+    return "done"
+
+# 大致等价于（简化示意）：
+def my_generator():
+    yield asyncio.sleep(1)  # 暂停点
+    return "done"
+
+# 验证：协程是 GeneratorType 的子类
+import types
+coro = my_coro()
+print(isinstance(coro, types.CoroutineType))  # True
+coro.close()  # 记得清理
+```
+
+### 8.3 性能考量
+
+| 操作 | 时间 | 说明 |
+|------|------|------|
+| `asyncio.sleep(0)` | ~1μs | 让出控制权，最快切换 |
+| `create_task()` | ~5μs | 包装协程并入队 |
+| `gather()` N 任务 | ~N×5μs | 线性创建开销 |
+| 协程切换 | ~0.5μs | 比线程快 1000 倍 |
+| 事件循环迭代 | ~1μs | 无任务时 |
+| 连接 10K 个 socket | ~10MB 内存 | 远少于 10K 线程的 ~10GB |
+
+**并发量对比：**
+
+| 方式 | 最大并发连接 | 内存占用（10000 连接） | 上下文切换开销 |
+|------|-------------|----------------------|---------------|
+| 多线程 | ~1000-3000 | ~10GB（每线程 ~1MB 栈） | ~1-10μs |
+| asyncio | ~100,000+ | ~50-100MB | ~0.5μs |
+
+### 8.4 设计动机
+
+| Python 设计选择 | 原因 |
+|-----------------|------|
+| 单线程事件循环 | 避免锁，简化并发模型 |
+| `await` 关键字 | 显式标注暂停点，代码可读性好 |
+| `asyncio.run()` 单次调用 | 避免嵌套事件循环的复杂性 |
+| TaskGroup（3.11+） | 结构化并发，自动资源清理 |
+
+### 8.5 知识关联
+
+```
+asyncio 知识关联：
+┌───────────────────┐
+│  async/await      │ ← 语法基础
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐     ┌───────────────────┐
+│  事件循环         │────→│  I/O 多路复用     │
+│  EventLoop        │     │  epoll/kqueue     │
+└────────┬──────────┘     └───────────────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+┌────────┐ ┌───────────┐
+│ Task   │ │ gather()  │
+│ 任务   │ │ 聚合结果  │
+└────┬───┘ └───────────┘
+     │
+     ▼
+┌───────────────────┐
+│ TaskGroup (3.11+) │
+│ 结构化并发        │
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐
+│ async with/for    │
+│ 异步资源管理      │
+└───────────────────┘
+```
 
 ---
 

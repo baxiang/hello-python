@@ -11,15 +11,16 @@ Python tutorial repo with Chinese markdown docs + 49 sample projects across 9 se
 ```
 <章节目录>/<项目>/
 ├── pyproject.toml
-├── app/                     # Source (41/49 projects use app/)
-├── tests/                   # pytest suite (38/49 projects)
-└── uv.lock                  # If deps installed
+├── app/                     # Source (43/49 projects use app/)
+├── tests/                   # pytest suite (38/49 projects, ~2200 test files)
+└── uv.lock                  # If deps installed (32/49 projects)
 ```
 
 - **Build**: hatchling (all projects)
-- **Package names**: `app/` (41), `processor/` (1), `analyzer/` (1), rest have no explicit package
-- **Ruff config**: 20/49 projects have `[tool.ruff]`; others have no lint setup
+- **Package names**: `app/` (43), `processor/` (1), `analyzer/` (1), 4 projects have no explicit package
+- **Ruff config**: 26/49 projects have `[tool.ruff]`; others have no lint setup
 - **PyPI mirror**: Many projects use Tsinghua mirror (`pypi.tuna.tsinghua.edu.cn`)
+- **Dev deps**: 13 projects use `[dependency-groups]`, 6 use `[project.optional-dependencies]`
 
 ## Commands
 
@@ -38,6 +39,8 @@ uv add <package>                # Add dependency
 ```
 
 **Dev deps**: Use `[dependency-groups]` (preferred) or `[project.optional-dependencies]` — both work with `uv sync --group dev`.
+
+**Async tests**: Some projects use `pytest-asyncio` with `asyncio_mode = "auto"` in pyproject.toml.
 
 ## Sections
 
@@ -58,4 +61,4 @@ uv add <package>                # Add dependency
 - **Python**: 3.11+
 - **Package manager**: uv (not pip)
 - **Test**: pytest
-- **Lint/Format**: ruff (line-length 88, py311, rules: E,F,I,N,W,UP,B,SIM)
+- **Lint/Format**: ruff (line-length 88 default, py311, rules: E,F,I,N,W,UP,B,SIM)
