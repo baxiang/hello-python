@@ -554,6 +554,262 @@ app.jinja_env.globals["markdown"] = markdown_to_html
 
 ---
 
+## 第九部分：L3 专家层 — 底层原理
+
+### 9.2 模板编译过程（AST → Python 代码）
+
+Jinja2 模板在首次使用时被编译为 Python 字节码，后续请求直接执行编译后的代码。
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  模板编译管线                                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   原始模板 (template.html)                                       │
+│       │                                                         │
+│       ▼                                                         │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │ 1. Lexer (词法分析器)                                     │   │
+│   │    输入: 模板源代码字符串                                  │   │
+│   │    输出: Token 流 [Text, VariableStart, Name, ...]       │   │
+│   │                                                          │   │
+│   │    <h1>{{ user.name }}</h1>                              │   │
+│   │    → TEXT('<h1>') VAR_START NAME('user') DOT NAME('name') │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│       │                                                         │
+│       ▼                                                         │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │ 2. Parser (语法分析器)                                    │   │
+│   │    输入: Token 流                                         │   │
+│   │    输出: AST (抽象语法树)                                  │   │
+│   │                                                          │   │
+│   │    Template                                              │   │
+│   │    ├── nodes.Output                                      │   │
+│   │    │   └── nodes.Getattr                                 │   │
+│   │    │       ├── nodes.Name('user')                        │   │
+│   │    │       └── 'name'                                    │   │
+│   │    └── ...                                                │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│       │                                                         │
+│       ▼                                                         │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │ 3. Code Generator (代码生成器)                            │   │
+│   │    输入: AST                                              │   │
+│   │    输出: Python 源代码字符串                               │   │
+│   │                                                          │   │
+│   │    def root(context):                                    │   │
+│   │        l_user = resolve(context, 'user')                 │   │
+│   │        yield '<h1>'                                      │   │
+│   │        yield escape(environment.getattr(l_user, 'name')) │   │
+│   │        yield '</h1>'                                     │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│       │                                                         │
+│       ▼                                                         │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │ 4. Bytecode Compiler (字节码编译)                        │   │
+│   │    输入: Python 源代码                                    │   │
+│   │    输出: code object → 缓存到 TemplateModule              │   │
+│   │                                                          │   │
+│   │    compile(source, filename='<template>', 'exec')        │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+```python
+# 查看模板编译后的 Python 代码
+from jinja2 import Environment, FileSystemLoader
+
+env: Environment = Environment(loader=FileSystemLoader("templates"))
+template = env.get_template("hello.html")
+
+# 获取编译后的源码
+source: str = env.compile_source(env.get_source("hello.html")[0])
+print(source)
+# 输出类似：
+# from jinja2.runtime import LoopContext, Macro, Markup, TemplateRuntimeError
+# def root(context, environment=environment):
+#     yield '<h1>Hello, '
+#     yield str(environment.getattr(resolve(context, 'user'), 'name'))
+#     yield '</h1>'
+```
+
+### 9.3 沙盒机制
+
+Jinja2 提供 SandboxedEnvironment 用于安全渲染不可信模板。
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    沙盒环境安全控制                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   普通 Environment vs SandboxedEnvironment：                     │
+│                                                                 │
+│   ┌──────────────────────┬──────────────────────────────┐        │
+│   │ 普通 Environment     │ SandboxedEnvironment         │        │
+│   ├──────────────────────┼──────────────────────────────┤        │
+│   │ 可调用任意 Python 函数│ 仅允许标记为 @unsafe 的属性  │        │
+│   │ 可访问 __class__     │ 拦截 __class__/__mro__ 访问  │        │
+│   │ 可执行 os.system()   │ 拦截危险方法调用              │        │
+│   │ 无属性访问限制        │ is_safe_attribute() 检查     │        │
+│   └──────────────────────┴──────────────────────────────┘        │
+│                                                                 │
+│   沙盒拦截点：                                                    │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │ • getattr: 拦截访问以下划线开头的属性                     │   │
+│   │ • call: 拦截调用未标记为 safe 的可调用对象                │   │
+│   │ • getitem: 拦截对非映射/序列类型的索引访问                │   │
+│   │ • iter: 拦截对不可迭代对象的遍历                          │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   典型攻击向量拦截：                                              │
+│   {{ ''.__class__.__mro__[1].__subclasses__() }}                │
+│   → SecurityError: access to attribute '__class__' is unsafe    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+```python
+from jinja2 import SandboxedEnvironment
+
+env = SandboxedEnvironment()
+
+# 安全：普通属性访问
+tmpl = env.from_string("Hello {{ user.name }}")
+print(tmpl.render(user={"name": "Alice"}))  # Hello Alice
+
+# 拦截：危险属性访问
+tmpl = env.from_string("{{ data.__class__ }}")
+try:
+    tmpl.render(data="test")
+except Exception as e:
+    print(f"拦截: {e}")  # SecurityError
+
+# 自定义安全检查
+class MySandboxedEnv(SandboxedEnvironment):
+    def is_safe_attribute(self, obj: object, attr: str, value: object) -> bool:
+        # 禁止访问所有以 'secret' 开头的属性
+        if attr.startswith("secret"):
+            return False
+        return super().is_safe_attribute(obj, attr, value)
+```
+
+### 9.4 模板继承的 MRO 查找规则
+
+Jinja2 的模板继承机制类似 Python 类的 MRO（Method Resolution Order），使用 `super()` 调用父模板的 block。
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  模板继承链与 block 解析                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   继承层次：                                                     │
+│                                                                 │
+│   base.html                                                     │
+│   ├── block title: "默认标题"                                    │
+│   ├── block styles: ""                                          │
+│   ├── block content: "<p>默认内容</p>"                           │
+│   └── block footer: "© 2024"                                    │
+│       │                                                         │
+│       ▲ extends                                                 │
+│       │                                                         │
+│   page.html                                                     │
+│   ├── block title: "页面标题"                                    │
+│   ├── block styles: {{ super() }} + 额外 CSS                    │
+│   ├── block content: "<h1>页面内容</h1>"                         │
+│   └── block footer: {{ super() }} + "额外信息"                   │
+│       │                                                         │
+│       ▲ extends                                                 │
+│       │                                                         │
+│   home.html                                                     │
+│   ├── block content: {{ super() }} + "<p>首页特有</p>"           │
+│   └── block title: "首页"                                       │
+│                                                                 │
+│   渲染 home.html 时的 block 解析：                                │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │ block title:    home → page → base                      │   │
+│   │                 "首页" (home 覆盖)                       │   │
+│   │                                                         │   │
+│   │ block styles:   home → page → base                      │   │
+│   │                 page 有 {{ super() }} + 额外 CSS          │   │
+│   │                 → base 的 styles + page 的额外 CSS       │   │
+│   │                                                         │   │
+│   │ block content:  home → page → base                      │   │
+│   │                 home 有 {{ super() }}                    │   │
+│   │                 → page 的 content + home 的首页特有       │   │
+│   │                                                         │   │
+│   │ block footer:   home → page → base                      │   │
+│   │                 page 有 {{ super() }} + "额外信息"       │   │
+│   │                 → base 的 footer + page 的额外信息       │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   内部实现：blocks 字典存储继承链上所有同名 block，               │
+│   render 时从最派生类开始执行，遇到 super() 时调用父级版本。       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 9.5 性能考量
+
+| 操作 | 耗时 | 内存 | 说明 |
+|------|------|------|------|
+| 模板首次编译 | ~5ms | ~50KB | Lexer → Parser → CodeGen → compile |
+| 缓存命中渲染 | ~0.3ms | ~10KB | 直接执行编译后的 bytecode |
+| 缓存未命中渲染 | ~5.3ms | ~60KB | 编译 + 渲染 |
+| 模板继承（3 层） | ~0.5ms | ~15KB | block 链式调用开销 |
+| 宏调用 | ~0.02ms | ~1KB | 函数调用级别开销 |
+| 过滤器链（5 个） | ~0.1ms | — | 每个过滤器额外函数调用 |
+
+**扩展性：** Jinja2 模板缓存默认启用（`cache_size=400`）。生产环境应设置 `cache=SimpleCache(400)` 或 `cache=FileSystemCache()`。模板数量超过 400 时，LRU 淘汰最久未使用的模板。
+
+### 9.6 设计动机
+
+| 设计决策 | 动机 | 权衡 |
+|----------|------|------|
+| 编译为 Python 代码后执行 | 利用 Python 虚拟机优化，性能接近原生代码 | 编译开销，首次渲染较慢 |
+| 自动 HTML 转义（autoescape） | 防止 XSS 攻击，安全默认值 | 对不需要转义的内容需用 `|safe` |
+| 沙盒环境独立于主环境 | 安全渲染不可信模板（用户自定义模板） | 功能受限，部分过滤器不可用 |
+| block 而非占位符的继承机制 | 支持多层继承和 `super()` 组合 | 继承链过深时调试困难 |
+| 宏作为模板函数 | 代码复用，参数化组件 | 宏内无法访问调用者上下文（需 `with context`） |
+
+### 9.7 知识关联
+
+```
+              模板文件 (.html)
+                    │
+                    ▼
+          ┌─────────────────┐
+          │    Lexer        │ ← 词法分析
+          │  (Token 流)     │
+          └────────┬────────┘
+                   │
+                   ▼
+          ┌─────────────────┐
+          │    Parser       │ ← 语法分析
+          │  (AST 树)       │
+          └────────┬────────┘
+                   │
+            ┌──────┴──────┐
+            ▼             ▼
+    ┌──────────────┐ ┌──────────────┐
+    │  Code Gen    │ │  Inheritance │
+    │  (Python 码) │ │  (MRO 链)    │
+    └──────┬───────┘ └──────┬───────┘
+           │                │
+           ▼                │
+    ┌──────────────┐        │
+    │  Bytecode    │        │
+    │  (缓存)      │◄───────┘
+    └──────┬───────┘
+           │
+           ▼
+    ┌──────────────┐
+    │  Renderer    │ ← 上下文数据 + 编译模板 → HTML
+    └──────────────┘
+```
+
+---
+
 ## 总结
 
 | 知识点 | 说明 |

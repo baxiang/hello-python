@@ -81,3 +81,18 @@ def auth_client(client: TestClient, test_user: User) -> TestClient:
 
     app.dependency_overrides[get_current_user] = override_current_user
     return client
+
+
+@pytest_asyncio.fixture
+async def second_user(test_db: AsyncSession) -> User:
+    """创建第二个测试用户"""
+    user = User(
+        username="seconduser",
+        email="second@example.com",
+        hashed_password=get_password_hash("secondpassword"),
+        is_active=True,
+    )
+    test_db.add(user)
+    await test_db.commit()
+    await test_db.refresh(user)
+    return user

@@ -285,6 +285,153 @@ app.run(debug=True)
 
 ---
 
+## 第五部分：L3 专家层 — 底层原理
+
+### 5.4 WSGI 协议原理
+
+WSGI（Web Server Gateway Interface）是 Python Web 应用与 Web 服务器之间的标准接口规范（PEP 3333）。
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    WSGI 调用流程                                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Web Server (Gunicorn/uWSWSGI/nginx)                           │
+│       │                                                         │
+│       │ environ = {                                             │
+│       │   'REQUEST_METHOD': 'GET',                              │
+│       │   'PATH_INFO': '/hello',                                │
+│       │   'QUERY_STRING': 'name=abc',                           │
+│       │   'wsgi.input': <socket>,                               │
+│       │   ...                                                   │
+│       │ }                                                       │
+│       │                                                         │
+│       ▼                                                         │
+│   WSGI Callable (Flask 应用)                                    │
+│       │                                                         │
+│       │ def application(environ, start_response):               │
+│       │     status = '200 OK'                                   │
+│       │     headers = [('Content-Type', 'text/html')]           │
+│       │     start_response(status, headers)                     │
+│       │     return [b'Hello, World!']                           │
+│       │                                                         │
+│       ▼                                                         │
+│   Web Server → 返回 HTTP 响应给客户端                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Flask 的 `Flask` 类实现了 `__call__` 方法，使其成为 WSGI callable：
+
+```python
+# Flask 源码简化版
+class Flask:
+    def __call__(
+        self,
+        environ: dict[str, Any],
+        start_response: Callable[[str, list[tuple[str, str]]], None],
+    ) -> Iterable[bytes]:
+        """WSGI 入口点"""
+        return self.wsgi_app(environ, start_response)
+
+    def wsgi_app(
+        self,
+        environ: dict[str, Any],
+        start_response: Callable[[str, list[tuple[str, str]]], None],
+    ) -> Iterable[bytes]:
+        # 1. 创建请求上下文
+        ctx = self.request_context(environ)
+        ctx.push()
+        error: BaseException | None = None
+        try:
+            try:
+                # 2. 路由匹配 + 视图函数调用
+                response = self.full_dispatch_request()
+            except Exception as e:
+                error = e
+                response = self.handle_exception(e)
+            # 3. 返回响应
+            return response(environ, start_response)
+        finally:
+            # 4. 清理上下文
+            ctx.pop(error)
+```
+
+### 5.5 性能考量
+
+| 操作 | 耗时 | 内存 | 说明 |
+|------|------|------|------|
+| Flask 应用初始化 | ~5ms | ~15MB | 首次导入所有扩展 |
+| 单次请求处理（简单路由） | ~0.5ms | ~2KB/req | 仅路由匹配 + 字符串返回 |
+| 上下文创建/销毁 | ~0.1ms | ~1KB | RequestContext 推送/弹出 |
+| Jinja2 模板渲染（小模板） | ~1ms | ~50KB | 含缓存命中 |
+| Werkzeug 路由匹配（100 条规则） | ~0.05ms | — | 线性扫描，O(n) |
+
+**扩展性：** Flask 内置开发服务器单进程单线程，QPS 约 1000-3000。生产环境需使用 Gunicorn/uWSGI + 多 worker 进程，可达 10000+ QPS。
+
+### 5.6 Flask vs Django vs Pyramid 架构对比
+
+| 维度 | Flask | Django | Pyramid |
+|------|-------|--------|---------|
+| 设计理念 | 微框架，核心极简 | 全栈框架，约定优于配置 | 组件化，按需组装 |
+| 路由系统 | Werkzeug URLMap | 自研 URLconf | 自研 Routes/Traversal |
+| ORM | 无（用 Flask-SQLAlchemy） | 自带 Django ORM | 无（用 SQLAlchemy） |
+| 模板引擎 | Jinja2（独立项目） | Django Templates | Chameleon/Mako/Jinja2 |
+| 应用工厂 | 推荐模式 | 不适用（项目结构固定） | 原生支持 |
+| 学习曲线 | 低 | 中高 | 高 |
+| 适合场景 | 小型项目、API、微服务 | 大型内容管理、企业应用 | 中大型复杂应用 |
+
+### 5.7 应用工厂模式的设计动机
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              应用工厂模式 (Application Factory)                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   传统方式：                                                     │
+│       app = Flask(__name__)     ← 全局单例，难以测试             │
+│                                                                 │
+│   工厂模式：                                                     │
+│       def create_app(config_name: str) -> Flask:                 │
+│           app = Flask(__name__)  ← 每次创建新实例                │
+│           app.config.from_object(config_name)                    │
+│           register_extensions(app)                               │
+│           register_blueprints(app)                               │
+│           return app                                             │
+│                                                                 │
+│   设计动机：                                                     │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │ • 测试隔离：每个测试函数获得独立的 app 实例              │   │
+│   │ • 多实例：同一进程运行多个配置不同的应用                 │   │
+│   │ • 延迟初始化：扩展可在 app 创建后再绑定                  │   │
+│   │ • 配置灵活：通过参数切换 dev/test/prod 配置              │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 5.8 知识关联
+
+```
+                    WSGI 协议
+                        │
+            ┌───────────┼───────────┐
+            ▼           ▼           ▼
+        Werkzeug    Flask Core   Gunicorn
+        (路由/请求)  (上下文/扩展)  (WSGI Server)
+            │           │           │
+            └───────────┼───────────┘
+                        ▼
+                  应用工厂模式
+                        │
+            ┌───────────┼───────────┐
+            ▼           ▼           ▼
+        Blueprints   Extensions   Config
+        (模块化)    (SQLAlchemy等) (环境变量)
+```
+
+---
+
 ## 总结
 
 | 知识点 | 说明 |

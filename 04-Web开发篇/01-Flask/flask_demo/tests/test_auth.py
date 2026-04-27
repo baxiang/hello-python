@@ -68,3 +68,29 @@ class TestAuthLogin:
             json={"username": "testuser", "password": "wrongpassword"},
         )
         assert response.status_code == 401
+
+
+class TestAuthToken:
+    """Token刷新测试"""
+
+    def test_token_refresh(self, client):
+        client.post(
+            "/api/auth/register",
+            json={
+                "username": "testuser",
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+        login_resp = client.post(
+            "/api/auth/login",
+            json={"username": "testuser", "password": "password123"},
+        )
+        refresh_token = login_resp.get_json()["refresh_token"]
+
+        response = client.post(
+            "/api/auth/refresh",
+            headers={"Authorization": f"Bearer {refresh_token}"},
+        )
+        assert response.status_code == 200
+        assert "access_token" in response.get_json()

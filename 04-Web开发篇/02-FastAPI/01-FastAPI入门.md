@@ -511,6 +511,193 @@ if __name__ == "__main__":
 
 ---
 
+## 第十部分：L3 专家层
+
+### 10.1 Starlette 底层（ASGI 框架）
+
+FastAPI 构建在 Starlette 之上，Starlette 是一个轻量级 ASGI 框架。理解这一层有助于掌握请求处理的完整生命周期。
+
+**请求处理链路：**
+
+```
+HTTP Request
+    │
+    ▼
+┌─────────────────────────────────┐
+│         ASGI Server             │
+│       (Uvicorn / Hypercorn)      │
+└──────────────┬──────────────────┘
+               │ ASGI scope / receive / send
+               ▼
+┌─────────────────────────────────┐
+│          Starlette               │
+│   ┌─────────────────────────┐    │
+│   │    Middleware Stack      │    │
+│   │  (CORS / GZip / etc.)   │    │
+│   └────────────┬────────────┘    │
+│                │                  │
+│   ┌────────────▼────────────┐    │
+│   │       Router              │    │
+│   │  (path → endpoint map)   │    │
+│   └────────────┬────────────┘    │
+└───────────────┼─────────────────┘
+                │
+                ▼
+┌─────────────────────────────────┐
+│           FastAPI                │
+│   ┌─────────────────────────┐    │
+│   │  Param Parsing & Valid.  │    │
+│   │  (Path/Query/Body)       │    │
+│   └────────────┬────────────┘    │
+│                │                  │
+│   ┌────────────▼────────────┐    │
+│   │   Dependency Injection   │    │
+│   │   (solve graph + cache)  │    │
+│   └────────────┬────────────┘    │
+│                │                  │
+│   ┌────────────▼────────────┐    │
+│   │      Endpoint Call       │    │
+│   │   (sync → threadpool)    │    │
+│   └─────────────────────────┘    │
+└─────────────────────────────────┘
+```
+
+**关键实现细节：**
+
+- **ASGI 协议**：Starlette 实现 ASGI 3 规范，接收 `scope`（请求信息）、`receive`（协程，获取请求体）、`send`（协程，发送响应）三个参数
+- **同步端点处理**：FastAPI 使用 `anyio.to_thread.run_sync` 将同步函数放入线程池执行，避免阻塞事件循环
+- **路由匹配**：Starlette 使用 `compile_path` 将路径模板（如 `/items/{item_id}`）编译为正则表达式，实现 O(1) 级别的路由查找
+
+### 10.2 Pydantic 的 JSON Schema 生成机制
+
+FastAPI 的 OpenAPI 文档依赖于 Pydantic 的 JSON Schema 生成。
+
+**Schema 生成流程：**
+
+```
+Pydantic Model
+    │
+    ▼
+┌──────────────────────────────┐
+│  model_json_schema()         │
+│    │                         │
+│    ▼                         │
+│  ┌────────────────────────┐  │
+│  │  Type → Schema Mapping  │  │
+│  │  str  → {"type":"string"}│  │
+│  │  int  → {"type":"integer"}│ │
+│  │  float→ {"type":"number"}│  │
+│  │  bool → {"type":"boolean"}│ │
+│  │  list → {"type":"array", │  │
+│  │          "items": {...}} │  │
+│  └────────────────────────┘  │
+│    │                         │
+│    ▼                         │
+│  ┌────────────────────────┐  │
+│  │  Field Constraints      │  │
+│  │  Field(ge=0) →          │  │
+│  │    {"minimum": 0}       │  │
+│  │  Field(max_length=50)→  │  │
+│  │    {"maxLength": 50}    │  │
+│  └────────────────────────┘  │
+│    │                         │
+│    ▼                         │
+│  ┌────────────────────────┐  │
+│  │  $defs (nested models)  │  │
+│  │  $ref (references)      │  │
+│  └────────────────────────┘  │
+└──────────────┬───────────────┘
+               ▼
+        JSON Schema (dict)
+               │
+               ▼
+┌──────────────────────────────┐
+│  FastAPI OpenAPI Generator   │
+│  → /openapi.json             │
+│  → /docs (Swagger UI)        │
+│  → /redoc (ReDoc)            │
+└──────────────────────────────┘
+```
+
+**核心方法：**
+- `BaseModel.model_json_schema()`：v2 方法（v1 为 `schema()`），返回符合 JSON Schema Draft 2020-12 规范的字典
+- `$defs`：嵌套模型的定义被提取到顶层 `$defs` 中，通过 `$ref` 引用避免重复
+- `mode` 参数：`'validation'`（输入）和 `'serialization'`（输出）可生成不同的 Schema
+
+### 10.3 FastAPI 的 OpenAPI 文档自动生成原理
+
+FastAPI 在应用启动时自动构建 OpenAPI schema：
+
+```python
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+
+app: FastAPI = FastAPI()
+
+# 首次访问 /openapi.json 时触发
+def custom_openapi() -> dict:
+    if app.openapi_schema:
+        return app.openapi_schema  # 缓存结果
+
+    openapi_schema: dict = get_openapi(
+        title="My API",
+        version="1.0.0",
+        routes=app.routes,  # 遍历所有路由
+    )
+    app.openapi_schema = openapi_schema
+    return openapi_schema
+
+app.openapi = custom_openapi
+```
+
+**生成步骤：**
+1. 遍历 `app.routes`，收集所有 `APIRoute` 对象
+2. 从路由的 `response_model`、参数类型注解、`Field` 约束中提取 Schema
+3. 合并所有模型的 JSON Schema 到 `$defs`
+4. 输出标准 OpenAPI 3.1.0 格式
+
+### 10.4 性能考量
+
+| 维度 | 说明 | 建议 |
+|------|------|------|
+| 路由匹配 | 正则编译后 O(1) | 路由数量对性能影响极小 |
+| 同步端点 | 通过线程池执行 | I/O 密集型用 `async def` |
+| 验证开销 | Pydantic v2 使用 Rust 核心 | 大批量数据验证性能优于 v1 10-40 倍 |
+| OpenAPI 生成 | 首次访问时构建并缓存 | 生产环境无额外开销 |
+| 内存占用 | 每个路由注册一个 route 对象 | 数千路由仍可接受 |
+
+### 10.5 设计动机
+
+| 设计选择 | 原因 |
+|----------|------|
+| 基于 Starlette | 复用成熟的 ASGI 生态，专注数据验证与依赖注入 |
+| 类型注解驱动 | 利用 Python 3.6+ 的 type hints，减少重复代码 |
+| 自动文档生成 | OpenAPI 是行业标准，手动维护易出错 |
+| async 优先 | 现代 Web 框架必须支持高并发 I/O |
+
+### 10.6 知识关联
+
+```
+                    FastAPI 入门
+                         │
+        ┌────────────────┼────────────────┐
+        ▼                ▼                ▼
+    Starlette      Pydantic         OpenAPI
+    (ASGI 层)     (验证层)         (文档层)
+        │                │                │
+        ▼                ▼                ▼
+    Uvicorn      JSON Schema       Swagger UI
+    (服务器)     (数据描述)         ReDoc
+        │                │                │
+        └────────────────┼────────────────┘
+                         ▼
+                  02-Pydantic 模型
+                  03-依赖注入
+                  04-数据库集成
+```
+
+---
+
 ## 总结
 
 | 知识点 | 说明 |

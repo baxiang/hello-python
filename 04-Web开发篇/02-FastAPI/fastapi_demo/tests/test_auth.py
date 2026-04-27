@@ -52,3 +52,16 @@ class TestAuthLogin:
             json={"username": "testuser", "password": "wrongpassword"},
         )
         assert response.status_code == 401
+
+
+class TestCurrentUserMe:
+    """当前用户信息测试"""
+
+    def test_get_current_user(self, auth_client: TestClient) -> None:
+        """测试获取当前用户信息"""
+        response = auth_client.get("/api/auth/me")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["username"] == "testuser"
+        assert data["email"] == "test@example.com"
+        assert "hashed_password" not in data

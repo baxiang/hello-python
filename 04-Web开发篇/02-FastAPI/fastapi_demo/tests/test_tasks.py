@@ -2,6 +2,9 @@
 
 from fastapi.testclient import TestClient
 
+from app.api.deps import get_current_user
+from app.main import app
+
 
 class TestTaskList:
     """任务列表测试"""
@@ -91,3 +94,53 @@ class TestTaskCRUD:
 
         response = auth_client.delete(f"/api/tasks/{task_id}")
         assert response.status_code == 204
+
+    def test_create_task_unauthorized(self, client: TestClient) -> None:
+        """测试未授权创建任务"""
+        response = client.post(
+            "/api/tasks",
+            json={"title": "Unauthorized Task"},
+        )
+        assert response.status_code == 401
+
+    def test_delete_task_unauthorized(
+        self, client: TestClient, test_user, second_user
+    ) -> None:
+        """测试删除他人任务"""
+        # Create task as test_user
+        app.dependency_overrides[get_current_user] = lambda: test_user
+        create_response = client.post(
+            "/api/tasks",
+            json={"title": "Other User's Task"},
+        )
+        task_id = create_response.json()["id"]
+
+        # Try to delete as second_user
+        app.dependency_overrides[get_current_user] = lambda: second_user
+        response = client.delete(f"/api/tasks/{task_id}")
+        assert response.status_code == 403
+
+        # Cleanup: restore auth_client override
+        app.dependency_overrides[get_current_user] = lambda: test_user
+
+    def test_list_tasks_filter_by_status(self, auth_client: TestClient) -> None:
+        """测试按状态过滤任务"""
+        auth_client.post(
+            "/api/tasks", json={"title": "Pending Task", "status": "pending"}
+        )
+        auth_client.post(
+            "/api/tasks", json={"title": "Completed Task", "status": "completed"}
+        )
+        auth_client.post("/api/tasks", json={"title": "Draft Task", "status": "draft"})
+
+        response = auth_client.get("/api/tasks?status=pending")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["tasks"][0]["title"] == "Pending Task"
+
+        response = auth_client.get("/api/tasks?status=completed")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["tasks"][0]["title"] == "Completed Task"

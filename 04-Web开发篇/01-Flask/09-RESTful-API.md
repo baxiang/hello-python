@@ -306,6 +306,226 @@ app.register_blueprint(api_v2)
 
 ---
 
+## 第六部分：L3 专家层
+
+### 6.1 REST 成熟度模型（Richardson Maturity Model）
+
+RESTful API 的设计质量可通过 Richardson Maturity Model（RMM）划分为四个等级，级别越高，API 的 REST 纯度越高。
+
+#### 成熟度层级
+
+```
++--------------------------------------------------+
+| Level 3: HATEOAS                                 |
+|  响应包含超媒体链接，驱动客户端状态转移           |
++--------------------------------------------------+
+| Level 2: HTTP Verbs                              |
+|  正确使用 GET/POST/PUT/DELETE + 状态码            |
++--------------------------------------------------+
+| Level 1: Resources                               |
+|  将 URI 拆分为独立资源（/users, /articles）       |
++--------------------------------------------------+
+| Level 0: POX (Plain Old XML/JSON)                |
+|  单一端点，通过请求体区分操作（RPC 风格）          |
++--------------------------------------------------+
+```
+
+```python
+from typing import Any
+
+# Level 0: RPC 风格 — 所有操作走同一个端点
+@app.route("/api", methods=["POST"])
+def rpc_endpoint() -> dict[str, Any]:
+    data: dict[str, Any] = request.get_json()
+    action: str = data["action"]  # "getArticle", "createArticle", ...
+    if action == "getArticle":
+        return get_article(data["id"])
+    return {"error": "unknown action"}
+
+# Level 1: 资源 — 不同资源用不同 URI
+# GET    /api/articles
+# GET    /api/articles/1
+# DELETE /api/articles/1
+
+# Level 2: HTTP 动词 + 状态码
+@app.route("/api/articles/<int:article_id>", methods=["PUT"])
+def update_article(article_id: int) -> tuple[dict[str, Any], int]:
+    # 使用 PUT 语义：完整替换
+    article: Article | None = Article.query.get(article_id)
+    if not article:
+        return {"error": "not found"}, 404
+    # ... 更新逻辑
+    return article.to_dict(), 200
+
+# Level 3: HATEOAS — 响应包含操作链接
+def article_with_links(article: Article) -> dict[str, Any]:
+    return {
+        "id": article.id,
+        "title": article.title,
+        "_links": {
+            "self":       {"href": f"/api/articles/{article.id}"},
+            "author":     {"href": f"/api/users/{article.author_id}"},
+            "comments":   {"href": f"/api/articles/{article.id}/comments"},
+            "update":     {"href": f"/api/articles/{article.id}", "method": "PUT"},
+            "delete":     {"href": f"/api/articles/{article.id}", "method": "DELETE"},
+        }
+    }
+```
+
+#### 性能考量
+
+| 成熟度等级 | 开发成本 | 客户端复杂度 | 缓存友好度 | 适用场景 |
+|-----------|---------|-------------|-----------|---------|
+| Level 0 | 低 | 低 | 差（全 POST） | 内部 RPC 服务 |
+| Level 1 | 低 | 中 | 中 | 简单 CRUD API |
+| Level 2 | 中 | 中 | 好 | 主流 REST API |
+| Level 3 | 高 | 高 | 极好 | 公开 API 平台 |
+
+#### 设计动机
+
+| 为什么升级 | 解决的问题 |
+|-----------|-----------|
+| L0 → L1 | 资源定位不清晰，所有操作耦合在一个端点 |
+| L1 → L2 | 无法利用 HTTP 语义（状态码、方法语义、中间件缓存） |
+| L2 → L3 | 客户端需硬编码 URI，服务端结构变化需客户端同步更新 |
+
+### 6.2 HATEOAS 的实现原理
+
+HATEOAS（Hypermedia As The Engine Of Application State）要求服务端在响应中提供可操作的链接，使客户端能够动态发现可用操作。
+
+#### 链接注入机制
+
+```
++----------------+      +-------------------+      +------------------+
+| Resource View  | ---> | Link Builder      | ---> | Response Builder |
+| (Article data) |      | (生成 href/method)|      | (组装 JSON 响应)  |
++----------------+      +-------------------+      +------------------+
+         |                         |                        |
+         v                         v                        v
+   原始数据对象              路由反向解析               带 _links 的 JSON
+   Article(id=1)          url_for('article')        {data, _links}
+```
+
+```python
+from flask import url_for
+from typing import Any
+
+class HALResponse:
+    """Hypertext Application Language 响应包装器"""
+
+    def __init__(self, data: dict[str, Any], links: dict[str, dict[str, str]] | None = None) -> None:
+        self._embedded: dict[str, Any] = data
+        self._links: dict[str, dict[str, str]] = links or {}
+        if "self" not in self._links:
+            self._links["self"] = {"href": "/"}
+
+    def add_link(self, rel: str, href: str, method: str = "GET") -> None:
+        self._links[rel] = {"href": href, "method": method}
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"_links": self._links}
+        result.update(self._embedded)
+        return result
+
+
+def build_article_response(article: Article) -> dict[str, Any]:
+    hal: HALResponse = HALResponse(
+        data={"id": article.id, "title": article.title},
+        links={"self": {"href": url_for("article_detail", article_id=article.id, _external=True)}}
+    )
+    hal.add_link("author", url_for("user_detail", user_id=article.author_id, _external=True))
+    hal.add_link("comments", url_for("article_comments", article_id=article.id, _external=True))
+    hal.add_link("update", url_for("article_detail", article_id=article.id, _external=True), method="PUT")
+    hal.add_link("delete", url_for("article_detail", article_id=article.id, _external=True), method="DELETE")
+    return hal.to_dict()
+```
+
+### 6.3 Flask-RESTful 的 Resource 分派机制
+
+Flask-RESTful 通过 `Api.add_resource()` 将 Resource 类注册到路由，其内部通过反射机制将 HTTP 方法分派到对应的方法。
+
+#### 分派流程
+
+```
++-----------+     +----------------+     +-------------------+     +-------------+
+| HTTP      | --->| Flask Router   | --->| Api.dispatch_request|->| Resource    |
+| Request   |     | (URL匹配)      |     | (查找Resource类)  |     | .method()   |
++-----------+     +----------------+     +-------------------+     +-------------+
+      |                    |                      |                        |
+      v                    v                      v                        v
+  GET /api/          匹配到 ArticleList     getattr(resource,           执行 get()
+  articles<id>                              "get")(article_id)           返回 JSON
+```
+
+```python
+# Flask-RESTful 内部简化实现
+from flask.views import MethodView
+from typing import Callable, Any
+
+class Resource(MethodView):
+    """Resource 基类 — 继承 MethodView"""
+
+    methods: list[str] = ["GET", "POST", "PUT", "DELETE", "PATCH"]
+
+    def dispatch_request(self, *args: Any, **kwargs: Any) -> Any:
+        # 1. 确定 HTTP 方法
+        http_method: str = request.method.upper()
+
+        # 2. 检查是否实现了该方法
+        method: Callable[..., Any] | None = getattr(self, http_method.lower(), None)
+        if method is None:
+            abort(405)
+
+        # 3. 执行方法并返回结果
+        resp: Any = method(*args, **kwargs)
+        return self.make_response(resp)
+
+
+class Api:
+    def add_resource(
+        self,
+        resource: type[Resource],
+        *urls: str,
+        **kwargs: Any
+    ) -> None:
+        # 为每个 URL 创建 Resource 实例并注册到 Flask
+        for url in urls:
+            endpoint: str = kwargs.pop("endpoint", None) or resource.__name__.lower()
+            view_func: Callable = resource.as_view(endpoint, api=self)
+            self.app.add_url_rule(url, view_func=view_func, **kwargs)
+```
+
+#### 设计动机
+
+| 机制 | 解决的问题 |
+|-----|-----------|
+| MethodView 继承 | 复用 Flask 内置的 HTTP 方法分派，不重复造轮子 |
+| `as_view()` | 将类转换为 WSGI 可调用的函数，每次请求创建新实例 |
+| `make_response()` | 自动将 dict/list 序列化为 JSON，设置 Content-Type |
+| URL 参数传递 | 路由变量 `<int:article_id>` 自动作为方法参数传入 |
+
+### 6.4 知识关联
+
+```
++---------------------+          +------------------------+          +--------------------+
+| Richardson Maturity |          | HATEOAS                |          | Flask-RESTful      |
+| Model               |          |                        |          | Dispatch           |
++---------------------+          +------------------------+          +--------------------+
+|  L0: RPC            |          |  _links 字段注入       |          |  MethodView        |
+|  L1: Resources      |--------->|  url_for 反向解析      |<---------|  getattr dispatch  |
+|  L2: HTTP Verbs     |          |  HAL/JSON-LD 格式      |          |  as_view()         |
+|  L3: Hypermedia     |          |  客户端动态发现        |          |  make_response()   |
++---------------------+          +------------------------+          +--------------------+
+         |                                 |                                 |
+         v                                 v                                 v
++---------------------------------------------------------------------------+
+|                          设计目标                                          |
+|  可发现性 · 可缓存性 · 可组合性 · 松耦合 · 向后兼容                        |
++---------------------------------------------------------------------------+
+```
+
+---
+
 ## 总结
 
 | 知识点 | 说明 |

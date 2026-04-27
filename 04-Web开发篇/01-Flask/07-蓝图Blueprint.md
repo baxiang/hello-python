@@ -259,7 +259,272 @@ def create_app() -> Flask:
 
 ---
 
-## 总结
+## 第六部分：L3 专家层
+
+### 6.1 Blueprint 的注册流程（延迟注册模式）
+
+Flask Blueprint 采用延迟注册（Deferred Registration）模式：蓝图创建时不立即注册路由，而是在 `app.register_blueprint()` 时才将所有路由、错误处理器、请求钩子"注入"到应用。
+
+**注册流程：**
+
+```
+  创建 Blueprint                注册 Blueprint
+  +-----------------+          +------------------+
+  | Blueprint()     |          | register_bp()    |
+  |                 |          |                  |
+  | - 记录路由装饰器 |          | 1. 合并 url_prefix|
+  | - 记录 error_handler|       | 2. 注册所有路由   |
+  | - 记录 before/after|       | 3. 注册错误处理器  |
+  | - 记录静态文件配置|         | 4. 注册请求钩子   |
+  +--------+--------+          +--------+---------+
+           |                            |
+           |  路由/处理器暂存            |  规则映射到 app.url_map
+           v                            v
+  +-----------------+          +------------------+
+  | deferred_functions|         | app.view_functions|
+  | (延迟函数列表)   |------->  | app.url_map      |
+  +-----------------+          | app.before_request|
+                               +------------------+
+```
+
+```python
+from typing import Callable, Any
+from flask import Flask, Blueprint
+
+class BlueprintInternals:
+    """蓝图内部机制的简化演示"""
+    
+    def __init__(self, name: str, url_prefix: str | None = None) -> None:
+        self.name: str = name
+        self.url_prefix: str | None = url_prefix
+        self.deferred_functions: list[Callable] = []
+        self._view_functions: dict[str, Callable] = {}
+    
+    def record(self, func: Callable) -> None:
+        """记录延迟函数（路由装饰器调用时触发）"""
+        self.deferred_functions.append(func)
+    
+    def register(self, app: Flask, options: dict[str, Any]) -> None:
+        """注册蓝图到应用"""
+        # 合并 url_prefix
+        url_prefix: str | None = options.get("url_prefix", self.url_prefix)
+        
+        # 执行所有延迟函数（将路由规则注册到 app）
+        for deferred_func in self.deferred_functions:
+            deferred_func(app, url_prefix, options)
+
+# 使用演示
+def demo_registration() -> None:
+    bp: BlueprintInternals = BlueprintInternals("users", "/users")
+    
+    # @bp.route("/") 底层调用的是 bp.record()
+    def register_index(app: Flask, prefix: str | None, opts: dict) -> None:
+        rule: str = (prefix or "") + "/"
+        # app.add_url_rule(rule, view_func=index_view)
+    
+    bp.record(register_index)
+    
+    # 此时路由还未注册，直到调用 bp.register(app)
+    # bp.register(app_instance)
+```
+
+**关键机制：**
+- `@blueprint.route()` 不是直接调用 `app.add_url_rule()`，而是将注册逻辑包装为函数存入 `deferred_functions`
+- 注册时可覆盖蓝图默认配置：`app.register_blueprint(bp, url_prefix="/v2/users")`
+- 蓝图可以嵌套注册：蓝图 A 可以注册蓝图 B
+
+### 6.2 url_for 的 endpoint 解析机制
+
+`url_for()` 通过 endpoint 名称反向生成 URL，其解析涉及蓝图的命名空间（namespace）机制。
+
+**Endpoint 命名规则：**
+
+```
+  蓝图内定义:
+    @users_bp.route("/profile")          → endpoint = "users.profile"
+    @users_bp.route("/<int:id>")         → endpoint = "users.profile_detail"
+  
+  蓝图外（应用级）:
+    @app.route("/")                       → endpoint = "index"
+  
+  url_for 解析:
+    url_for("users.profile")             → "/users/profile"
+    url_for("users.profile_detail", id=5)→ "/users/5"
+    url_for("index")                     → "/"
+```
+
+```python
+from typing import Callable
+from werkzeug.routing import Map, Rule
+
+class EndpointResolver:
+    """简化版 url_for 解析器"""
+    
+    def __init__(self) -> None:
+        self.url_map: Map = Map()
+        self.view_functions: dict[str, Callable] = {}
+    
+    def add_rule(self, rule: str, endpoint: str, view_func: Callable) -> None:
+        self.url_map.add(Rule(rule, endpoint=endpoint))
+        self.view_functions[endpoint] = view_func
+    
+    def url_for(self, endpoint: str, **values: Any) -> str:
+        """反向解析 endpoint 到 URL"""
+        # 1. 精确匹配
+        if endpoint in self.view_functions:
+            rule = self._find_rule(endpoint)
+            return self._build_url(rule, values)
+        
+        # 2. 带蓝图前缀的匹配（当前蓝图内可省略前缀）
+        # 假设当前在 users 蓝图中
+        blueprint_name: str = endpoint.split(".")[0] if "." in endpoint else ""
+        qualified: str = f"{blueprint_name}.{endpoint}" if "." not in endpoint else endpoint
+        
+        if qualified in self.view_functions:
+            rule = self._find_rule(qualified)
+            return self._build_url(rule, values)
+        
+        raise ValueError(f"No endpoint found: {endpoint}")
+    
+    def _find_rule(self, endpoint: str) -> Rule:
+        for rule in self.url_map.iter_rules():
+            if rule.endpoint == endpoint:
+                return rule
+        raise ValueError(f"No rule for endpoint: {endpoint}")
+    
+    def _build_url(self, rule: Rule, values: dict[str, Any]) -> str:
+        # 简化实现：实际使用 Werkzeug 的 URL 构建逻辑
+        url: str = rule.rule
+        for key, val in values.items():
+            url = url.replace(f"<{key}>", str(val))
+        return url
+```
+
+**设计要点：**
+
+| 特性 | 说明 | 示例 |
+|------|------|------|
+| 命名空间隔离 | 蓝图自动添加 `blueprint_name.` 前缀 | `users.profile` |
+| 跨蓝图引用 | 必须使用完整 endpoint | `url_for("admin.dashboard")` |
+| 蓝图内引用 | 可省略蓝图前缀（同蓝图内） | `url_for(".profile")`（`. ` 表示当前蓝图） |
+| 应用级路由 | 无前缀 | `url_for("index")` |
+
+### 6.3 Blueprint 的 before_request 执行顺序
+
+当应用有多个蓝图且每个蓝图有自己的 `before_request` 钩子时，执行顺序是一个关键概念。
+
+**执行顺序：**
+
+```
+  请求到达
+     |
+     v
+  +--------------------------------+
+  | app.before_request (应用级)     |  ← 所有请求都会执行
+  +--------------------------------+
+     |
+     v
+  +--------------------------------+
+  | Blueprint A.before_request     |  ← 按注册顺序执行
+  +--------------------------------+
+     |
+     v
+  +--------------------------------+
+  | Blueprint B.before_request     |  ← 仅匹配当前请求的蓝图
+  +--------------------------------+
+     |
+     v
+  +--------------------------------+
+  | 视图函数 (View Function)        |
+  +--------------------------------+
+     |
+     v
+  +--------------------------------+
+  | Blueprint B.after_request      |  ← 逆序执行
+  +--------------------------------+
+     |
+     v
+  +--------------------------------+
+  | Blueprint A.after_request      |
+  +--------------------------------+
+     |
+     v
+  +--------------------------------+
+  | app.after_request (应用级)      |
+  +--------------------------------+
+```
+
+```python
+from flask import Flask, Blueprint, request, g
+from typing import Any
+
+def demonstrate_hook_order() -> None:
+    app: Flask = Flask(__name__)
+    
+    auth_bp: Blueprint = Blueprint("auth", __name__, url_prefix="/auth")
+    api_bp: Blueprint = Blueprint("api", __name__, url_prefix="/api")
+    
+    execution_log: list[str] = []
+    
+    @app.before_request
+    def app_before() -> None:
+        execution_log.append("app.before_request")
+        g.start_time: Any = request.environ.get("werkzeug.request.start_time")
+    
+    @auth_bp.before_request
+    def auth_before() -> None:
+        execution_log.append("auth_bp.before_request")
+    
+    @api_bp.before_request
+    def api_before() -> None:
+        execution_log.append("api_bp.before_request")
+    
+    # 请求 /api/data 时:
+    # execution_log = ["app.before_request", "api_bp.before_request"]
+    # 注意：auth_bp.before_request 不会执行，因为请求不属于 auth 蓝图
+```
+
+**关键规则：**
+
+| 规则 | 说明 |
+|------|------|
+| 应用级钩子 | 对所有请求执行，无论路由属于哪个蓝图 |
+| 蓝图钩子 | 仅当请求匹配该蓝图的路由时执行 |
+| 执行顺序 | app.before → 蓝图.before → 视图 → 蓝图.after → app.after |
+| 多蓝图注册顺序 | 按 `app.register_blueprint()` 的调用顺序 |
+| 短路行为 | `before_request` 返回 Response 则跳过后续钩子和视图 |
+
+### 6.4 知识关联
+
+```
+                    Blueprint 知识体系
+                         |
+        +----------------+----------------+
+        |                |                |
+     创建层          注册层          运行时
+        |                |                |
+   +----+----+      +----+----+      +----+----+
+   | 蓝图定义 |      | 延迟注册 |      | 请求钩子 |
+   | 路由装饰 |      | url_prefix|     | endpoint |
+   +----+----+      +----+----+      +----+----+
+        |                |                |
+        v                v                v
+   +---------+      +---------+      +---------+
+   | 静态文件 |      | 路由注入 |      | url_for |
+   | 模板目录 |      | url_map  |      | 解析    |
+   +---------+      +---------+      +---------+
+                         |
+                         v
+                   +-----+-----+
+                   | 执行顺序   |
+                   | before_req|
+                   +-----+-----+
+                         |
+                   +-----+-----+      +---------+
+                   | 应用级   |<---->| 蓝图级   |
+                   | 全局钩子 |      | 局部钩子 |
+                   +---------+      +---------+
+```
 
 | 知识点 | 说明 |
 |---------|------|

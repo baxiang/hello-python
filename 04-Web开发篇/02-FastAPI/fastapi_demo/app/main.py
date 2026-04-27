@@ -24,7 +24,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from app import __version__
 from app.api.routes import api_router, health_router
-from app.api.ws import task_websocket_endpoint
+from app.api.ws import room_websocket_endpoint, task_websocket_endpoint
 from app.core.config import get_settings
 from app.core.database import init_db
 from app.middleware.logging import LoggingMiddleware
@@ -76,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(api_router, prefix="/api")
 
     app.add_api_websocket_route("/api/ws/tasks", task_websocket_endpoint)
+    app.add_api_websocket_route("/api/ws/rooms/{room}", room_websocket_endpoint)
 
     return app
 
