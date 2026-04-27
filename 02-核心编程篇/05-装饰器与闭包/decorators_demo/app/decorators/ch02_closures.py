@@ -28,6 +28,7 @@ def outer_enclosed() -> Callable[[], str]:
 # 闭包：捕获外层变量
 # ─────────────────────────────────────
 
+
 def make_multiplier(factor: int) -> Callable[[int], int]:
     """创建乘法器 — 最简闭包"""
 
@@ -40,6 +41,7 @@ def make_multiplier(factor: int) -> Callable[[int], int]:
 # ─────────────────────────────────────
 # nonlocal: 修改外层变量
 # ─────────────────────────────────────
+
 
 def make_counter(start: int = 0) -> Callable[[], int]:
     """计数器闭包 — 用 nonlocal 修改外层变量"""
@@ -87,6 +89,7 @@ def make_counter_with_ops(start: int = 0) -> dict[str, Callable]:
 # 循环变量陷阱（经典坑）
 # ─────────────────────────────────────
 
+
 def create_multipliers_wrong() -> list[Callable[[int], int]]:
     """❌ 循环变量陷阱 — 所有函数共享同一个 i"""
     return [lambda x: x * i for i in range(5)]  # noqa: B023
@@ -100,6 +103,7 @@ def create_multipliers_correct() -> list[Callable[[int], int]]:
 # ─────────────────────────────────────
 # 闭包检查工具
 # ─────────────────────────────────────
+
 
 def inspect_closure(func: Callable) -> dict[str, object]:
     """检查闭包的自由变量"""

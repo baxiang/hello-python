@@ -17,6 +17,7 @@ T = TypeVar("T")
 # 最简装饰器：展示 @ 语法本质
 # ─────────────────────────────────────
 
+
 def simple_decorator(func: Callable[..., T]) -> Callable[..., T]:
     """最简单的装饰器 — 什么都不做，只演示原理"""
 
@@ -40,18 +41,22 @@ def log_call(func: Callable[..., T]) -> Callable[..., T]:
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> T:
-        _call_log.append({
-            "func": func.__name__,
-            "args": args,
-            "kwargs": kwargs,
-            "status": "calling",
-        })
+        _call_log.append(
+            {
+                "func": func.__name__,
+                "args": args,
+                "kwargs": kwargs,
+                "status": "calling",
+            }
+        )
         result = func(*args, **kwargs)
-        _call_log.append({
-            "func": func.__name__,
-            "result": result,
-            "status": "returned",
-        })
+        _call_log.append(
+            {
+                "func": func.__name__,
+                "result": result,
+                "status": "returned",
+            }
+        )
         return result
 
     return wrapper
@@ -71,6 +76,7 @@ def clear_call_log() -> None:
 # 计时装饰器：演示性能监控
 # ─────────────────────────────────────
 
+
 def timer(func: Callable[..., T]) -> Callable[..., T]:
     """计时装饰器 — 记录函数执行耗时"""
 
@@ -89,6 +95,7 @@ def timer(func: Callable[..., T]) -> Callable[..., T]:
 # ─────────────────────────────────────
 # 不用 wraps 的反面教材
 # ─────────────────────────────────────
+
 
 def bad_decorator(func: Callable[..., T]) -> Callable[..., T]:
     """❌ 不用 @wraps — 丢失元信息"""

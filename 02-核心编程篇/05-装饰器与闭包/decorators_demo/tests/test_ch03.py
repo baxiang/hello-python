@@ -83,6 +83,7 @@ class TestDecoratorBasics:
                 result = func(*args, **kwargs)
                 call_order.append("A-after")
                 return result
+
             return wrapper
 
         def deco_b(func):
@@ -91,6 +92,7 @@ class TestDecoratorBasics:
                 result = func(*args, **kwargs)
                 call_order.append("B-after")
                 return result
+
             return wrapper
 
         @deco_a

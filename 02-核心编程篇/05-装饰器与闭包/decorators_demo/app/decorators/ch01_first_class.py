@@ -13,6 +13,7 @@ from typing import Any
 # 能力 1: 赋值给变量
 # ─────────────────────────────────────
 
+
 def greet(name: str) -> str:
     """基础问候函数"""
     return f"Hello, {name}!"
@@ -26,6 +27,7 @@ say_hello: Callable[[str], str] = greet
 # 能力 2: 作为参数传递
 # ─────────────────────────────────────
 
+
 def execute(func: Callable[[str], str], value: str) -> str:
     """接收一个函数作为参数并调用它"""
     return func(value)
@@ -34,6 +36,7 @@ def execute(func: Callable[[str], str], value: str) -> str:
 # ─────────────────────────────────────
 # 能力 3: 作为返回值
 # ─────────────────────────────────────
+
 
 def get_operation(op: str) -> Callable[[int, int], int]:
     """根据操作名返回对应的计算函数"""
@@ -48,6 +51,7 @@ def get_operation(op: str) -> Callable[[int, int], int]:
 # ─────────────────────────────────────
 # 能力 4: 存储在数据结构
 # ─────────────────────────────────────
+
 
 def handle_users(_req: dict[str, Any]) -> dict[str, list[str]]:
     """处理用户请求"""
