@@ -10,7 +10,7 @@
 
 from fastapi import FastAPI
 
-from app.routers import demo
+from app.routers import async_ops, auth, cache, demo, retry
 
 app = FastAPI(
     title="Python 装饰器与闭包示例",
@@ -19,3 +19,7 @@ app = FastAPI(
 )
 
 app.include_router(demo.router)
+app.include_router(auth.router)
+app.include_router(retry.router)
+app.include_router(cache.router)
+app.include_router(async_ops.router)
