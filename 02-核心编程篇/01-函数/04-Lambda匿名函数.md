@@ -1,5 +1,10 @@
 # 第 4 章：Lambda 匿名函数
 
+> **Python 版本要求**：Python 3.11+
+> **贯穿项目**：functions_demo/
+> **代码位置**：`app/core/builtins.py`
+> **测试验证**：`cd functions_demo && uv run pytest -k TestLambda -v`
+
 > **本章代码基于 Python 3.11+ 编写**
 >
 > Lambda 是一种简洁的匿名函数，适合简单的、一次性使用的场景。
@@ -407,68 +412,64 @@ print(result)  # 2² + 4² + 6² + 8² + 10² = 4 + 16 + 36 + 64 + 100 = 220
 
 ---
 
-## 实际应用：数据处理管道
+## 实际应用：项目中的 Lambda
+
+在 `functions_demo` 项目中，Lambda 与 `sorted`、`filter`、`map` 配合使用，构成了学生成绩处理的核心逻辑。
+
+**项目代码：`app/core/builtins.py`**
 
 ```python
-from typing import Any
+from app.core.builtins import sort_students, filter_passing, scale_scores
 
-
-def process_data(
-    data: list[dict[str, Any]],
-    sort_key: str = "score",
-    min_value: float = 0,
-    top_n: int = 5
-) -> list[dict[str, Any]]:
-    """
-    数据处理管道
-    
-    Args:
-        data: 原始数据
-        sort_key: 排序字段
-        min_value: 最小值过滤
-        top_n: 返回前 N 条
-    
-    Returns:
-        处理后的数据
-    """
-    # 1. 过滤
-    filtered = list(filter(lambda x: x.get(sort_key, 0) >= min_value, data))
-    
-    # 2. 排序
-    sorted_data = sorted(filtered, key=lambda x: x.get(sort_key, 0), reverse=True)
-    
-    # 3. 取前 N 条
-    return sorted_data[:top_n]
-
-
-# 使用
 students = [
-    {"name": "张三", "score": 85, "age": 18},
-    {"name": "李四", "score": 92, "age": 19},
-    {"name": "王五", "score": 78, "age": 17},
-    {"name": "赵六", "score": 88, "age": 18},
-    {"name": "钱七", "score": 65, "age": 20},
-    {"name": "孙八", "score": 95, "age": 17}
+    {"name": "张三", "score": 75},
+    {"name": "李四", "score": 92},
+    {"name": "王五", "score": 55}
 ]
 
-# 获取成绩前 3 名
-top_3 = process_data(students, sort_key="score", top_n=3)
-for s in top_3:
-    print(f"{s['name']}: {s['score']}分")
+# sorted + lambda
+sort_students(students)  
+# 按分数升序: [{'name': '王五', 'score': 55}, ...]
 
-# 获取成绩 80 分以上的学生
-above_80 = process_data(students, min_value=80)
-print(f"80分以上人数：{len(above_80)}")
+# filter + lambda
+filter_passing(students) 
+# 筛选 >= 60: [{'name': '张三', ...}, {'name': '李四', ...}]
+
+# map + lambda
+scale_scores(students, 0.8)
+# 缩放分数: [60.0, 73.6, 44.0]
+```
+
+**项目实现细节：**
+
+```python
+# app/core/builtins.py 中的 lambda 使用
+
+# lambda 作为模块级常量（命名的 lambda 用于复用）
+SCORE_KEY = lambda s: s["score"]   # 按分数取值
+NAME_KEY  = lambda s: s["name"]    # 按姓名取值
+
+def sort_students(students: list[dict], *, reverse: bool = False) -> list[dict]:
+    """按分数排序（lambda 作为 sorted key）"""
+    return sorted(students, key=SCORE_KEY, reverse=reverse)
+
+def filter_passing(students: list[dict], threshold: float = 60.0) -> list[dict]:
+    """筛选及格学生（lambda + filter）"""
+    return list(filter(lambda s: s["score"] >= threshold, students))
+
+def scale_scores(students: list[dict], factor: float) -> list[float]:
+    """等比缩放分数（lambda + map）"""
+    return list(map(lambda s: round(s["score"] * factor, 2), students))
 ```
 
 **关键代码说明：**
 
 | 代码 | 含义 | 为什么这样写 |
 |------|------|-------------|
-| `filter(lambda x: x.get(sort_key, 0) >= min_value, data)` | 过滤低于阈值的条目 | `get` 安全读取字段值，缺失时默认为 0 避免 KeyError |
-| `sorted(..., key=lambda x: x.get(sort_key, 0), reverse=True)` | 按指定字段降序排序 | `key` 参数接受函数，`reverse=True` 使最高分排在最前 |
-| `sorted_data[:top_n]` | 切片取前 N 条 | 切片越界安全，结果少于 N 时自动返回全部，不会报错 |
-| `sort_key: str = "score"` | 排序字段作为参数 | 让函数通用，无需修改代码即可按不同字段排序 |
+| `SCORE_KEY = lambda s: s["score"]` | 提取分数的键函数 | 作为模块级常量复用，避免在多处重复写 lambda |
+| `sorted(students, key=SCORE_KEY)` | 按分数排序 | `key` 参数接受函数，lambda 提供轻量级的取值逻辑 |
+| `filter(lambda s: s["score"] >= threshold, students)` | 过滤及格学生 | lambda 定义过滤条件，`filter` 返回迭代器，`list()` 转换为列表 |
+| `map(lambda s: round(s["score"] * factor, 2), students)` | 缩放分数 | lambda 对每个学生做分数变换，`round` 控制精度 |
 
 ---
 
@@ -761,4 +762,12 @@ print(add5(3))  # 8
 ```
 
 ---
+
+## 交互演示
+
+运行项目 CLI 查看本章代码的实际执行效果：
+
+```bash
+cd functions_demo && uv run python -m app   # 选 4
+```
 
