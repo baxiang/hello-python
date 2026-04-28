@@ -1,8 +1,12 @@
 # Python 内置函数详解
 
-> **本章基于 Python 3.11+**
+> **Python 版本要求**：Python 3.11+
 >
 > Python 内置了 70+ 个高频使用的函数。这些函数不需要导入任何模块即可直接使用，它们构成了 Python 开发的基石。
+
+> **贯穿项目**：functions_demo/
+> **代码位置**：`app/core/builtins.py`
+> **测试验证**：`cd functions_demo && uv run pytest -k TestBuiltins -v`
 
 ---
 
@@ -550,31 +554,41 @@ exec("x = 10; print(x)")  # 10
 
 ## 9. 综合实战
 
-### 案例：数据处理流水线
-**需求**：有一组杂乱的字符串数字，过滤掉非数字字符，计算平均值，并保留两位小数。
+### 案例：内置函数组合应用
+
+以下示例来自 `app/core/builtins.py`，展示了 `min`/`max`/`sum`/`len`、`sorted` + `enumerate`、`all` 等内置函数的实际组合用法。
 
 ```python
-data = ["10", "20", "abc", "30", "", "50"]
+from app.core.builtins import score_stats, rank_students, all_passed
 
-# 1. 过滤并转换 (列表推导式通常比 map+filter 更易读)
-valid_nums = [int(x) for x in data if x.isdigit()]
+scores = [85, 92, 55, 60, 99]
 
-# 2. 计算总和与平均值
-total = sum(valid_nums)
-average = round(total / len(valid_nums), 2) if valid_nums else 0
+# 统计 (min, max, sum, len)
+print(score_stats(scores))
+# {'min': 55, 'max': 99, 'total': 391, 'count': 5, 'average': 78.2}
 
-print(f"有效数据: {valid_nums}")
-print(f"总和: {total}, 平均值: {average}")
+students = [
+    {"name": "Alice", "score": 85},
+    {"name": "Bob", "score": 92},
+]
+
+# 排名 (sorted + enumerate)
+print(rank_students(students))
+# [(1, {'name': 'Bob', 'score': 92}), (2, {'name': 'Alice', 'score': 85})]
+
+# 校验 (all)
+print(all_passed(students, 90))  # False (Alice < 90)
 ```
 
 **关键代码说明：**
 
 | 代码 | 含义 | 为什么这样写 |
 |------|------|-------------|
-| `x.isdigit()` | 过滤掉非纯数字字符串 | 避免 `int("")`、`int("abc")` 引发 ValueError |
-| `[int(x) for x in data if x.isdigit()]` | 过滤并转换一步完成 | 列表推导式比 `map`+`filter` 更易读，且只遍历一次 |
-| `round(total / len(valid_nums), 2)` | 保留两位小数 | `round` 内置实现精确舍入，比字符串格式化更适合用于后续计算 |
-| `if valid_nums else 0` | 防止空列表除零 | 过滤后可能没有有效数据，需要在使用前做空值保护 |
+| `min(scores)` / `max(scores)` | 获取最低/最高分 | 内置函数 C 实现，比手动遍历更快 |
+| `sum(scores) / len(scores)` | 计算平均值 | `sum` 和 `len` 均为 O(n)/O(1) 高效操作 |
+| `sorted(students, key=..., reverse=True)` | 按分数降序排序 | `sorted` 返回新列表，不修改原始数据 |
+| `enumerate(sorted_list, start=1)` | 从 1 开始生成名次 | 替代手动维护计数器，代码更简洁 |
+| `all(s["score"] >= threshold for s in students)` | 检查是否全部达标 | 生成器表达式 + 短路求值，遇到不满足立即返回 `False` |
 
 ---
 
@@ -598,4 +612,14 @@ print(f"总和: {total}, 平均值: {average}")
 │  3. sorted 的 key 参数                                      │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 交互演示
+
+运行项目 CLI 查看本章代码的实际执行效果：
+
+```bash
+cd functions_demo && uv run python -m app   # 选 5
 ```
