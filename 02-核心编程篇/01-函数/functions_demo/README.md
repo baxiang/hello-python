@@ -23,6 +23,29 @@ functions_demo/
     └── test_functions.py   # 32 个测试，全覆盖
 ```
 
+## 快速开始
+
+### 交互式 CLI
+
+```bash
+cd 02-核心编程篇/01-函数/functions_demo
+uv run python -m app
+```
+
+进入菜单后选择章节 (0-5)，查看对应函数的演示输出。
+
+### 作为库使用
+
+```python
+from app.core.functions import create_student, letter_grade, merge_sort
+from app.core.builtins import sort_students, score_stats
+from app.core.scope import make_score_accumulator
+
+# ch01: 基础函数
+letter_grade(95)          # → "A"
+merge_sort([3, 1, 4, 1])  # → [1, 1, 3, 4]
+```
+
 ## 安装
 
 ```bash
