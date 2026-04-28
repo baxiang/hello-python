@@ -2,6 +2,20 @@
 
 本章讲解 Python 函数的完整知识体系，包括函数基础、参数详解、变量作用域和 Lambda 匿名函数。
 
+## 快速开始
+
+```bash
+cd functions_demo
+
+uv sync
+
+# 交互式演示 (推荐)
+uv run python -m app
+
+# 运行测试
+uv run pytest -v
+```
+
 ---
 
 ## 章节导航
@@ -51,4 +65,20 @@ lambda 参数: 表达式
 
 # 最佳使用场景：sorted、filter、map 的参数
 sorted(data, key=lambda x: x[1])
+```
+
+## 知识地图
+
+```
+函数基础 ──→ 函数参数 ──→ 变量作用域
+     ↓           ↓           ↓
+   def/call   *args/**kwargs  LEGB/global
+   return     keyword-only   nonlocal/closure
+```
+
+```
+Lambda ──→ 内置函数
+   ↓           ↓
+ sorted     map/filter
+ filter     any/all/zip
 ```
