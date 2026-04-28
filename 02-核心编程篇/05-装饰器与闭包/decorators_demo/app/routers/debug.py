@@ -338,6 +338,165 @@ async def demo_async_diagnosis() -> dict:
 
 
 # ─────────────────────────────────────
+# Part D: 生产环境调试实战
+# ─────────────────────────────────────
+
+from app.decorators.ch07_production import (
+    analyze_logs,
+    combined_decorator,
+    diagnose_performance,
+    get_decorator_chain,
+    locate_error_in_chain,
+    log_call_fixed,
+    log_call_wrong,
+    named_decorator,
+    tracker,
+    track_performance,
+)
+
+
+# 7.11 日志追踪问题
+
+@log_call_wrong
+def _service_wrong(data: str) -> str:
+    return f"processed: {data}"
+
+
+@log_call_fixed
+def _service_fixed(data: str) -> str:
+    return f"processed: {data}"
+
+
+@router.get("/log-tracking")
+def demo_log_tracking() -> dict:
+    """日志追踪问题演示"""
+    wrong_logs = [
+        "Calling wrapper with args=('test',)",
+        "wrapper returned",
+    ]
+    fixed_logs = [
+        "Calling _service_fixed with args=('test',)",
+        "_service_fixed returned",
+    ]
+    
+    wrong_analysis = analyze_logs(wrong_logs)
+    fixed_analysis = analyze_logs(fixed_logs)
+    
+    wrong_result = _service_wrong("test")
+    fixed_result = _service_fixed("test")
+    
+    return {
+        "wrong_logs": wrong_logs,
+        "wrong_analysis": wrong_analysis,
+        "fixed_logs": fixed_logs,
+        "fixed_analysis": fixed_analysis,
+        "wrong_result": wrong_result,
+        "fixed_result": fixed_result,
+    }
+
+
+# 7.12 性能瓶颈追踪
+
+@track_performance
+def _slow_api_call() -> str:
+    import time
+    time.sleep(0.02)
+    return "done"
+
+
+@track_performance
+def _fast_api_call() -> str:
+    return "done"
+
+
+@router.get("/performance-analysis")
+def demo_performance_analysis() -> dict:
+    """性能瓶颈追踪演示"""
+    tracker.clear()
+    
+    for _ in range(10):
+        _slow_api_call()
+    
+    for _ in range(20):
+        _fast_api_call()
+    
+    report = tracker.get_report()
+    slowest = tracker.get_slowest(threshold=0.01)
+    
+    slow_perf = diagnose_performance(lambda: _slow_api_call(), call_count=5)
+    fast_perf = diagnose_performance(lambda: _fast_api_call(), call_count=100)
+    
+    return {
+        "tracker_report": report,
+        "slowest_calls": slowest[:5],
+        "slow_function_perf": slow_perf,
+        "fast_function_perf": fast_perf,
+    }
+
+
+# 7.13 复杂装饰器链错误定位
+
+@named_decorator("auth")
+@named_decorator("rate_limit")
+@named_decorator("cache")
+@named_decorator("log")
+def _chain_service(data: str) -> str:
+    if data == "error":
+        raise ValueError("服务错误")
+    return f"result: {data}"
+
+
+@router.post("/locate-error")
+def demo_locate_error(data: str = "ok") -> dict:
+    """复杂装饰器链错误定位"""
+    chain = get_decorator_chain(_chain_service)
+    
+    if data == "error":
+        error_info = locate_error_in_chain(_chain_service, data)
+        return {
+            "decorator_chain": chain,
+            "error_info": error_info,
+        }
+    
+    result = _chain_service(data)
+    return {
+        "decorator_chain": chain,
+        "success": True,
+        "result": result,
+    }
+
+
+# 组合装饰器演示
+
+@combined_decorator(log_calls=True, track_performance=True, retry_count=2)
+def _combined_service(data: str) -> str:
+    if data == "fail_once":
+        import time
+        if not hasattr(_combined_service, "_attempt"):
+            _combined_service._attempt = 0
+        _combined_service._attempt += 1
+        if _combined_service._attempt < 2:
+            raise ValueError("临时失败")
+        return "success after retry"
+    return f"processed: {data}"
+
+
+@router.get("/combined-decorator")
+def demo_combined_decorator(data: str = "ok") -> dict:
+    """组合装饰器演示"""
+    result = _combined_service(data)
+    config = getattr(_combined_service, "_config", {})
+    elapsed = getattr(_combined_service, "_last_elapsed", 0.0)
+    
+    return {
+        "result": result,
+        "config": config,
+        "elapsed_ms": f"{elapsed * 1000:.2f}",
+        "decorator_name": getattr(_combined_service, "__decorator_name__", "unknown"),
+    }
+
+
+# ─────────────────────────────────────
 # 综合端点
 # ─────────────────────────────────────
 
@@ -355,6 +514,9 @@ def demo_summary() -> dict:
             "7.6 异常栈被吞掉调试",
             "7.7 循环变量陷阱现场排查",
             "7.8 async await 遗漏排查",
+            "7.11 日志追踪问题",
+            "7.12 性能瓶颈追踪",
+            "7.13 复杂装饰器链错误定位",
         ],
         "endpoints": {
             "order-conflict": "装饰器叠加顺序",
@@ -362,5 +524,9 @@ def demo_summary() -> dict:
             "async-await-missing": "async await 遗漏",
             "signature-lost": "函数签名丢失",
             "stack-swallowed": "异常栈被吞掉",
+            "log-tracking": "日志追踪问题",
+            "performance-analysis": "性能瓶颈追踪",
+            "locate-error": "装饰器链错误定位",
+            "combined-decorator": "组合装饰器演示",
         },
     }

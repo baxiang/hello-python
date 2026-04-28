@@ -1,88 +1,112 @@
 # 面向对象编程
 
-本章讲解 Python 面向对象编程的完整知识体系，包括类与对象、继承、封装、多态和设计原则。
+本章讲解 Python 面向对象编程的完整知识体系，从类与对象基础到元类和 `__init_subclass__`。
+
+---
+
+## 快速开始
+
+```bash
+# 进入示例项目
+cd oop_demo
+
+# 安装依赖
+uv sync
+
+# 交互式演示（推荐）— 按章节逐步探索 OOP 概念
+uv run python -m app
+
+# 运行测试（59 个测试，全覆盖）
+uv run pytest -v
+```
+
+---
+
+## 知识地图
+
+```
+类与对象基础 ──→ 属性与方法 ──→ 继承 ──→ 封装
+      ↓              ↓            ↓         ↓
+  class/实例     实例/类属性   super()    @property
+  __init__       三种方法     MRO        私有属性
+                      ↓
+                ┌───────┴───────┐
+                ↓               ↓
+            多态            设计原则
+                ↓               ↓
+        ABC / Protocol    SOLID / 组合
+                ↓
+          ┌─────┴─────┐
+          ↓           ↓
+       数据类       魔术方法
+          ↓           ↓
+    @dataclass    __str__/__eq__/__hash__
+          │           │
+          └─────┬─────┘
+                ↓
+          元类 ──→ 子类钩子
+            ↓           ↓
+       metaclass   __init_subclass__
+```
 
 ---
 
 ## 章节导航
 
-| 章节 | 文件 | 主题 |
-|------|------|------|
-| 01 | [01-面向对象基础.md](./01-面向对象基础.md) | 类与对象、定义和创建 |
-| 02 | [02-属性与方法.md](./02-属性与方法.md) | 实例属性、类属性、三种方法 |
-| 03 | [03-继承.md](./03-继承.md) | 继承基础、super()、多重继承 |
-| 04 | [04-封装.md](./04-封装.md) | 私有属性、@property |
-| 05 | [05-多态.md](./05-多态.md) | 多态、鸭子类型、抽象基类 |
-| 06 | [06-设计原则.md](./06-设计原则.md) | 组合vs继承、SOLID |
-| 07 | [07-数据类.md](./07-数据类.md) | @dataclass 数据容器类 |
-| 08 | [08-魔术方法.md](./08-魔术方法.md) | __str__、__repr__、__eq__ 等特殊方法 |
-| 09 | [09-元类.md](./09-元类.md) | metaclass、类创建控制、type原理 |
-| 10 | [10-__init_subclass__.md](./10-__init_subclass__.md) | 子类创建钩子、元类简化替代方案 |
+| 章节 | 文件 | 主题 | 代码位置 | 验证方式 |
+|------|------|------|---------|---------|
+| 01 | [类与对象基础](./01-面向对象基础.md) | 类定义、实例化 | `domain/book/model.py` | CLI 菜单 1 / `pytest -k basics` |
+| 02 | [属性与方法](./02-属性与方法.md) | 实例/类属性、三种方法 | `domain/book/model.py`, `domain/member.py` | CLI 菜单 2 / `pytest -k basics` |
+| 03 | [继承](./03-继承.md) | super()、多重继承 | `domain/book/model.py` | CLI 菜单 3 / `pytest -k inherit` |
+| 04 | [封装](./04-封装.md) | @property、私有属性 | `domain/book/model.py`, `domain/member.py` | CLI 菜单 4 / `pytest -k encapsul` |
+| 05 | [多态](./05-多态.md) | ABC、Protocol、鸭子类型 | `ports/catalog.py` | CLI 菜单 5 / `pytest -k polymorph` |
+| 06 | [设计原则](./06-设计原则.md) | 组合、SOLID | `services/library.py` | CLI 菜单 6 / `pytest -k design` |
+| 07 | [数据类](./07-数据类.md) | @dataclass | `domain/record.py` | CLI 菜单 7 / `pytest -k dataclass` |
+| 08 | [魔术方法](./08-魔术方法.md) | __str__、__eq__、容器协议 | `domain/member.py`, `services/library.py` | CLI 菜单 8 / `pytest -k magic` |
+| 09 | [元类](./09-元类.md) ⭐选读 | metaclass、单例 | `infra/singleton.py` | CLI 菜单 9 / `pytest -k metaclass` |
+| 10 | [子类钩子](./10-子类钩子.md) ⭐选读 | __init_subclass__ | `infra/plugin.py` | CLI 菜单 10 / `pytest -k subclass` |
 
 ---
 
-## 面向对象四大特性
+## 项目架构
+
+`oop_demo/` 采用 DDD 分层设计，所有文档中的代码示例均来自该项目：
 
 ```
-┌─────────────────────────────────────────┐
-│       面向对象四大特性                  │
-├─────────────────────────────────────────┤
-│                                         │
-│  1️⃣ 抽象（Abstraction）                 │
-│     提取共同特征，忽略无关细节          │
-│                                         │
-│  2️⃣ 封装（Encapsulation）               │
-│     隐藏内部实现，只暴露接口            │
-│                                         │
-│  3️⃣ 继承（Inheritance）                 │
-│     子类继承父类的特征和行为            │
-│                                         │
-│  4️⃣ 多态（Polymorphism）                │
-│     同一接口，不同实现                  │
-│                                         │
-└─────────────────────────────────────────┘
+oop_demo/
+├── domain/      # 领域模型（Book, Member, Record）
+├── ports/       # 接口定义（ABC, Protocol）
+├── services/    # 应用服务（Library, Notification）
+├── infra/       # 基础设施（元类, __init_subclass__）
+└── utils/       # 工具函数
 ```
 
-## 核心语法速查
+| 层 | OOP 概念 | 对应章节 |
+|----|---------|---------|
+| `domain/` | 类定义、继承、封装、属性、魔术方法 | ch01-ch04, ch08 |
+| `ports/` | ABC、Protocol、DIP | ch05, ch06 |
+| `services/` | 组合、SOLID、依赖注入 | ch06 |
+| `infra/` | 元类、`__init_subclass__` | ch09, ch10 |
 
-```python
-# 定义类
-class ClassName:
-    """文档字符串"""
-    
-    class_attr = "类属性"  # 所有实例共享
-    
-    def __init__(self, param):
-        self.instance_attr = param  # 实例属性
-    
-    def instance_method(self):
-        """实例方法"""
-        pass
-    
-    @classmethod
-    def class_method(cls):
-        """类方法"""
-        pass
-    
-    @staticmethod
-    def static_method():
-        """静态方法"""
-        pass
+---
 
-# 继承
-class Child(Parent):
-    def __init__(self):
-        super().__init__()
+## 交互式演示
 
-# 私有属性
-self.__private = "私有"
+运行 `uv run python -m app` 后进入章节菜单：
 
-# @property
-@property
-def name(self):
-    return self.__name
-
-@name.setter
-def name(self, value):
-    self.__name = value
 ```
+  📚 图书馆管理系统 — OOP 学习演示
+
+  1.  类与对象基础
+  2.  属性与方法
+  3.  继承
+  4.  封装
+  5.  多态
+  6.  设计原则（SOLID）
+  7.  数据类（@dataclass）
+  8.  魔术方法
+  9.  元类（metaclass）
+  10. 子类钩子（__init_subclass__）
+```
+
+每章独立演示，可反复运行感兴趣的章节。

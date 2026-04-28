@@ -1,6 +1,7 @@
 """第 7 章测试 — 装饰器边界情况与调试实战"""
 
 import asyncio
+import time
 
 from app.decorators.ch07_edge_cases import (
     async_timer_fixed,
@@ -23,6 +24,7 @@ from app.decorators.ch07_debug_tools import (
     get_original,
     inspect_closure_trap,
 )
+from app.decorators.ch07_production import PerformanceTracker
 
 
 class TestDecoratorOrder:
@@ -227,3 +229,215 @@ class TestEdgeCasesIntegration:
 
         assert result == "done"
         assert elapsed >= 0.05
+
+
+class TestProductionLogTracking:
+    """测试生产环境日志追踪"""
+
+    def test_log_call_wrong_hardcoded_wrapper(self):
+        from app.decorators.ch07_production import log_call_wrong
+
+        @log_call_wrong
+        def service(data):
+            return f"processed: {data}"
+
+        result = service("test")
+        assert result == "processed: test"
+        assert service.__name__ == "wrapper"
+
+    def test_log_call_fixed_uses_func_name(self):
+        from app.decorators.ch07_production import log_call_fixed
+
+        @log_call_fixed
+        def service(data):
+            return f"processed: {data}"
+
+        result = service("test")
+        assert result == "processed: test"
+        assert service.__name__ == "service"
+
+    def test_analyze_logs_detects_wrapper_problem(self):
+        from app.decorators.ch07_production import analyze_logs
+
+        wrong_logs = [
+            "Calling wrapper with args=('test',)",
+            "wrapper returned",
+        ]
+        analysis = analyze_logs(wrong_logs)
+        assert analysis["has_problem"] is True
+        assert analysis["wrapper_calls"] == 2
+
+        good_logs = [
+            "Calling service with args=('test',)",
+            "service returned",
+        ]
+        analysis = analyze_logs(good_logs)
+        assert analysis["has_problem"] is False
+
+    def test_production_log_decorator(self):
+        from app.decorators.ch07_production import production_log
+
+        @production_log(level="INFO", include_args=True)
+        def service(data):
+            return f"processed: {data}"
+
+        result = service("test")
+        assert result == "processed: test"
+        assert hasattr(service, "_log_config")
+        assert service._log_config["level"] == "INFO"
+
+
+class TestPerformanceTracking:
+    """测试性能追踪"""
+
+    def test_performance_tracker_collects_stats(self):
+        tracker = PerformanceTracker()
+
+        def track(func):
+            def wrapper(*args, **kwargs):
+                start = time.time()
+                result = func(*args, **kwargs)
+                tracker.track(func.__name__, time.time() - start)
+                return result
+            return wrapper
+
+        @track
+        def fast_func():
+            return "done"
+
+        for _ in range(10):
+            fast_func()
+
+        report = tracker.get_report()
+        assert "fast_func" in report
+        assert report["fast_func"]["count"] == 10
+
+    def test_performance_tracker_slowest(self):
+        from app.decorators.ch07_production import PerformanceTracker
+
+        tracker = PerformanceTracker()
+        tracker.track("slow_func", 0.5)
+        tracker.track("slow_func", 0.6)
+        tracker.track("fast_func", 0.01)
+
+        slowest = tracker.get_slowest(threshold=0.1)
+        assert len(slowest) == 2
+        assert slowest[0][0] == "slow_func"
+
+    def test_diagnose_performance(self):
+        from app.decorators.ch07_production import diagnose_performance
+
+        def fast_func():
+            return "done"
+
+        report = diagnose_performance(fast_func, call_count=50)
+        assert report["func_name"] == "fast_func"
+        assert report["call_count"] == 50
+        assert report["avg_ms"] < 1
+
+
+class TestDecoratorChainErrorLocation:
+    """测试装饰器链错误定位"""
+
+    def test_named_decorator_adds_name(self):
+        from app.decorators.ch07_production import named_decorator
+
+        @named_decorator("auth")
+        def service():
+            return "done"
+
+        assert hasattr(service, "__decorator_name__")
+        assert service.__decorator_name__ == "auth"
+
+    def test_locate_error_in_chain_success(self):
+        from app.decorators.ch07_production import (
+            locate_error_in_chain,
+            named_decorator,
+        )
+
+        @named_decorator("auth")
+        @named_decorator("log")
+        def service(data):
+            return f"processed: {data}"
+
+        info = locate_error_in_chain(service, "ok")
+        assert info["success"] is True
+        assert info["result"] == "processed: ok"
+
+    def test_locate_error_in_chain_error(self):
+        from app.decorators.ch07_production import (
+            locate_error_in_chain,
+            named_decorator,
+        )
+
+        @named_decorator("auth")
+        @named_decorator("log")
+        def service(data):
+            if data == "error":
+                raise ValueError("服务错误")
+            return "ok"
+
+        info = locate_error_in_chain(service, "error")
+        assert info["success"] is False
+        assert info["error_type"] == "ValueError"
+        assert info["original_location"]["name"] == "service"
+
+    def test_get_decorator_chain(self):
+        from app.decorators.ch07_production import (
+            get_decorator_chain,
+            named_decorator,
+        )
+
+        @named_decorator("auth")
+        @named_decorator("rate_limit")
+        @named_decorator("log")
+        def service():
+            return "done"
+
+        chain = get_decorator_chain(service)
+        assert chain == ["auth", "rate_limit", "log", "service"]
+
+
+class TestCombinedDecorator:
+    """测试组合装饰器"""
+
+    def test_combined_decorator_basic(self):
+        from app.decorators.ch07_production import combined_decorator
+
+        @combined_decorator(log_calls=True, track_performance=True)
+        def service(data):
+            return f"processed: {data}"
+
+        result = service("test")
+        assert result == "processed: test"
+        assert hasattr(service, "__decorator_name__")
+        assert service.__decorator_name__ == "combined"
+
+    def test_combined_decorator_retry(self):
+        from app.decorators.ch07_production import combined_decorator
+
+        call_count = 0
+
+        @combined_decorator(log_calls=True, retry_count=2)
+        def flaky_service():
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise ValueError("临时失败")
+            return "success"
+
+        result = flaky_service()
+        assert result == "success"
+        assert call_count == 2
+
+    def test_combined_decorator_config(self):
+        from app.decorators.ch07_production import combined_decorator
+
+        @combined_decorator(log_calls=False, track_performance=True)
+        def service():
+            return "done"
+
+        result = service()
+        assert result == "done"
+        assert hasattr(service, "_config")
+        assert service._config["log_calls"] is False

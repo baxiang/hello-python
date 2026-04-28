@@ -78,6 +78,10 @@ uv run pytest -v
 | `GET /api/v1/debug/async-await-missing` | ch07 | async await 遗漏 |
 | `GET /api/v1/debug/signature-lost` | ch07 | 函数签名丢失 |
 | `GET /api/v1/debug/stack-swallowed` | ch07 | 异常栈被吞掉 |
+| `GET /api/v1/debug/log-tracking` | ch07 | 生产日志追踪问题 |
+| `GET /api/v1/debug/performance-analysis` | ch07 | 性能瓶颈追踪 |
+| `POST /api/v1/debug/locate-error` | ch07 | 装饰器链错误定位 |
+| `GET /api/v1/debug/combined-decorator` | ch07 | 组合装饰器演示 |
 
 ---
 
