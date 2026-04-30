@@ -17,21 +17,17 @@ from typing import Any
 # ch04: lambda 匿名函数
 # ---------------------------------------------------------------------------
 
-# lambda 作为模块级常量（命名的 lambda 用于复用）
-SCORE_KEY = lambda s: s["score"]          # 按分数取值
-NAME_KEY  = lambda s: s["name"]           # 按姓名取值
-
 
 def sort_students(
     students: list[dict], *, reverse: bool = False
 ) -> list[dict]:
     """按分数排序（ch04：lambda 作为 sorted key）"""
-    return sorted(students, key=SCORE_KEY, reverse=reverse)
+    return sorted(students, key=lambda s: s["score"], reverse=reverse)
 
 
 def sort_by_name(students: list[dict]) -> list[dict]:
     """按姓名排序（ch04：lambda key）"""
-    return sorted(students, key=NAME_KEY)
+    return sorted(students, key=lambda s: s["name"])
 
 
 def filter_passing(
@@ -120,4 +116,4 @@ def classify_items(items: list[Any]) -> dict[str, list[Any]]:
 
 def top_n(students: list[dict], n: int) -> list[dict]:
     """取分数前 n 名（ch05：sorted + 切片）"""
-    return sorted(students, key=SCORE_KEY, reverse=True)[:n]
+    return sorted(students, key=lambda s: s["score"], reverse=True)[:n]

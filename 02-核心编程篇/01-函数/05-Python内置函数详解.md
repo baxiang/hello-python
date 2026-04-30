@@ -72,53 +72,7 @@ age = int(input("请输入年龄: "))  # 必须手动转换为数字
 
 ---
 
-## 3. 函数的定义与参数基础
-
-在深入学习内置函数之前，我们需要快速复习一下函数的语法。**理解“参数传递方式”是掌握内置函数高级用法（如 `key` 参数）的前提。**
-
-### 3.1 函数的基本结构
-```python
-def 函数名(参数 1, 参数 2):
-    # 函数体
-    return 返回值
-```
-
-### 3.2 核心：三种参数传递方式
-
-Python 函数调用非常灵活，主要分为以下三种情况：
-
-#### 1. 位置参数 (Positional Arguments)
-**按顺序传值**，这是最基础的方式。
-*   **示例**：`pow(2, 10)`
-    *   第 1 个位置传 `2`（底数）。
-    *   第 2 个位置传 `10`（指数）。
-    *   **规则**：顺序不能乱，必须对应函数的定义。
-
-#### 2. 关键字参数 (Keyword Arguments)
-**通过 `参数名=值` 的形式传值**。
-*   **示例**：`max(data, key=len)`
-    *   `data` 是位置参数。
-    *   `key=len` 是关键字参数。
-*   **优势**：
-    1.  **顺序不限**：`max(key=len, iterable=data)` 效果一样。
-    2.  **可读性强**：看到 `key` 就知道是在指定比较依据。
-*   **应用**：内置函数中大量的可选配置（如 `print` 的 `sep`, `end`, `file`）都通过这种方式设置。
-
-#### 3. 默认参数 (Default Arguments)
-函数定义时预设了值，**调用时可以省略**。
-*   **示例**：`int("100")`
-    *   函数定义其实是 `int(x, base=10)`。
-    *   因为我们平时都转十进制，所以省略了 `base`。
-*   **规则**：如果你想转二进制，就需要显式传入：`int("1010", base=2)`。
-
-### 3.3 避坑指南
-在调用内置函数时，**位置参数必须放在关键字参数前面**。
-*   ❌ 错误：`max(key=len, data)` (关键字参数跑到了位置参数前面)
-*   ✅ 正确：`max(data, key=len)`
-
----
-
-## 4. 数据类型转换
+## 3. 数据类型转换
 
 Python 提供了一组函数用于类型转换，这是处理数据清洗的核心工具。
 
@@ -238,7 +192,7 @@ list(range(0, 10, 2)) # [0, 2, 4, 6, 8]  (step=2，跳着走)
 list(range(5, 0, -1)) # [5, 4, 3, 2, 1]  (step=-1，倒序)
 ```
 
-> **注意**：`range()` 返回的是**迭代器对象**，不占用内存。只有用 `list()` 转换时才会生成完整列表。
+> **注意**：`range()` 返回的是**range 对象**（可迭代对象），不占用内存。它不是迭代器——`range` 对象支持 `len()`、多次遍历和索引访问，而迭代器不行。只有用 `list()` 转换时才会生成完整列表。
 
 ### 5.2 `len()`: 获取长度
 ```python
@@ -592,6 +546,274 @@ print(all_passed(students, 90))  # False (Alice < 90)
 
 ---
 
+## L2 实践层：最佳实践
+
+### 推荐做法
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| **enumerate 替代 range(len)** | 更 Pythonic，同时获取索引和值 | `for i, v in enumerate(data):` |
+| **zip 并行遍历** | 避免手动索引，代码更清晰 | `for name, score in zip(names, scores):` |
+| **sorted 的 key 参数** | 比自定义比较函数更简洁高效 | `sorted(items, key=lambda x: x["age"])` |
+| **生成器表达式 + any/all** | 惰性求值 + 短路，节省内存 | `any(x > 0 for x in data)` |
+| **用 isinstance 而非 type** | 支持继承判断，更健壮 | `isinstance(x, int)` 而非 `type(x) == int` |
+| **上下文管理器操作文件** | 自动关闭，防止资源泄漏 | `with open(...) as f:` |
+
+### 反模式：不要这样做
+
+```python
+# ❌ 用 range(len(...)) 遍历
+for i in range(len(fruits)):
+    print(fruits[i])
+
+# ✅ 用 enumerate
+for i, fruit in enumerate(fruits):
+    print(f"第{i}个: {fruit}")
+```
+
+```python
+# ❌ 手动并行遍历
+for i in range(len(names)):
+    print(names[i], scores[i])
+
+# ✅ 用 zip
+for name, score in zip(names, scores):
+    print(f"{name}: {score}")
+```
+
+```python
+# ❌ sorted + lambda 做简单属性取值
+sorted(students, key=lambda s: s["score"])
+
+# ✅ 如果只需按单一属性排序，operator.itemgetter 更快
+from operator import itemgetter
+sorted(students, key=itemgetter("score"))
+```
+
+```python
+# ❌ 对 eval 传入用户输入
+user_input = input("请输入表达式: ")
+result = eval(user_input)  # 严重安全漏洞！
+
+# ✅ 用 ast.literal_eval 解析安全字面量
+import ast
+user_input = input("请输入列表: ")
+result = ast.literal_eval(user_input)  # 只解析字面量，不执行代码
+```
+
+```python
+# ❌ 用 sum 拼接列表（O(n²) 性能）
+lists = [[1, 2], [3, 4], [5, 6]]
+result = sum(lists, start=[])  # 每次拼接都创建新列表
+
+# ✅ 用列表推导式或 itertools.chain
+result = [x for sub in lists for x in sub]  # O(n)
+
+from itertools import chain
+result = list(chain.from_iterable(lists))  # O(n)，更高效
+```
+
+### 适用场景
+
+| 场景 | 是否推荐 | 原因 |
+|------|---------|------|
+| 数据统计（min/max/sum/len） | ✅ 推荐 | C 实现，比手动循环快 |
+| 排序与排名（sorted + key） | ✅ 推荐 | 灵活且不修改原数据 |
+| 并行遍历（zip） | ✅ 推荐 | 比手动索引安全 |
+| 数据校验（any/all） | ✅ 推荐 | 短路求值，性能好 |
+| 类型转换 | ✅ 推荐 | 内置函数，零依赖 |
+| eval 执行字符串 | ❌ 不推荐 | 安全风险极高 |
+| sum 拼接列表 | ❌ 不推荐 | O(n²) 性能问题 |
+
+---
+
+## L3 专家层：底层原理
+
+### 内置函数的 C 实现优势
+
+Python 的内置函数大多用 C 实现，比纯 Python 循环快 10-100 倍。
+
+```python
+import timeit
+
+data = list(range(10000))
+
+# 纯 Python 循环求和
+def loop_sum(nums):
+    total = 0
+    for n in nums:
+        total += n
+    return total
+
+# 内置 sum
+loop_time = timeit.timeit("loop_sum(data)", globals=globals(), number=1000)
+builtin_time = timeit.timeit("sum(data)", globals=globals(), number=1000)
+
+print(f"纯 Python: {loop_time:.4f}s")
+print(f"内置 sum:  {builtin_time:.4f}s")
+# 纯 Python: 0.35s
+# 内置 sum:  0.02s  ← 快约 15 倍
+```
+
+**性能对比表：**
+
+| 操作 | 纯 Python | 内置函数 | 加速比 |
+|------|----------|---------|--------|
+| 求和 | for 循环 | `sum()` | ~15x |
+| 最大值 | for + if | `max()` | ~10x |
+| 排序 | 手动冒泡 | `sorted()` | ~50x |
+| 成员检查 | for + == | `in`（集合） | ~100x |
+
+### sorted() 的 TimSort 算法
+
+Python 的 `sorted()` 使用 **TimSort** 算法，是一种混合了归并排序和插入排序的高效算法。
+
+```
+TimSort 特性：
+┌─────────────────────────────────────────────────────────────┐
+│                   TimSort 算法特点                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  时间复杂度：                                                │
+│  • 最优：O(n)    ← 数据已部分有序时                         │
+│  • 平均：O(n log n)                                        │
+│  • 最差：O(n log n)                                        │
+│                                                             │
+│  空间复杂度：O(n)                                           │
+│                                                             │
+│  核心优化：                                                  │
+│  • 识别"有序子序列"（run），直接利用不重排                   │
+│  • 小段用插入排序（常数因子更小）                            │
+│  • 稳定排序：相同 key 的元素保持原始顺序                    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```python
+# 稳定排序的验证
+students = [
+    {"name": "Alice", "score": 85},
+    {"name": "Bob", "score": 85},
+    {"name": "Charlie", "score": 92},
+]
+
+# 按分数排序，Alice 和 Bob 分数相同，顺序不变
+result = sorted(students, key=lambda s: s["score"])
+# Alice 仍在 Bob 前面（稳定排序保证）
+```
+
+### 可迭代对象 vs 迭代器 vs 生成器
+
+内置函数中很多返回"迭代器"，理解这三者的区别很重要。
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│          可迭代对象 vs 迭代器 vs 生成器                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  可迭代对象（Iterable）：                                    │
+│  • 实现了 __iter__() 方法                                   │
+│  • 可以被 for 遍历                                          │
+│  • 可以重复遍历                                             │
+│  • 例：list, str, dict, range, set                          │
+│                                                             │
+│  迭代器（Iterator）：                                        │
+│  • 同时实现 __iter__() 和 __next__() 方法                   │
+│  • 惰性求值，按需生成元素                                   │
+│  • 只能遍历一次，耗尽后抛 StopIteration                     │
+│  • 例：map, filter, zip, enumerate, reversed 的返回值       │
+│                                                             │
+│  生成器（Generator）：                                       │
+│  • 迭代器的子集，用 yield 或生成器表达式创建                 │
+│  • 例：(x**2 for x in range(10))                           │
+│                                                             │
+│  ⚠️ range 是可迭代对象，不是迭代器！                        │
+│  • range 支持 len()、索引访问、重复遍历                     │
+│  • 迭代器不支持这些操作                                     │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```python
+# range 不是迭代器
+r = range(5)
+print(len(r))    # 5 ← 迭代器没有 len
+print(r[2])      # 2 ← 迭代器不支持索引
+print(list(r))   # [0, 1, 2, 3, 4]
+print(list(r))   # [0, 1, 2, 3, 4] ← 可以重复遍历
+
+# map 是迭代器
+m = map(str, [1, 2, 3])
+# print(len(m))  # TypeError ← 迭代器没有 len
+print(list(m))   # ['1', '2', '3']
+print(list(m))   # [] ← 耗尽了，只能遍历一次
+```
+
+### key 参数的内部机制
+
+`sorted()`、`min()`、`max()` 的 `key` 参数内部使用 **Schwartzian 变换**（装饰-排序-去装饰）。
+
+```python
+# sorted 内部等价逻辑（简化版）
+def sorted_with_key(iterable, key=None, reverse=False):
+    if key is None:
+        return sorted(iterable, reverse=reverse)
+
+    # 1. 装饰：对每个元素计算 key 值，打包为 (key_value, original)
+    decorated = [(key(item), item) for item in iterable]
+
+    # 2. 排序：按 key_value 排序（每个元素的 key 只计算一次）
+    decorated.sort(reverse=reverse)
+
+    # 3. 去装饰：取出原始元素
+    return [item for _, item in decorated]
+
+# 优势：key 函数对每个元素只调用一次
+# 而传统的 cmp 函数每对元素比较都要调用，O(n log n) 次比较
+```
+
+### 设计动机
+
+Python 为什么把这些函数设计为内置？
+
+| 设计选择 | 原因 | 替代方案对比 |
+|----------|------|-------------|
+| 内置而非模块 | 高频使用，省去 import | Java 的 Collections.sort() 需导入 |
+| key 而非 cmp | 每元素调用一次 vs 每对比较调用 | Python 2 的 cmp 已废弃 |
+| 返回迭代器 | 惰性求值，节省内存 | Python 2 的 map/filter 返回列表 |
+| range 不生成列表 | 惰性范围对象，O(1) 内存 | Python 2 的 range() 生成完整列表 |
+| sorted 返回新列表 | 不修改原数据，纯函数风格 | list.sort() 原地修改 |
+
+### 知识关联
+
+```
+内置函数知识关联图：
+                    ┌───────────────┐
+                    │   C 实现      │
+                    │   性能优势    │
+                    └───────────────┘
+                          │
+                          ↓
+┌─────────────┐     ┌───────────────┐     ┌───────────────┐
+│  TimSort    │────→│  sorted/key   │────→│ Schwartzian   │
+│  稳定排序   │     │  机制         │     │ 变换          │
+└─────────────┘     └───────────────┘     └───────────────┘
+                          │
+                          ↓
+                    ┌───────────────┐
+                    │ 迭代器 vs     │
+                    │ 可迭代对象    │
+                    └───────────────┘
+                          │
+                          ↓
+                    ┌───────────────┐
+                    │   装饰器      │
+                    │   函数包装    │
+                    └───────────────┘
+```
+
+---
+
 ## 本章小结
 
 ```
@@ -599,6 +821,7 @@ print(all_passed(students, 90))  # False (Alice < 90)
 │                   内置函数核心记忆图谱                        │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
+│  L1 理解层：                                                │
 │  输入输出：print(sep, end), input                           │
 │  类型转换：int, float, str, bool, list, tuple, set, dict    │
 │  数值运算：abs, round, max, min, sum, divmod, pow           │
@@ -610,6 +833,20 @@ print(all_passed(students, 90))  # False (Alice < 90)
 │  1. enumerate 替代 range(len(...))                         │
 │  2. zip 用于并行遍历                                        │
 │  3. sorted 的 key 参数                                      │
+│                                                             │
+│  L2 实践层：                                                │
+│  ✓ enumerate/zip 替代手动索引                               │
+│  ✓ 生成器表达式 + any/all 短路求值                          │
+│  ✓ isinstance 优于 type 检查                                │
+│  ✓ 禁止 eval 用户输入，用 ast.literal_eval                  │
+│  ✓ sum 拼接列表是 O(n²)，用 itertools.chain                │
+│                                                             │
+│  L3 专家层：                                                │
+│  ✓ 内置函数 C 实现，比纯 Python 快 10-100 倍               │
+│  ✓ sorted 使用 TimSort（稳定、自适应 O(n)~O(n log n)）     │
+│  ✓ range 是可迭代对象不是迭代器，支持 len/索引/重复遍历     │
+│  ✓ key 参数使用 Schwartzian 变换，每元素只计算一次          │
+│  ✓ 迭代器只能遍历一次，可迭代对象可重复遍历                 │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```

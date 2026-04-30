@@ -445,13 +445,9 @@ scale_scores(students, 0.8)
 ```python
 # app/core/builtins.py 中的 lambda 使用
 
-# lambda 作为模块级常量（命名的 lambda 用于复用）
-SCORE_KEY = lambda s: s["score"]   # 按分数取值
-NAME_KEY  = lambda s: s["name"]    # 按姓名取值
-
 def sort_students(students: list[dict], *, reverse: bool = False) -> list[dict]:
     """按分数排序（lambda 作为 sorted key）"""
-    return sorted(students, key=SCORE_KEY, reverse=reverse)
+    return sorted(students, key=lambda s: s["score"], reverse=reverse)
 
 def filter_passing(students: list[dict], threshold: float = 60.0) -> list[dict]:
     """筛选及格学生（lambda + filter）"""
@@ -466,8 +462,7 @@ def scale_scores(students: list[dict], factor: float) -> list[float]:
 
 | 代码 | 含义 | 为什么这样写 |
 |------|------|-------------|
-| `SCORE_KEY = lambda s: s["score"]` | 提取分数的键函数 | 作为模块级常量复用，避免在多处重复写 lambda |
-| `sorted(students, key=SCORE_KEY)` | 按分数排序 | `key` 参数接受函数，lambda 提供轻量级的取值逻辑 |
+| `sorted(students, key=lambda s: s["score"])` | 按分数排序 | lambda 内联在 `key` 参数中，符合"一次性使用"的最佳实践 |
 | `filter(lambda s: s["score"] >= threshold, students)` | 过滤及格学生 | lambda 定义过滤条件，`filter` 返回迭代器，`list()` 转换为列表 |
 | `map(lambda s: round(s["score"] * factor, 2), students)` | 缩放分数 | lambda 对每个学生做分数变换，`round` 控制精度 |
 
@@ -657,69 +652,6 @@ print(add5(3))  # 8
 # 有名字、有文档、更清晰
 ```
 
-### 何时用 Lambda，何时不用
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│               Lambda 使用决策树（L2 实践层）                    │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│  1. 这个函数会多处复用吗？                                    │
-│       ├─ 是  →  用 def（给它起个好名字）                      │
-│       └─ 否  →  继续判断                                      │
-│                                                              │
-│  2. 逻辑超过一个表达式吗？                                    │
-│       ├─ 是  →  用 def（lambda 写不了多行）                   │
-│       └─ 否  →  继续判断                                      │
-│                                                              │
-│  3. 需要写注释/文档吗？                                       │
-│       ├─ 是  →  用 def（lambda 没有 docstring）               │
-│       └─ 否  →  继续判断                                      │
-│                                                              │
-│  4. 是否作为 key/filter/map 参数？                            │
-│       ├─ 是  →  ✅ 可以用 lambda                             │
-│       └─ 否  →  考虑 def，更清晰                              │
-│                                                              │
-│  5. 表达式是否简单可读？                                      │
-│       ├─ 是  →  ✅ 可以用 lambda                             │
-│       ├─ 否  →  用 def，展开逻辑                              │
-│                                                              │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ✅ Lambda 最佳场景：                                         │
-│  • sorted() / min() / max() 的 key 参数                      │
-│  • filter() 的过滤条件                                       │
-│  • map() 的简单转换                                          │
-│  • 简单的一行数学表达式                                       │
-│  • 回调函数（如果是简单逻辑）                                 │
-│                                                              │
-│  ❌ Lambda 不适合的场景：                                     │
-│  • 需要复用的函数 → 用 def                                   │
-│  • 多行逻辑 → 用 def                                         │
-│  • 需要文档 → 用 def                                         │
-│  • 赋值给变量 → 用 def                                       │
-│  • 有异常处理 → 用 def                                       │
-│  • 有副作用（打印、写入）→ 用 for 循环                       │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### 适用场景对比表
-
-| 场景 | 是否推荐 | 原因 | 示例 |
-|------|---------|------|------|
-| sorted key 参数 | ✅ 推荐 | 标准用法，简洁直观 | `sorted(items, key=lambda x: x[1])` |
-| filter 条件 | ✅ 推荐 | 简单过滤，一行搞定 | `filter(lambda x: x > 0, nums)` |
-| map 转换 | ✅ 推荐 | 简单映射，清晰 | `map(lambda x: x.upper(), words)` |
-| min/max key | ✅ 推荐 | 找最大/最小值的键 | `max(users, key=lambda u: u["age"])` |
-| 简单数学计算 | ✅ 推荐 | 一行表达式 | `(lambda x, y: x + y)(1, 2)` |
-| 回调函数 | ❓ 看情况 | 简单逻辑可用，复杂用 def | `on_click=lambda: print("clicked")` |
-| 复用函数 | ❌ 不推荐 | 用 def，有名字和文档 | 不要 `f = lambda x: x + 1` |
-| 多行逻辑 | ❌ 不推荐 | lambda 只能一行 | 用 def 展开逻辑 |
-| 异常处理 | ❌ 不推荐 | lambda 无法 try/except | 用 def 处理异常 |
-| 副作用操作 | ❌ 不推荐 | 用 for 循环更清晰 | 不要 `[print(x) for x in items]` |
-| 复杂嵌套 | ❌ 不推荐 | 难以阅读和调试 | 用 def 函数组合 |
-
 ### Lambda vs def 选择指南
 
 | 特性 | Lambda | def 函数 | 选择建议 |
@@ -731,6 +663,164 @@ print(add5(3))  # 8
 | 异常处理 | 不支持 | 支持 | 需异常处理选 def |
 | 调试 | 函数名显示 `<lambda>` | 显示实际名字 | 需调试选 def |
 | 性能 | 无差别 | 无差别 | 不作为选择依据 |
+
+---
+
+## L3 专家层：底层原理
+
+### Lambda 与 def 的内部实现差异
+
+Lambda 和 def 创建的函数对象在底层结构上几乎相同，但在代码对象（`__code__`）中有细微差别。
+
+```python
+# Lambda 函数对象
+square_lambda = lambda x: x ** 2
+
+# def 函数对象
+def square_def(x: int) -> int:
+    return x ** 2
+
+# 对比内部属性
+print(square_lambda.__name__)  # '<lambda>'
+print(square_def.__name__)     # 'square_def'
+
+print(square_lambda.__doc__)   # None
+print(square_def.__doc__)      # None（没写 docstring，但可以写）
+
+# 代码对象几乎一致
+print(square_lambda.__code__.co_code)  # 字节码
+print(square_def.__code__.co_code)     # 相同的字节码
+```
+
+**关键差异：**
+
+| 属性 | Lambda | def | 影响 |
+|------|--------|-----|------|
+| `__name__` | `'<lambda>'` | 实际函数名 | 调试时栈追踪不同 |
+| `__doc__` | 始终 `None` | 可自定义 | help() 显示不同 |
+| `__code__` | 相同 | 相同 | 执行性能无差别 |
+| `__annotations__` | 空 | 可有类型提示 | IDE 支持不同 |
+
+### Lambda 的编译与执行
+
+Python 在编译 lambda 时，会将其转换为与 def 等价的字节码。
+
+```python
+import dis
+
+# Lambda 字节码
+add_lambda = lambda a, b: a + b
+dis.dis(add_lambda)
+#   0 LOAD_FAST    0 (a)
+#   2 LOAD_FAST    1 (b)
+#   4 BINARY_ADD
+#   6 RETURN_VALUE
+
+# def 字节码
+def add_def(a: int, b: int) -> int:
+    return a + b
+dis.dis(add_def)
+#   0 LOAD_FAST    0 (a)
+#   2 LOAD_FAST    1 (b)
+#   4 BINARY_ADD
+#   6 RETURN_VALUE
+```
+
+两者生成的字节码完全一致，**lambda 没有运行时性能优势或劣势**。
+
+### 闭包中的 Lambda：捕获时机陷阱
+
+Lambda 在闭包中使用时，变量的捕获时机是一个常见陷阱。
+
+```python
+# ❌ 闭包中的 lambda 捕获的是变量引用，不是值
+funcs = []
+for i in range(5):
+    funcs.append(lambda: i)  # 所有 lambda 共享同一个 i
+
+print([f() for f in funcs])  # [4, 4, 4, 4, 4]（不是 [0, 1, 2, 3, 4]）
+
+# 原因：lambda 捕获的是变量 i 的引用
+# 循环结束后 i = 4，所有 lambda 返回 4
+
+# ✅ 用默认参数冻结当前值
+funcs = []
+for i in range(5):
+    funcs.append(lambda i=i: i)  # 默认参数在定义时求值
+
+print([f() for f in funcs])  # [0, 1, 2, 3, 4]
+```
+
+**原理：**
+- Lambda 中的自由变量（如 `i`）是**延迟绑定**的——在调用时才查找值
+- 默认参数（如 `i=i`）是**立即绑定**的——在定义时求值并冻结
+- 这不是 lambda 的特殊行为，def 闭包有同样的问题，但 lambda 更容易触发
+
+### 函数式编程的 Pythonic 替代
+
+Python 的 lambda 远不如其他语言（如 Haskell、Scala）的匿名函数强大。Pythonic 的做法是优先使用推导式。
+
+```python
+# Lambda + filter → 列表推导式
+numbers = [1, 2, 3, 4, 5, 6]
+
+# 函数式写法
+evens = list(filter(lambda x: x % 2 == 0, numbers))
+
+# Pythonic 写法（推荐）
+evens = [x for x in numbers if x % 2 == 0]
+
+# Lambda + map → 列表推导式
+# 函数式写法
+squares = list(map(lambda x: x ** 2, numbers))
+
+# Pythonic 写法（推荐）
+squares = [x ** 2 for x in numbers]
+```
+
+**何时保留 lambda：**
+- `sorted()`/`min()`/`max()` 的 `key` 参数（推导式无法替代）
+- 简单的内联回调（如 `on_click=lambda: ...`）
+- 需要惰性求值的场景（`map`/`filter` 返回迭代器，推导式立即计算）
+
+### 设计动机
+
+Python 为什么这样设计 lambda？
+
+| 设计选择 | 厳因 | 替代方案对比 |
+|----------|------|-------------|
+| 只允许一个表达式 | 保持简洁，避免滥用 | JavaScript 允许多行箭头函数 |
+| 无需 return | 单表达式自动返回，减少语法噪音 | Rust 闭包也省略 return |
+| 无 docstring | 匿名函数不需要文档，复杂逻辑应用 def | Haskell 的 where 子句可附文档 |
+| `__name__` 为 `<lambda>` | 调试时可识别匿名来源 | Scala 给匿名函数生成编号名 |
+
+### 知识关联
+
+```
+Lambda 知识关联图：
+                    ┌───────────────┐
+                    │  __code__     │
+                    │  字节码等价   │
+                    └───────────────┘
+                          │
+                          ↓
+┌─────────────┐     ┌───────────────┐     ┌───────────────┐
+│  闭包捕获   │────→│    Lambda     │────→│  默认参数冻结 │
+│  延迟绑定   │     │  底层原理     │     │  立即绑定     │
+└─────────────┘     └───────────────┘     └───────────────┘
+                          │
+                          ↓
+                    ┌───────────────┐
+                    │  推导式替代   │
+                    │  Pythonic 写法│
+                    └───────────────┘
+                          │
+                          ↓
+                    ┌───────────────┐
+                    │   装饰器      │
+                    │   函数包装    │
+                    └───────────────┘
+```
 
 ---
 
@@ -753,6 +843,12 @@ print(add5(3))  # 8
 │   ✓ 保持简单：一行能读懂                                    │
 │   ✓ 复杂逻辑、复用函数、需文档时用 def                      │
 │   ✓ 副作用操作用 for 循环，不隐藏在 lambda 里               │
+│                                                             │
+│   L3 专家层：                                                │
+│   ✓ lambda 与 def 字节码等价，无性能差异                    │
+│   ✓ 闭包中 lambda 延迟绑定，默认参数立即绑定                │
+│   ✓ 推导式是 filter/map 的 Pythonic 替代                    │
+│   ✓ lambda 只允许单表达式是防止滥用的设计决策                │
 │                                                             │
 │   选择指南：                                                 │
 │   ✓ 简单一次性 → lambda                                     │
