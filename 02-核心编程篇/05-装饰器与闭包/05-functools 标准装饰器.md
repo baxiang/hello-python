@@ -1,4 +1,4 @@
-# 第 5 章 — functools 标准装饰器
+# 05-functools 标准装饰器
 
 > **Python 版本要求**：Python 3.11+
 > **贯穿项目**：Web API 请求处理系统

@@ -1,4 +1,4 @@
-# 第 36 章 - PyTorch 入门
+# 02-PyTorch 入门
 
 > **Python 版本要求：** 本章代码需要 Python 3.11+ 运行环境
 >

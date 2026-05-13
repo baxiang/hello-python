@@ -1,4 +1,4 @@
-# 蓝图 Blueprint（详细版）
+# 07-蓝图Blueprint
 
 > Python 3.11+
 

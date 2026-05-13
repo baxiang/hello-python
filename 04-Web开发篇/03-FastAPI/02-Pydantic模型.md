@@ -1,4 +1,4 @@
-# Pydantic 模型（详细版）
+# 02-Pydantic模型
 
 > Python 3.11+
 

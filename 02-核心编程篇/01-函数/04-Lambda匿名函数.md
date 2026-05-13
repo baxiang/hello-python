@@ -1,4 +1,4 @@
-# 第 4 章：Lambda 匿名函数
+# 04-Lambda匿名函数
 
 > **Python 版本要求**：Python 3.11+
 > **贯穿项目**：functions_demo/

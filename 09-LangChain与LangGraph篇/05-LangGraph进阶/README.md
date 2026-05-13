@@ -1,4 +1,4 @@
-# 第 09.05 章 - LangGraph 进阶
+# 05-LangGraph进阶
 
 本章介绍 LangGraph 的进阶功能：记忆管理、长期记忆、中断审核、多中断、持久化、子图、Map-Reduce、图迁移与缓存。
 

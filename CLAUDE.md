@@ -72,5 +72,4 @@ Markdown chapters follow a consistent structure:
 ## Key Reference Files
 
 - **README.md** — Table of contents with learning roadmap
-- **00-Python学习大纲.md** — Full curriculum outline
 - **AGENTS.md** — Concise architecture summary for AI agents

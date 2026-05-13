@@ -1,4 +1,4 @@
-# 消息闪现与 Session 深入（详细版）
+# 16-消息闪现与Session深入
 
 > Python 3.11+
 

@@ -1,4 +1,4 @@
-# WebSocket（详细版）
+# 08-WebSocket
 
 > Python 3.11+
 

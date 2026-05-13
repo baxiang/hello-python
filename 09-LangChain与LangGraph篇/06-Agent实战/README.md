@@ -1,4 +1,4 @@
-# 第 09.06 章 - Agent 实战
+# 06-Agent实战
 
 本章通过 4 个完整项目，实践 LangChain 和 LangGraph 的综合应用。
 

@@ -1,4 +1,4 @@
-# 第 09 篇 - LangChain 与 LangGraph（入门到实战）
+# 09-LangChain与LangGraph篇
 
 本篇介绍 LangChain 和 LangGraph 框架，帮助 Python 开发者快速入门 AI 应用开发。
 

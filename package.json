@@ -1,0 +1,13 @@
+{
+  "name": "hello-python",
+  "version": "1.0.0",
+  "description": "Python 全栈学习路线教程",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}

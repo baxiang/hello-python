@@ -1,4 +1,4 @@
-# 09.05.07 - Map-Reduce 模式
+# 07-Map-Reduce模式
 
 > Send API、并行扇出、扇入聚合、动态图构建
 

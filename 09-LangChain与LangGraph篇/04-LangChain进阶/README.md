@@ -1,4 +1,4 @@
-# 第 09.04 章 - LangChain 进阶
+# 04-LangChain进阶
 
 本章介绍 LangChain Agent 的进阶应用：中间件系统、上下文工程、RAG、动态选择、结构化输出、流式输出。
 

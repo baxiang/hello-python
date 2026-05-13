@@ -1,4 +1,4 @@
-# random 随机数
+# 02-random随机数
 
 > Python 3.11+
 

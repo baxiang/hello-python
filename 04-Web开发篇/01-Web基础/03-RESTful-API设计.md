@@ -1,4 +1,4 @@
-# RESTful API 设计（详细版）
+# 03-RESTful-API设计
 
 > **前置知识**：01-HTTP协议基础、02-HTTP状态码  
 > **本章目标**：掌握 RESTful API 设计原则、能独立设计合理的 API 接口、了解 API 版本控制

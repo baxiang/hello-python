@@ -1,4 +1,4 @@
-# 第 09.01 章 - LangChain 入门
+# 01-LangChain入门
 
 > LangChain 是最流行的 LLM 应用开发框架，本章带你快速入门核心概念
 

@@ -1,4 +1,4 @@
-# GitHub 热榜追踪项目
+# GitHub热榜追踪
 
 Level-1 入门级项目，学习爬虫和 CLI 工具开发。
 

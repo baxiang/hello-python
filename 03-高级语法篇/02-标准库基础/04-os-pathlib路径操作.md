@@ -1,4 +1,4 @@
-# os 与 pathlib 路径操作
+# 04-os-pathlib路径操作
 
 > Python 3.11+
 

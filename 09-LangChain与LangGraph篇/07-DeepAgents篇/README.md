@@ -1,4 +1,4 @@
-# 第 09.07 篇 - Deep Agents 详解
+# 07-DeepAgents篇
 
 > 构建能规划、使用子代理（subagent）、管理文件系统的深度 Agent
 

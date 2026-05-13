@@ -1,4 +1,4 @@
-# 09.04.04 - RAG 架构
+# 04-RAG架构
 
 > Retrieval-Augmented Generation：检索增强生成的完整架构
 

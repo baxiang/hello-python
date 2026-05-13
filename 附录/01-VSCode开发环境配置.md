@@ -1,4 +1,4 @@
-# VSCode Python 开发环境搭建
+# 01-VSCode开发环境配置
 
 本章讲解如何使用 VSCode 搭建 2026 年工业级 Python 开发环境，包括扩展配置、settings.json、tasks.json 和 launch.json。
 

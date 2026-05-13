@@ -1,4 +1,4 @@
-# 09.06.04 - Guardrails 与安全
+# 04-Guardrails与安全
 
 > 输入验证、输出过滤、速率限制、Prompt 注入防御
 

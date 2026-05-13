@@ -1,4 +1,4 @@
-# PyTorch 基础
+# 02-PyTorch基础
 
 掌握深度学习框架 PyTorch 的核心使用方法。
 

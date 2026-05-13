@@ -1,4 +1,4 @@
-# 09.02.02 - State 与 Reducers
+# 02-State与Reducers
 
 > State 定义图的数据结构，Reducers 控制状态的合并规则
 

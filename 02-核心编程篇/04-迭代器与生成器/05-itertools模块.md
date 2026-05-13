@@ -1,4 +1,4 @@
-# itertools 模块
+# 05-itertools模块
 
 > **Python 版本要求**：Python 3.11+
 
