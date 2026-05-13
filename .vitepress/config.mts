@@ -18,6 +18,7 @@ const EXCLUDE_DIRS = [
   'env',
 ]
 const EXCLUDE_FILES = ['AGENTS.md', 'CLAUDE.md', 'QWEN.md']
+const HIDDEN_NAV_FILES = ['00-Python学习大纲.md']
 const ROOT = process.cwd()
 
 const LABEL_OVERRIDES: Record<string, string> = {
@@ -196,6 +197,7 @@ function discoverModules(): Module[] {
 
   for (const entry of readdirSync(ROOT).sort()) {
     if (EXCLUDE_DIRS.includes(entry) || isExcludedFile(entry)) continue
+    if (HIDDEN_NAV_FILES.includes(entry)) continue
     if (entry === 'index.md' || entry === 'README.md') continue
 
     const full = join(ROOT, entry)
