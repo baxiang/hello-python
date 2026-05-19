@@ -23,15 +23,15 @@
 
 | 篇章 | 主题 | 适合阶段 |
 |------|------|----------|
-| [01-基础入门篇](./01-基础入门篇/README.md) | Python 入门、基础语法、字符串、数据结构 | 零基础 |
-| [02-核心编程篇](./02-核心编程篇/README.md) | 函数、面向对象、异常、迭代器、装饰器、类型提示 | 入门到进阶 |
-| [03-高级语法篇](./03-高级语法篇/README.md) | 模块与包、标准库、并发与异步、标准库进阶 | 进阶 |
-| [04-Web开发篇](./04-Web开发篇/README.md) | HTTP、Flask、FastAPI、安全专题 | Web 后端 |
-| [05-机器学习篇](./05-机器学习篇/README.md) | 机器学习基础、数据预处理、监督/无监督学习、模型优化 | 机器学习入门 |
-| [06-神经网络与深度学习篇](./06-神经网络与深度学习篇/README.md) | 神经网络、PyTorch、CNN、RNN、深度学习实战 | 深度学习入门 |
-| [07-项目实战篇](./07-项目实战篇/README.md) | 14 个项目，覆盖入门、进阶、高级、专业级 | 综合实践 |
-| [08-工程实践篇](./08-工程实践篇/README.md) | 包管理、代码质量、测试、文档、运维监控、安全 | 工程化 |
-| [09-LangChain与LangGraph篇](./09-LangChain与LangGraph篇/README.md) | LangChain、LangGraph、Agent、DeepAgents | AI 应用开发 |
+| [01-基础入门篇](./1-basics/README.md) | Python 入门、基础语法、字符串、数据结构 | 零基础 |
+| [02-核心编程篇](./2-core/README.md) | 函数、面向对象、异常、迭代器、装饰器、类型提示 | 入门到进阶 |
+| [03-高级语法篇](./3-advanced/README.md) | 模块与包、标准库、并发与异步、标准库进阶 | 进阶 |
+| [04-Web开发篇](./4-web/README.md) | HTTP、Flask、FastAPI、安全专题 | Web 后端 |
+| [05-机器学习篇](./5-ml/README.md) | 机器学习基础、数据预处理、监督/无监督学习、模型优化 | 机器学习入门 |
+| [06-神经网络与深度学习篇](./6-deep-learning/README.md) | 神经网络、PyTorch、CNN、RNN、深度学习实战 | 深度学习入门 |
+| [07-项目实战篇](./7-projects/README.md) | 14 个项目，覆盖入门、进阶、高级、专业级 | 综合实践 |
+| [08-工程实践篇](./8-engineering/README.md) | 包管理、代码质量、测试、文档、运维监控、安全 | 工程化 |
+| [09-LangChain与LangGraph篇](./9-langchain/README.md) | LangChain、LangGraph、Agent、DeepAgents | AI 应用开发 |
 
 ---
 
@@ -85,89 +85,89 @@
 
 | 模块 | 内容 |
 |------|------|
-| [01-Python入门](./01-基础入门篇/01-Python入门/README.md) | Python 简介、环境搭建 |
-| [02-基础语法](./01-基础入门篇/02-基础语法/README.md) | 变量与数据类型、运算符、流程控制、输入输出、海象运算符 |
-| [03-字符串](./01-基础入门篇/03-字符串/README.md) | 字符串基础、字符串进阶 |
-| [04-数据结构](./01-基础入门篇/04-数据结构/README.md) | 列表、元组、字典、集合、推导式、深浅拷贝 |
+| [01-Python入门](./1-basics/01-Python入门/README.md) | Python 简介、环境搭建 |
+| [02-基础语法](./1-basics/02-基础语法/README.md) | 变量与数据类型、运算符、流程控制、输入输出、海象运算符 |
+| [03-字符串](./1-basics/03-字符串/README.md) | 字符串基础、字符串进阶 |
+| [04-数据结构](./1-basics/04-数据结构/README.md) | 列表、元组、字典、集合、推导式、深浅拷贝 |
 
 ### 02-核心编程篇
 
 | 模块 | 内容 |
 |------|------|
-| [01-函数](./02-核心编程篇/01-函数/README.md) | 函数基础、参数、作用域、Lambda、内置函数 |
-| [02-面向对象编程](./02-核心编程篇/02-面向对象编程/README.md) | 类与对象、属性与方法、继承、封装、多态、设计原则、数据类、魔术方法、元类、子类钩子 |
-| [03-错误与异常](./02-核心编程篇/03-错误与异常/README.md) | 异常基础、异常处理、抛出异常、上下文管理器 |
-| [04-迭代器与生成器](./02-核心编程篇/04-迭代器与生成器/README.md) | 迭代基础、自定义迭代器、生成器、itertools、异步生成器 |
-| [05-装饰器与闭包](./02-核心编程篇/05-装饰器与闭包/README.md) | 函数是一等公民、闭包、装饰器原理、装饰器工厂、functools、调试实践 |
-| [06-类型提示](./02-核心编程篇/06-类型提示/README.md) | 类型提示基础、类型进阶应用、高级类型特性 |
+| [01-函数](./2-core/01-函数/README.md) | 函数基础、参数、作用域、Lambda、内置函数 |
+| [02-面向对象编程](./2-core/02-面向对象编程/README.md) | 类与对象、属性与方法、继承、封装、多态、设计原则、数据类、魔术方法、元类、子类钩子 |
+| [03-错误与异常](./2-core/03-错误与异常/README.md) | 异常基础、异常处理、抛出异常、上下文管理器 |
+| [04-迭代器与生成器](./2-core/04-迭代器与生成器/README.md) | 迭代基础、自定义迭代器、生成器、itertools、异步生成器 |
+| [05-装饰器与闭包](./2-core/05-装饰器与闭包/README.md) | 函数是一等公民、闭包、装饰器原理、装饰器工厂、functools、调试实践 |
+| [06-类型提示](./2-core/06-类型提示/README.md) | 类型提示基础、类型进阶应用、高级类型特性 |
 
 ### 03-高级语法篇
 
 | 模块 | 内容 |
 |------|------|
-| [01-模块与包](./03-高级语法篇/01-模块与包/README.md) | 模块基础、自定义模块、包结构、导入机制、包管理、包发布 |
-| [02-标准库基础](./03-高级语法篇/02-标准库基础/README.md) | math、random、datetime、os/pathlib、json、文件操作、正则、pickle |
-| [03-并发与异步编程](./03-高级语法篇/03-并发与异步编程/README.md) | 并发基础、多线程、线程同步、多进程、asyncio、模型选择 |
-| [04-标准库进阶](./03-高级语法篇/04-标准库进阶/README.md) | 数据容器、迭代工具、函数式工具、数据结构算法、weakref |
+| [01-模块与包](./3-advanced/01-模块与包/README.md) | 模块基础、自定义模块、包结构、导入机制、包管理、包发布 |
+| [02-标准库基础](./3-advanced/02-标准库基础/README.md) | math、random、datetime、os/pathlib、json、文件操作、正则、pickle |
+| [03-并发与异步编程](./3-advanced/03-并发与异步编程/README.md) | 并发基础、多线程、线程同步、多进程、asyncio、模型选择 |
+| [04-标准库进阶](./3-advanced/04-标准库进阶/README.md) | 数据容器、迭代工具、函数式工具、数据结构算法、weakref |
 
 ### 04-Web开发篇
 
 | 模块 | 内容 |
 |------|------|
-| [01-Web基础](./04-Web开发篇/01-Web基础/README.md) | HTTP 协议、HTTP 状态码、RESTful API 设计 |
-| [02-Flask](./04-Web开发篇/02-Flask/README.md) | Flask 入门、路由、模板、数据库、表单、文件、蓝图、认证、RESTful、缓存、测试、部署 |
-| [03-FastAPI](./04-Web开发篇/03-FastAPI/README.md) | FastAPI 入门、Pydantic、依赖注入、数据库、认证、中间件、错误处理、WebSocket、后台任务、测试部署、分页、文档 |
-| [安全专题](./04-Web开发篇/安全专题.md) | Web 安全基础与实践 |
+| [01-Web基础](./4-web/01-Web基础/README.md) | HTTP 协议、HTTP 状态码、RESTful API 设计 |
+| [02-Flask](./4-web/02-Flask/README.md) | Flask 入门、路由、模板、数据库、表单、文件、蓝图、认证、RESTful、缓存、测试、部署 |
+| [03-FastAPI](./4-web/03-FastAPI/README.md) | FastAPI 入门、Pydantic、依赖注入、数据库、认证、中间件、错误处理、WebSocket、后台任务、测试部署、分页、文档 |
+| [安全专题](./4-web/安全专题.md) | Web 安全基础与实践 |
 
 ### 05-机器学习篇
 
 | 模块 | 内容 |
 |------|------|
-| [01-基础概念](./05-机器学习篇/01-基础概念/README.md) | 机器学习基础、训练流程、评估思路 |
-| [02-数据预处理](./05-机器学习篇/02-数据预处理/README.md) | 数据清洗、特征工程、标准化 |
-| [03-监督学习](./05-机器学习篇/03-监督学习/README.md) | 分类、回归、常见监督学习算法 |
-| [04-无监督学习](./05-机器学习篇/04-无监督学习/README.md) | 聚类、降维、无监督学习算法 |
-| [05-模型优化](./05-机器学习篇/05-模型优化/README.md) | 模型评估、调参、优化策略 |
+| [01-基础概念](./5-ml/01-基础概念/README.md) | 机器学习基础、训练流程、评估思路 |
+| [02-数据预处理](./5-ml/02-数据预处理/README.md) | 数据清洗、特征工程、标准化 |
+| [03-监督学习](./5-ml/03-监督学习/README.md) | 分类、回归、常见监督学习算法 |
+| [04-无监督学习](./5-ml/04-无监督学习/README.md) | 聚类、降维、无监督学习算法 |
+| [05-模型优化](./5-ml/05-模型优化/README.md) | 模型评估、调参、优化策略 |
 
 ### 06-神经网络与深度学习篇
 
 | 模块 | 内容 |
 |------|------|
-| [01-神经网络基础](./06-神经网络与深度学习篇/01-神经网络基础/README.md) | 神经元、前向传播、反向传播 |
-| [02-PyTorch基础](./06-神经网络与深度学习篇/02-PyTorch基础/README.md) | Tensor、训练流程、PyTorch 入门 |
-| [03-卷积神经网络](./06-神经网络与深度学习篇/03-卷积神经网络/README.md) | CNN、图像分类 |
-| [04-循环神经网络](./06-神经网络与深度学习篇/04-循环神经网络/README.md) | RNN、LSTM、序列建模 |
-| [05-深度学习实战](./06-神经网络与深度学习篇/05-深度学习实战/README.md) | 迁移学习、完整项目实践 |
+| [01-神经网络基础](./6-deep-learning/01-神经网络基础/README.md) | 神经元、前向传播、反向传播 |
+| [02-PyTorch基础](./6-deep-learning/02-PyTorch基础/README.md) | Tensor、训练流程、PyTorch 入门 |
+| [03-卷积神经网络](./6-deep-learning/03-卷积神经网络/README.md) | CNN、图像分类 |
+| [04-循环神经网络](./6-deep-learning/04-循环神经网络/README.md) | RNN、LSTM、序列建模 |
+| [05-深度学习实战](./6-deep-learning/05-深度学习实战/README.md) | 迁移学习、完整项目实践 |
 
 ### 07-项目实战篇
 
 | 难度 | 项目 |
 |------|------|
-| [Level-1-入门级](./07-项目实战篇/Level-1-入门级/) | 天气查询工具、GitHub 热榜追踪、文件批量处理工具、日志分析系统 |
-| [Level-2-进阶级](./07-项目实战篇/Level-2-进阶级/) | 任务管理系统、数据采集爬虫、文件管理系统 |
-| [Level-3-高级](./07-项目实战篇/Level-3-高级/) | 博客系统、后台商城系统、天气监控平台、实时聊天应用、股票数据监控系统 |
-| [Level-4-专业级](./07-项目实战篇/Level-4-专业级/) | AI 聊天助手 |
+| [Level-1-入门级](./7-projects/Level-1-入门级/) | 天气查询工具、GitHub 热榜追踪、文件批量处理工具、日志分析系统 |
+| [Level-2-进阶级](./7-projects/Level-2-进阶级/) | 任务管理系统、数据采集爬虫、文件管理系统 |
+| [Level-3-高级](./7-projects/Level-3-高级/) | 博客系统、后台商城系统、天气监控平台、实时聊天应用、股票数据监控系统 |
+| [Level-4-专业级](./7-projects/Level-4-专业级/) | AI 聊天助手 |
 
 ### 08-工程实践篇
 
 | 模块 | 内容 |
 |------|------|
-| [项目管理](./08-工程实践篇/项目管理/README.md) | pip、uv、conda、模块管理 |
-| [代码质量](./08-工程实践篇/代码质量/README.md) | 代码规范、单元测试、文档编写 |
-| [运维监控](./08-工程实践篇/运维监控/README.md) | 日志与监控、安全最佳实践 |
-| [开发技巧](./08-工程实践篇/开发技巧/README.md) | 性能优化、调试技巧 |
+| [项目管理](./8-engineering/项目管理/README.md) | pip、uv、conda、模块管理 |
+| [代码质量](./8-engineering/代码质量/README.md) | 代码规范、单元测试、文档编写 |
+| [运维监控](./8-engineering/运维监控/README.md) | 日志与监控、安全最佳实践 |
+| [开发技巧](./8-engineering/开发技巧/README.md) | 性能优化、调试技巧 |
 
 ### 09-LangChain与LangGraph篇
 
 | 模块 | 内容 |
 |------|------|
-| [01-LangChain入门](./09-LangChain与LangGraph篇/01-LangChain入门/README.md) | 模型、消息、流式与批量、工具调用、结构化输出、提示工程 |
-| [02-LangGraph入门](./09-LangChain与LangGraph篇/02-LangGraph入门/README.md) | 图基础、State、Reducers、Nodes、Edges、Send、Command、运行时上下文 |
-| [03-Agent入门](./09-LangChain与LangGraph篇/03-Agent入门/README.md) | 工具定义、工具上下文、Agent 创建、系统提示词、ReAct、结构化输出、内存 |
-| [04-LangChain进阶](./09-LangChain与LangGraph篇/04-LangChain进阶/README.md) | 中间件、上下文工程、RAG、动态模型、动态工具、流式输出 |
-| [05-LangGraph进阶](./09-LangChain与LangGraph篇/05-LangGraph进阶/README.md) | 记忆、中断、持久化、子图、Map-Reduce、图迁移与缓存 |
-| [06-Agent实战](./09-LangChain与LangGraph篇/06-Agent实战/README.md) | 多 Agent、Guardrails、安全、流式部署、生产部署、可观测性 |
-| [07-DeepAgents篇](./09-LangChain与LangGraph篇/07-DeepAgents篇/README.md) | DeepAgents 快速入门、工具配置、虚拟文件系统、子代理、权限、安全、部署 |
+| [01-LangChain入门](./9-langchain/01-LangChain入门/README.md) | 模型、消息、流式与批量、工具调用、结构化输出、提示工程 |
+| [02-LangGraph入门](./9-langchain/02-LangGraph入门/README.md) | 图基础、State、Reducers、Nodes、Edges、Send、Command、运行时上下文 |
+| [03-Agent入门](./9-langchain/03-Agent入门/README.md) | 工具定义、工具上下文、Agent 创建、系统提示词、ReAct、结构化输出、内存 |
+| [04-LangChain进阶](./9-langchain/04-LangChain进阶/README.md) | 中间件、上下文工程、RAG、动态模型、动态工具、流式输出 |
+| [05-LangGraph进阶](./9-langchain/05-LangGraph进阶/README.md) | 记忆、中断、持久化、子图、Map-Reduce、图迁移与缓存 |
+| [06-Agent实战](./9-langchain/06-Agent实战/README.md) | 多 Agent、Guardrails、安全、流式部署、生产部署、可观测性 |
+| [07-DeepAgents篇](./9-langchain/07-DeepAgents篇/README.md) | DeepAgents 快速入门、工具配置、虚拟文件系统、子代理、权限、安全、部署 |
 
 ---
 
