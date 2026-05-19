@@ -1,5 +1,19 @@
 import { generateSidebar } from 'vitepress-sidebar'
 
+const PYTHON_PROJECTS = [
+  '__pycache__', '.venv', 'venv', 'env', '.pytest_cache',
+  'python_basics', 'basic_syntax', 'string_demo', 'data_structures',
+  'functions_demo', 'oop_demo', 'exceptions_demo', 'iterators_demo',
+  'decorators_demo', 'type_hints_demo', 'modules_demo', 'builtin_demo',
+  'flask_demo', 'fastapi_demo', 'async_demo',
+  'ml_basics', 'deep_learning_demo',
+  'code_quality', 'dev_tips', 'monitoring', 'project_mgmt',
+  'langchain_basics', 'langgraph_basics', 'agent_basics',
+  'langchain_advanced', 'langgraph_advanced',
+  'agent_assistant', 'chatbot', 'doc_qa', 'multi_agent',
+  'ai_chat_assistant',
+]
+
 export default generateSidebar([
   {
     documentRootPath: '/1-basics',
@@ -8,7 +22,7 @@ export default generateSidebar([
     useTitleFromFileHeading: true,
     collapsed: true,
     sortMenusOrderByDescending: false,
-    excludeFolders: ['05-examples', '__pycache__', '.venv', 'venv', 'env'],
+    excludeFolders: ['05-examples', ...PYTHON_PROJECTS],
   },
   {
     documentRootPath: '/2-core',
@@ -17,7 +31,7 @@ export default generateSidebar([
     useTitleFromFileHeading: true,
     collapsed: true,
     sortMenusOrderByDescending: false,
-    excludeFolders: ['*_demo', '__pycache__', '.venv', 'venv', 'env'],
+    excludeFolders: PYTHON_PROJECTS,
   },
   {
     documentRootPath: '/3-advanced',
@@ -26,7 +40,7 @@ export default generateSidebar([
     useTitleFromFileHeading: true,
     collapsed: true,
     sortMenusOrderByDescending: false,
-    excludeFolders: ['*_demo', '__pycache__', '.venv', 'venv', 'env'],
+    excludeFolders: PYTHON_PROJECTS,
   },
   {
     documentRootPath: '/4-web',
@@ -35,7 +49,7 @@ export default generateSidebar([
     useTitleFromFileHeading: true,
     collapsed: true,
     sortMenusOrderByDescending: false,
-    excludeFolders: ['*_demo', '__pycache__', '.venv', 'venv', 'env'],
+    excludeFolders: PYTHON_PROJECTS,
   },
   {
     documentRootPath: '/5-ml',
@@ -44,7 +58,7 @@ export default generateSidebar([
     useTitleFromFileHeading: true,
     collapsed: true,
     sortMenusOrderByDescending: false,
-    excludeFolders: ['*_demo', '__pycache__', '.venv', 'venv', 'env'],
+    excludeFolders: PYTHON_PROJECTS,
   },
   {
     documentRootPath: '/6-deep-learning',
@@ -53,7 +67,7 @@ export default generateSidebar([
     useTitleFromFileHeading: true,
     collapsed: true,
     sortMenusOrderByDescending: false,
-    excludeFolders: ['*_demo', '__pycache__', '.venv', 'venv', 'env'],
+    excludeFolders: PYTHON_PROJECTS,
   },
   {
     documentRootPath: '/7-projects',
@@ -70,7 +84,7 @@ export default generateSidebar([
     useTitleFromFileHeading: true,
     collapsed: true,
     sortMenusOrderByDescending: false,
-    excludeFolders: ['*_demo', '__pycache__', '.venv', 'venv', 'env'],
+    excludeFolders: PYTHON_PROJECTS,
   },
   {
     documentRootPath: '/9-langchain',
@@ -79,7 +93,7 @@ export default generateSidebar([
     useTitleFromFileHeading: true,
     collapsed: true,
     sortMenusOrderByDescending: false,
-    excludeFolders: ['*_demo', '__pycache__', '.venv', 'venv', 'env'],
+    excludeFolders: PYTHON_PROJECTS,
   },
   {
     documentRootPath: '/appendix',
