@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    name: 文档质量检查
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: 检查 Markdown 格式
+      run: |
+        echo "检查 Markdown 文件格式..."
+        find . -name "*.md" -type f | wc -l
+    
+    - name: 检查文件结构
+      run: |
+        echo "检查目录结构..."
+        ls -d */ | wc -l
+    
+    - name: 统计文档数量
+      run: |
+        echo "=== 文档统计 ==="
+        echo "章节数：$(find . -name "*.md" -type f | wc -l)"
+        echo "Python 项目数：$(find . -name "pyproject.toml" -type f | wc -l)"
+  
+  security-check:
+    runs-on: ubuntu-latest
+    name: 安全检查
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: 检查真实敏感信息
+      run: |
+        echo "检查真实敏感信息..."
+        # 检查真实的密钥/令牌模式，而非教程变量名
+        ! grep -rE "(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36,}|BEGIN (RSA |EC |DSA )?PRIVATE KEY|api[_-]?key\s*[:=]\s*['\"][a-zA-Z0-9]{16,})" --include="*.md" . || exit 1

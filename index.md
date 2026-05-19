@@ -2,43 +2,23 @@
 layout: home
 
 hero:
-  name: "Hello Python"
-  text: "Python 全栈学习路线"
+  name: "从零开始系统学习 Python 编程"
   tagline: 从零基础语法到 Web、机器学习、深度学习与 AI Agent 的系统教程
   actions:
     - theme: brand
       text: 开始学习
-      link: /1-basics/README
+      link: /1-basics/
     - theme: alt
-      text: 查看大纲
-      link: /README
+      text: 项目实战
+      link: /7-projects/
 
 features:
-  - title: 基础入门
-    details: Python 环境、变量、运算符、流程控制、字符串与常用数据结构
-    link: /1-basics/README
-  - title: 核心编程
-    details: 函数、面向对象、异常处理、迭代器、生成器、装饰器与类型提示
-    link: /2-core/README
-  - title: 高级语法
-    details: 模块与包、标准库、并发与异步编程、常用进阶工具
-    link: /3-advanced/README
-  - title: Web 开发
-    details: HTTP、RESTful API、Flask、FastAPI、认证授权、测试与部署
-    link: /4-web/README
-  - title: 机器学习
-    details: 机器学习基础、数据预处理、监督学习、无监督学习与模型优化
-    link: /5-ml/README
-  - title: 深度学习
-    details: 神经网络基础、PyTorch、CNN、RNN 与深度学习项目实践
-    link: /6-deep-learning/README
-  - title: 项目实战
-    details: 从入门工具到后台系统、实时聊天、监控平台与 AI 聊天助手
-    link: /7-projects/README
-  - title: 工程实践
-    details: 包管理、代码质量、单元测试、文档编写、运维监控与安全实践
-    link: /8-engineering/README
-  - title: LangChain 与 LangGraph
-    details: LLM 应用开发、Agent、LangGraph、DeepAgents 与生产部署实践
-    link: /9-langchain/README
+  - title: 分层递进
+    details: 从 Python 基础语法到核心编程，再到高级应用，循序渐进
+  - title: 场景驱动
+    details: 每个概念从"为什么需要"开始，用实际问题引入新知识
+  - title: 全栈覆盖
+    details: Web 开发 + 机器学习 + 深度学习 + AI Agent，培养全栈能力
+  - title: 代码可运行
+    details: 每章配有 Python 项目，python main.py 即可运行
 ---
