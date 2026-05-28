@@ -3,7 +3,7 @@ order: 1
 ---
 
 
-# 01-Python入门
+# Python 简介与环境搭建
 
 本章讲解 Python 语言的基本概念和环境搭建。
 
