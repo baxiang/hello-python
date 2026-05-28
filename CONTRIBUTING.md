@@ -12,7 +12,6 @@ hello-python/
 ├── 6-deep-learning/   # 深度学习（神经网络、PyTorch、CNN、RNN）
 ├── 7-projects/        # 项目实战（从入门工具到完整系统）
 ├── 8-engineering/     # 工程实践（包管理、代码质量、测试、文档、运维）
-├── 9-langchain/       # LangChain 与 LangGraph（LLM 应用开发）
 ├── appendix/          # 附录（环境配置、代码规范）
 ├── docs/              # 内部文档
 └── scripts/           # 脚本工具

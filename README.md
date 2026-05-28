@@ -1,6 +1,6 @@
 # Python 教程
 
-一个从 Python 基础语法到 Web 开发、机器学习、深度学习、工程实践和 AI 应用开发的系统教程。
+一个从 Python 基础语法到 Web 开发、机器学习、深度学习、工程实践的系统教程。
 
 本教程基于 Python 3.11+ 编写，示例项目使用 `uv` 管理依赖，测试以 `pytest` 为主。仓库采用多项目结构，每个示例项目都有独立的 `pyproject.toml`。
 
@@ -17,8 +17,7 @@
   ├─→ 04-Web开发篇
   ├─→ 05-机器学习篇 → 06-神经网络与深度学习篇
   ├─→ 07-项目实战篇
-  ├─→ 08-工程实践篇
-  └─→ 09-LangChain与LangGraph篇
+  └─→ 08-工程实践篇
 ```
 
 | 篇章 | 主题 | 适合阶段 |
@@ -31,7 +30,6 @@
 | [06-神经网络与深度学习篇](./6-deep-learning/README.md) | 神经网络、PyTorch、CNN、RNN、深度学习实战 | 深度学习入门 |
 | [07-项目实战篇](./7-projects/README.md) | 14 个项目，覆盖入门、进阶、高级、专业级 | 综合实践 |
 | [08-工程实践篇](./8-engineering/README.md) | 包管理、代码质量、测试、文档、运维监控、安全 | 工程化 |
-| [09-LangChain与LangGraph篇](./9-langchain/README.md) | LangChain、LangGraph、Agent、DeepAgents | AI 应用开发 |
 
 ---
 
@@ -68,14 +66,6 @@
 ```
 
 适合目标：PyTorch 入门、CV / NLP 基础、深度学习项目实践。
-
-### AI 应用开发路线
-
-```text
-01-基础入门篇 → 02-核心编程篇 → 03-高级语法篇 → 04-Web开发篇 → 09-LangChain与LangGraph篇
-```
-
-适合目标：LLM 应用、Agent 系统、RAG、AI 后端服务。
 
 ---
 
@@ -157,18 +147,6 @@
 | [运维监控](./8-engineering/运维监控/README.md) | 日志与监控、安全最佳实践 |
 | [开发技巧](./8-engineering/开发技巧/README.md) | 性能优化、调试技巧 |
 
-### 09-LangChain与LangGraph篇
-
-| 模块 | 内容 |
-|------|------|
-| [01-LangChain入门](./9-langchain/01-LangChain入门/README.md) | 模型、消息、流式与批量、工具调用、结构化输出、提示工程 |
-| [02-LangGraph入门](./9-langchain/02-LangGraph入门/README.md) | 图基础、State、Reducers、Nodes、Edges、Send、Command、运行时上下文 |
-| [03-Agent入门](./9-langchain/03-Agent入门/README.md) | 工具定义、工具上下文、Agent 创建、系统提示词、ReAct、结构化输出、内存 |
-| [04-LangChain进阶](./9-langchain/04-LangChain进阶/README.md) | 中间件、上下文工程、RAG、动态模型、动态工具、流式输出 |
-| [05-LangGraph进阶](./9-langchain/05-LangGraph进阶/README.md) | 记忆、中断、持久化、子图、Map-Reduce、图迁移与缓存 |
-| [06-Agent实战](./9-langchain/06-Agent实战/README.md) | 多 Agent、Guardrails、安全、流式部署、生产部署、可观测性 |
-| [07-DeepAgents篇](./9-langchain/07-DeepAgents篇/README.md) | DeepAgents 快速入门、工具配置、虚拟文件系统、子代理、权限、安全、部署 |
-
 ---
 
 ## 配套工具
@@ -182,7 +160,7 @@
 | Web 框架 | Flask、FastAPI |
 | 机器学习 | scikit-learn |
 | 深度学习 | PyTorch |
-| AI 应用 | LangChain、LangGraph |
+
 
 安装 `uv`：
 

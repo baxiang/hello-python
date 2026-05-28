@@ -53,27 +53,7 @@ Python 的本质是：**让人能用简洁的代码解决实际问题**。
 
 ---
 
-## Python 的最简体验
-
-Python 最简单的用法：打印输出和简单计算。
-
-```python
-# 打印输出
-print("Hello, World!")  # 输出：Hello, World!
-
-# 简单计算
-result = 10 + 20
-print(result)  # 输出：30
-
-# 变量存储
-name = "Python"
-version = 3.11
-print(f"{name} {version}")  # 输出：Python 3.11
-```
-
-这就是 Python 的基本用法。接下来我们详细了解 Python 的特性。
-
----
+## 概念铺垫
 
 ## 什么是 Python
 
@@ -240,6 +220,30 @@ Dropbox
 
 ---
 
+### L1 理解层：会用
+
+## Python 的最简体验
+
+Python 最简单的用法：打印输出和简单计算。
+
+```python
+# 打印输出
+print("Hello, World!")  # 输出：Hello, World!
+
+# 简单计算
+result = 10 + 20
+print(result)  # 输出：30
+
+# 变量存储
+name = "Python"
+version = 3.11
+print(f"{name} {version}")  # 输出：Python 3.11
+```
+
+这就是 Python 的基本用法。接下来我们详细了解 Python 的特性。
+
+---
+
 ## 从简单到复杂：Python 应用的渐进示例
 
 **层级1：单行命令**
@@ -356,6 +360,48 @@ if __name__ == "__main__":
 | `target_dir.mkdir(exist_ok=True)` | 创建目录，已存在不报错 | 多个同类型文件时只创建一次目录 |
 | `file.rename(target_dir / file.name)` | 将文件移动到目标目录 | `Path / name` 用 `/` 拼接路径，等同于 `os.path.join` |
 | `stats.get(ext, 0) + 1` | 读取当前计数，默认 0，再加 1 | 字典中不存在该键时返回默认值 0，避免 KeyError |
+
+---
+
+### L2 实践层：用好
+
+#### 推荐做法
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| 学习选择 Python 3.11+ | 3.11 是主流稳定版本，3.12+ 引入新语法特性 | `uv python install 3.11` |
+| 初学用 VSCode 作为编辑器 | 轻量、免费、扩展生态丰富，一个编辑器搞定多种语言 | 安装 Python + Pylance 扩展 |
+| 专业开发用 PyCharm | 重构、调试、数据库工具集成更强大，Python 专项优化 | PyCharm Professional |
+| 使用 uv 管理 Python 版本 | 统一工具链，比 pip 快 10-100 倍，自动管理虚拟环境 | `uv python install 3.11` |
+
+#### 反模式：不要这样做
+
+```python
+# ❌ 错误做法：学习 Python 2
+# Python 2 已于 2020 年停止维护，语法落后，社区不再支持
+# 所有新库（Pandas 2.0+、FastAPI 等）只支持 Python 3
+
+# ❌ 错误做法：用记事本写 Python 代码
+# 没有语法高亮、自动补全、错误提示，效率极低
+# 缩进错误难以发现，调试无从下手
+```
+
+```python
+# ✅ 正确做法
+# 使用 Python 3.11+，配合 VSCode 或 PyCharm
+# 享受语法高亮、代码补全、调试等现代开发体验
+```
+
+#### 适用场景
+
+| 场景 | 是否推荐 | 原因 |
+|------|---------|------|
+| 零基础入门 Python | ✅ Python 3.11+ | 语法现代，教程和社区资源丰富 |
+| 学习数据分析 | ✅ Python 3 + Jupyter | 交互式探索数据，即时反馈 |
+| 学习 Web 开发 | ✅ Python 3 + FastAPI | 现代框架，性能优秀 |
+| 维护旧项目 | ⚠️ 确认项目 Python 版本 | 旧项目可能使用 Python 2，需评估迁移成本 |
+| 多语言开发（前端+后端）| ✅ VSCode | 一个编辑器支持所有语言 |
+| 纯 Python 专业开发 | ✅ PyCharm | Python 专项优化，功能更深度 |
 
 ---
 

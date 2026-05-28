@@ -8,9 +8,6 @@ const PYTHON_PROJECTS = [
   'flask_demo', 'fastapi_demo', 'async_demo',
   'ml_basics', 'deep_learning_demo',
   'code_quality', 'dev_tips', 'monitoring', 'project_mgmt',
-  'langchain_basics', 'langgraph_basics', 'agent_basics',
-  'langchain_advanced', 'langgraph_advanced',
-  'agent_assistant', 'chatbot', 'doc_qa', 'multi_agent',
   'ai_chat_assistant',
 ]
 
@@ -81,15 +78,6 @@ export default generateSidebar([
     documentRootPath: '/8-engineering',
     scanStartPath: '',
     resolvePath: '/8-engineering/',
-    useTitleFromFileHeading: true,
-    collapsed: true,
-    sortMenusOrderByDescending: false,
-    excludeFolders: PYTHON_PROJECTS,
-  },
-  {
-    documentRootPath: '/9-langchain',
-    scanStartPath: '',
-    resolvePath: '/9-langchain/',
     useTitleFromFileHeading: true,
     collapsed: true,
     sortMenusOrderByDescending: false,

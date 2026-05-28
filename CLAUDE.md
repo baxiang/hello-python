@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-Python tutorial repo with Chinese markdown docs + 40+ sample Python projects across 9 sections: 基础入门 → 核心编程 → 高级语法 → Web开发 → 机器学习 → 神经网络 → 项目实战 → 工程实践 → LangChain/LangGraph.
+Python tutorial repo with Chinese markdown docs + 40+ sample Python projects across 8 sections: 基础入门 → 核心编程 → 高级语法 → Web开发 → 机器学习 → 神经网络 → 项目实战 → 工程实践.
 
 ## Architecture
 
@@ -49,7 +49,6 @@ uv remove <package>             # Remove dependency
 | 06 | 06-神经网络与深度学习篇 | PyTorch、CNN、RNN、实战项目 |
 | 07 | 07-项目实战篇 | Level 1-4 项目（入门→专业级） |
 | 08 | 08-工程实践篇 | 代码质量、项目管理、运维监控、开发技巧 |
-| 09 | 09-LangChain与LangGraph篇 | LangChain/LangGraph入门与进阶、Agent实战 |
 
 ## Writing Conventions
 
