@@ -6,7 +6,7 @@ order: 1
 
 核心编程篇面向已经掌握 Python 基础语法的学习者，重点建立可维护、可复用、可测试的 Python 编程能力。本篇从函数开始，逐步进入面向对象、异常处理、迭代协议、装饰器与类型提示。
 
-本篇代码基于 Python 3.11+ 编写。每个专题都配有独立示例项目，可进入对应项目目录使用 `uv run pytest` 验证。
+本篇代码基于 Python 3.13+ 编写。每个专题都配有独立示例项目（`uv` + `hatchling` + `pytest`），可进入对应项目目录使用 `uv run pytest` 验证。
 
 ---
 
@@ -126,7 +126,7 @@ order: 1
 运行示例项目时，先进入对应项目目录：
 
 ```bash
-cd 02-核心编程篇/01-函数/functions_demo
+cd 2-core/01-函数/functions_demo
 uv run pytest
 ```
 

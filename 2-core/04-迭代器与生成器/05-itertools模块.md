@@ -7,7 +7,9 @@
 
 ---
 
-## 为什么需要 itertools？
+## 概念铺垫
+
+### 为什么需要 itertools？
 
 ### 问题场景：高效处理日志数据
 
@@ -52,7 +54,7 @@ def count_errors_by_hour(logs: list[dict]) -> dict[str, int]:
 
 ---
 
-## itertools：烹饪工具箱
+### itertools：烹饪工具箱
 
 ### 生活类比
 
@@ -121,7 +123,9 @@ def count_errors_by_hour(logs: list[dict]) -> dict[str, int]:
 
 ---
 
-## 贯穿实战：按小时分组统计错误
+### L1 理解层：会用
+
+#### 贯穿实战：按小时分组统计错误
 
 ### groupby 工作原理
 
@@ -227,7 +231,7 @@ for hour, count in sorted(hourly_errors.items()):
 
 ---
 
-## 常用 itertools 函数
+#### 常用 itertools 函数
 
 ### chain()：合并多个数据源
 
@@ -306,6 +310,8 @@ for combo in itertools.combinations(range(5), 3):
 ```
 
 ---
+
+### L2 实践层：用好
 
 ## 推荐做法与反模式
 

@@ -2,7 +2,7 @@
 name = "type-hints-demo"
 version = "0.1.0"
 description = "Python 类型提示示例项目：基础类型 → 泛型 → Protocol → 高级特性"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 
 [build-system]
 requires = ["hatchling"]
@@ -19,11 +19,12 @@ default = true
 dev = [
     "pytest>=9.0.3",
     "mypy>=1.0.0",
+    "ruff>=0.8.0",
 ]
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
@@ -32,4 +33,5 @@ select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
 testpaths = ["tests"]
 
 [tool.mypy]
-check_untyped_defs = true
+python_version = "3.13"
+strict = true
