@@ -1207,6 +1207,449 @@ Redis Session 架构：
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### 5.4.1 Session 超时与自动续期
+
+生产环境需要精细的 Session 过期控制策略：
+
+```python
+# session_timeout_renewal.py
+"""Session 超时与自动续期策略"""
+from flask import Flask, session, g, request
+from datetime import datetime, timedelta
+from typing import Any
+
+
+app: Flask = Flask(__name__)
+app.secret_key = "dev-secret-key"
+
+# 绝对超时：自登录起 8 小时后失效（即使一直在活动）
+app.config["SESSION_ABSOLUTE_LIFETIME"] = timedelta(hours=8)
+# 空闲超时：30 分钟无操作自动登出
+app.config["SESSION_IDLE_LIFETIME"] = timedelta(minutes=30)
+
+
+@app.before_request
+def check_session_timeout() -> None:
+    """检查 Session 超时"""
+    # 跳过静态资源
+    if request.endpoint and request.endpoint.startswith("static"):
+        return
+
+    if "user_id" not in session:
+        return
+
+    now: datetime = datetime.utcnow()
+
+    # 检查绝对超时
+    login_time_str: str | None = session.get("login_time")
+    if login_time_str:
+        login_time: datetime = datetime.fromisoformat(login_time_str)
+        if now - login_time > app.config["SESSION_ABSOLUTE_LIFETIME"]:
+            session.clear()
+            session["_timeout_reason"] = "absolute"
+            from flask import redirect, url_for
+            # 将在下次页面渲染时展示超时提示
+            return
+
+    # 检查空闲超时
+    last_active_str: str | None = session.get("_last_active")
+    if last_active_str:
+        last_active: datetime = datetime.fromisoformat(last_active_str)
+        if now - last_active > app.config["SESSION_IDLE_LIFETIME"]:
+            session.clear()
+            session["_timeout_reason"] = "idle"
+            from flask import redirect, url_for
+            return
+
+    # 更新最后活动时间（自动续期）
+    session["_last_active"] = now.isoformat()
+
+
+@app.after_request
+def set_session_renewal_headers(response: Any) -> Any:
+    """在响应中标记 Session 续期"""
+    if hasattr(g, "session_renewed") and g.session_renewed:
+        response.headers["X-Session-Renewed"] = "true"
+    return response
+
+
+@app.route("/login", methods=["POST"])
+def login() -> Any:
+    """登录时记录时间戳"""
+    from flask import request, redirect, url_for
+    # ... 验证逻辑 ...
+    session["user_id"] = 123
+    session["login_time"] = datetime.utcnow().isoformat()
+    session["_last_active"] = datetime.utcnow().isoformat()
+    session.permanent = True
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/api/check-session")
+def check_session() -> dict[str, Any]:
+    """前端轮询检查 Session 状态"""
+    if "user_id" not in session:
+        reason: str | None = None
+        from flask import flash
+        msgs = flash("check", "system")
+        return {"authenticated": False, "reason": "expired"}
+    return {"authenticated": True}
+```
+
+### 5.4.2 记住我（Remember Me）Cookie 实现
+
+Flask 的 `session.permanent` 已经支持持久化，但"记住我"需要更长的生命周期：
+
+```python
+# remember_me.py
+"""Remember Me 功能实现"""
+from flask import Flask, session, request, make_response, redirect, url_for
+from typing import Any
+import hashlib
+import secrets
+from datetime import datetime, timedelta
+
+
+app: Flask = Flask(__name__)
+app.secret_key = "dev-secret-key"
+
+# 模拟数据库中的 remember tokens
+_remember_tokens: dict[str, dict[str, Any]] = {}
+
+
+def generate_remember_token(user_id: int) -> str:
+    """生成 Remember Me token"""
+    token: str = secrets.token_hex(32)
+    token_hash: str = hashlib.sha256(token.encode()).hexdigest()
+
+    # 存入"数据库"：token_hash → {user_id, expiry}
+    _remember_tokens[token_hash] = {
+        "user_id": user_id,
+        "expires_at": datetime.utcnow() + timedelta(days=30),
+    }
+
+    return token
+
+
+def validate_remember_token(token: str) -> int | None:
+    """验证 Remember Me token，返回 user_id"""
+    token_hash: str = hashlib.sha256(token.encode()).hexdigest()
+    record: dict[str, Any] | None = _remember_tokens.get(token_hash)
+
+    if record is None:
+        return None
+
+    if datetime.utcnow() > record["expires_at"]:
+        del _remember_tokens[token_hash]
+        return None
+
+    return record["user_id"]
+
+
+@app.before_request
+def auto_login_from_remember() -> None:
+    """自动登录：检查 Remember Me Cookie"""
+    # 已登录则跳过
+    if "user_id" in session:
+        return
+
+    remember_token: str | None = request.cookies.get("remember_me")
+    if remember_token is None:
+        return
+
+    user_id: int | None = validate_remember_token(remember_token)
+    if user_id is None:
+        # Token 过期或无效，清除 Cookie
+        return
+
+    # 自动登录
+    session["user_id"] = user_id
+    session["_auto_login"] = True  # 标记这是自动登录
+
+
+@app.route("/login", methods=["POST"])
+def login() -> Any:
+    """登录处理"""
+    # ... 验证用户名密码 ...
+    user_id: int = 123
+    session["user_id"] = user_id
+    session["login_time"] = datetime.utcnow().isoformat()
+    session.permanent = True
+
+    # 记住我
+    remember: bool = request.form.get("remember_me", "false") == "true"
+    response = make_response(redirect(url_for("dashboard")))
+
+    if remember:
+        token: str = generate_remember_token(user_id)
+        response.set_cookie(
+            "remember_me",
+            value=token,
+            max_age=30 * 24 * 3600,  # 30 天
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+        )
+
+    return response
+
+
+@app.route("/logout")
+def logout() -> Any:
+    """登出 — 清除 Session 和 Remember Me Cookie"""
+    remember_token: str | None = request.cookies.get("remember_me")
+    if remember_token:
+        token_hash: str = hashlib.sha256(remember_token.encode()).hexdigest()
+        _remember_tokens.pop(token_hash, None)
+
+    session.clear()
+    response = make_response(redirect(url_for("login")))
+    response.delete_cookie("remember_me")
+    return response
+```
+
+### 5.4.3 Flash 消息安全渲染
+
+Flash 消息内容可能来源于用户输入，必须安全渲染：
+
+```python
+# flash_safe_rendering.py
+"""Flash 消息的安全 HTML 渲染"""
+from flask import Flask, flash, get_flashed_messages, render_template_string
+from markupsafe import escape, Markup
+from typing import Any
+import html
+
+
+app: Flask = Flask(__name__)
+app.secret_key = "dev-secret-key"
+
+
+# ❌ 不安全：直接渲染 flash 消息为 HTML
+TEMPLATE_DANGEROUS: str = """
+<div>
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="flash-{{ category }}">{{ message | safe }}</div>
+  {% endfor %}
+</div>
+"""
+
+
+# ✅ 安全：自动转义 flash 消息
+TEMPLATE_SAFE: str = """
+<div>
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="flash-{{ category }}">{{ message }}</div>
+  {% endfor %}
+</div>
+"""
+
+
+# ✅ 安全：允许有限 HTML 标签（如 <strong>、<em>）
+TEMPLATE_CONTROLLED: str = """
+<div>
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="flash-{{ category }} flash-message" 
+         data-category="{{ category }}">
+      {{ message | e }}
+    </div>
+  {% endfor %}
+</div>
+"""
+
+
+@app.route("/unsafe-flash")
+def unsafe_flash() -> str:
+    """不安全消息 — 可能注入 XSS"""
+    xss_payload: str = "<script>alert('XSS')</script>已保存"
+    flash(xss_payload, "success")
+    return render_template_string(TEMPLATE_DANGEROUS)
+    # 如果使用 | safe，脚本会执行！
+
+
+@app.route("/safe-flash")
+def safe_flash() -> str:
+    """安全消息 — 自动转义"""
+    xss_payload: str = "<script>alert('XSS')</script>已保存"
+    flash(xss_payload, "success")
+    return render_template_string(TEMPLATE_SAFE)
+    # 脚本被转义，不会执行
+```
+
+**Flash 消息渲染安全规则：**
+
+| 做法 | 安全？ | 说明 |
+|------|--------|------|
+| `{{ message }}` | ✅ 安全 | Jinja2 自动转义 |
+| `{{ message \| safe }}` | ❌ 危险 | 跳过转义 |
+| `{{ message \| e }}` | ✅ 安全 | 显式转义 |
+| `Markup(message)` | ❌ 危险 | 标记为安全 |
+| 先 `escape()` 再 flash | ✅ 安全 | 提前转义 |
+
+### 5.4.4 多消息排序与去重
+
+```python
+# flash_ordering.py
+"""Flash 消息排序与去重"""
+from flask import Flask, flash, get_flashed_messages, render_template_string
+from typing import Any
+from collections import OrderedDict
+
+
+app: Flask = Flask(__name__)
+app.secret_key = "dev-secret-key"
+
+# 消息优先级排序
+CATEGORY_PRIORITY: dict[str, int] = {
+    "error": 1,
+    "warning": 2,
+    "success": 3,
+    "info": 4,
+}
+
+
+@app.template_global()
+def get_sorted_flashed_messages() -> list[tuple[str, str]]:
+    """按优先级排序的 flash 消息"""
+    messages: list[tuple[str, str]] = get_flashed_messages(with_categories=True)
+    # 按类别优先级排序
+    return sorted(messages, key=lambda m: CATEGORY_PRIORITY.get(m[0], 99))
+
+
+@app.template_global()
+def get_unique_flashed_messages() -> list[tuple[str, str]]:
+    """去重的 flash 消息（相同内容只显示一次）"""
+    messages: list[tuple[str, str]] = get_flashed_messages(with_categories=True)
+    seen: set[tuple[str, str]] = set()
+    unique: list[tuple[str, str]] = []
+    for msg in messages:
+        if msg not in seen:
+            seen.add(msg)
+            unique.append(msg)
+    return unique
+
+
+TEMPLATE_SORTED: str = """
+{% for category, message in get_sorted_flashed_messages() %}
+  <div class="flash-{{ category }}" 
+       style="order: {{ category_priority(category) }}">
+    {{ message }}
+  </div>
+{% endfor %}
+
+{% macro category_priority(cat) -%}
+  {{ {"error": 1, "warning": 2, "success": 3, "info": 4}.get(cat, 99) }}
+{%- endmacro %}
+"""
+```
+
+### 5.4.5 Session 固定攻击防御
+
+Session 固定攻击（Session Fixation）是指攻击者强制用户使用已知的 Session ID：
+
+```
+Session 固定攻击流程：
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  1. 攻击者访问网站，获得 session_id = "ATTACKER_SID"          │
+│                                                             │
+│  2. 攻击者构造链接给受害者：                                    │
+│     https://bank.com/login?session_id=ATTACKER_SID           │
+│                                                             │
+│  3. 受害者点击链接，登录成功                                    │
+│     → 服务器将 ATTACKER_SID 与受害者账号关联                   │
+│                                                             │
+│  4. 攻击者使用 ATTACKER_SID 访问                               │
+│     → 获得受害者身份！                                        │
+│                                                             │
+│  防御：登录后重新生成 Session ID                                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```python
+# session_fixation_defense.py
+"""Session 固定攻击防御"""
+from flask import Flask, session, request
+from typing import Any
+import uuid
+
+
+app: Flask = Flask(__name__)
+app.secret_key = "dev-secret-key"
+
+
+@app.before_request
+def check_session_fixation() -> None:
+    """检测并防止 Session 固定"""
+    # 如果是登录/注册/敏感操作后的首个请求，重新生成 Session
+    if request.endpoint in ("login", "register", "two_factor_verify"):
+        # 记录之前的 session 数据（如有）
+        old_cart: Any = session.pop("cart", None)
+        old_prefs: Any = session.pop("prefs", None)
+
+        # 清空旧的 session（生成新 SID）
+        session.clear()
+
+        # 恢复非敏感数据（可选）
+        if old_cart is not None:
+            session["cart"] = old_cart
+        if old_prefs is not None:
+            session["prefs"] = old_prefs
+
+        # 标记 session 已刷新
+        session["_session_refreshed"] = True
+
+
+@app.route("/login", methods=["POST"])
+def login() -> Any:
+    """登录 — 检查是否重新生成了 Session"""
+    # 验证用户名密码...
+    is_new_session: bool = session.get("_session_refreshed", False)
+    if not is_new_session:
+        # Session 未刷新，主动旋转 SID
+        session.clear()
+        session["_session_refreshed"] = True
+
+    # 设置登录状态
+    session["user_id"] = 123
+    session.permanent = True
+    return {"status": "ok"}
+```
+
+### 5.4.6 调试与排错实战
+
+**场景：flash 消息不显示**
+
+```
+排查步骤：
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  Step 1：检查 SECRET_KEY                                    │
+│  app.secret_key 必须设置，否则 session 签名失败               │
+│                                                             │
+│  Step 2：确认 flash 后是否 redirect                          │
+│  flash("消息")  →  必须 redirect 或 render_template           │
+│  不是同一个请求内渲染的                                      │
+│                                                             │
+│  Step 3：确认模板中是否消费                                   │
+│  {% with messages = get_flashed_messages() %}               │
+│  get_flashed_messages() 调用后消息被清除                      │
+│                                                             │
+│  Step 4：检查是否重复消费                                     │
+│  如果在 base.html 和子模板都调用了 get_flashed_messages()     │
+│  第一个调用会消费所有消息，第二个获取到空列表                  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| 现象 | 根因 | 修复 |
+|------|------|------|
+| 消息不显示 | 缺少 `secret_key` | 设置 `app.secret_key` |
+| 消息重复 | 多次调用 `get_flashed_messages()` | 只在一次调用中读取后用变量传递 |
+| Cookie 过大 | flash 消息太长 | 控制消息长度，或改服务端 session |
+| 消息跨用户泄漏 | Redis session key 冲突 | 检查 `SESSION_KEY_PREFIX` |
+
 ### 5.5 设计动机
 
 **Flask 为什么选择客户端签名 Cookie 作为默认 Session？**

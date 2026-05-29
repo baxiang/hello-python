@@ -940,6 +940,306 @@ def generate_reset_url(user_token: str) -> str:
 
 ---
 
+### 5.5 CORS 安全深度剖析
+
+CORS（跨域资源共享）配置不当可能导致严重安全漏洞：
+
+```python
+# cors_security.py
+"""CORS 的安全配置与常见误区"""
+from flask import Flask, request, jsonify
+from typing import Any
+
+app: Flask = Flask(__name__)
+
+
+# ❌ 危险配置：Access-Control-Allow-Origin: *
+@app.after_request
+def dangerous_cors(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    # 浏览器会拒绝此组合 — credentials 与 wildcard origin 不兼容
+    # 但如果绕过了，任意网站都可以访问用户数据
+    return response
+
+
+# ✅ 安全配置：白名单策略
+TRUSTED_ORIGINS: set[str] = {
+    "https://myapp.com",
+    "https://www.myapp.com",
+    "https://admin.myapp.com",
+}
+
+
+@app.after_request
+def secure_cors(response):
+    origin: str | None = request.headers.get("Origin")
+    if origin and origin in TRUSTED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    else:
+        response.headers["Access-Control-Allow-Origin"] = "https://myapp.com"
+
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Max-Age"] = "3600"
+    return response
+
+
+@app.route("/api/cors-test", methods=["OPTIONS"])
+def cors_preflight():
+    """处理 OPTIONS 预检请求"""
+    response = jsonify({"status": "ok"})
+    origin: str | None = request.headers.get("Origin")
+    if origin and origin in TRUSTED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
+```
+
+**CORS 配置检查清单：**
+
+| 配置项 | 危险值 | 安全值 | 原因 |
+|--------|--------|--------|------|
+| `Allow-Origin` | `*`（配合 credentials） | 白名单具体域名 | 防止任意网站读取响应 |
+| `Allow-Credentials` | `true`（配合 `Origin: *`） | 仅在需要时启用 | Cookie 认证需要 |
+| `Allow-Methods` | `*` 或过多方法 | 仅必需的方法 | 减少攻击面 |
+| `Allow-Headers` | `*`（过于宽松） | 列出具体头部 | 防止头部注入 |
+| `Max-Age` | 过长（如 86400） | 3600（1 小时） | 平衡性能与安全性 |
+
+### 5.6 点击劫持防御（Clickjacking）
+
+点击劫持是指攻击者通过 `<iframe>` 嵌入受害页面，诱导用户点击：
+
+```
+点击劫持攻击原理：
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  攻击者页面 evil.com                                              │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │                                                            │ │
+│  │  "点击领取奖品" 按钮（诱饵）                                  │ │
+│  │                                                            │ │
+│  │  ┌──────────────────────────────────────────────────────┐  │ │
+│  │  │  iframe: bank.com/transfer?to=hacker&amount=10000    │  │ │
+│  │  │  opacity: 0.01（几乎不可见）                          │  │ │
+│  │  │  position: absolute                                 │  │ │
+│  │  │  覆盖在"领取奖品"按钮上方                              │  │ │
+│  │  └──────────────────────────────────────────────────────┘  │ │
+│  │                                                            │ │
+│  │  用户以为点击"领取奖品"，实际点击了"确认转账"                 │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│  防御方式：                                                       │
+│  1. X-Frame-Options: DENY（禁止任何 iframe）                     │
+│  2. CSP: frame-ancestors 'none'（比 X-Frame-Options 更强）       │
+│  3. framebusting JS（传统方案，可被绕过）                         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+```python
+# clickjacking_defense.py
+"""点击劫持防御实现"""
+from flask import Flask, Response
+from typing import Any
+
+app: Flask = Flask(__name__)
+
+
+@app.after_request
+def prevent_clickjacking(response: Response) -> Response:
+    """添加防点击劫持的响应头"""
+    # 方式一：X-Frame-Options（老方案，浏览器支持好）
+    response.headers["X-Frame-Options"] = "DENY"
+    # 可选值：DENY（完全禁止）、SAMEORIGIN（仅同源允许）
+
+    # 方式二：CSP frame-ancestors（现代方案，更强大）
+    response.headers["Content-Security-Policy"] = (
+        "frame-ancestors 'none'; "  # 禁止所有嵌入
+        # "frame-ancestors 'self';"  # 仅允许同源
+        # "frame-ancestors https://trusted.com;"  # 白名单
+    )
+    return response
+
+
+# JavaScript framebusting（兜底方案，不推荐作为唯一防御）
+FRAMEBUST_JS: str = """
+<script>
+if (self !== top) {
+    top.location = self.location;
+}
+</script>
+"""
+```
+
+### 5.7 HTTPS 强制与 HSTS 深入
+
+```python
+# https_enforcement.py
+"""HTTPS 强制与 HSTS 配置"""
+from flask import Flask, request, redirect, Response
+from typing import Any
+
+app: Flask = Flask(__name__)
+
+
+@app.before_request
+def force_https() -> Any:
+    """强制所有请求使用 HTTPS"""
+    # 检查是否是 HTTP 请求（通过 X-Forwarded-Proto 或 request.scheme）
+    forwarded_proto: str | None = request.headers.get("X-Forwarded-Proto")
+    if request.scheme == "http" or forwarded_proto == "http":
+        url: str = request.url.replace("http://", "https://", 1)
+        return redirect(url, code=301)
+
+
+@app.after_request
+def set_hsts(response: Response) -> Response:
+    """设置 HSTS（HTTP Strict Transport Security）"""
+    # 仅在 HTTPS 下设置 HSTS
+    if request.scheme == "https":
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; "   # 1 年
+            "includeSubDomains; "  # 包含子域名
+            "preload"              # 加入 HSTS preload 列表
+        )
+    return response
+```
+
+**HSTS 最佳实践：**
+
+```
+HSTS 部署策略：
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  阶段 1：测试（短期 max-age）                                      │
+│  max-age=86400; includeSubDomains                               │
+│                                                                 │
+│  阶段 2：逐步增加                                                 │
+│  max-age=604800; includeSubDomains（1 周）                       │
+│                                                                 │
+│  阶段 3：长期（发现问题后仍能回滚）                                 │
+│  max-age=2592000; includeSubDomains（30 天）                     │
+│                                                                 │
+│  阶段 4：生产（确认无误）                                          │
+│  max-age=31536000; includeSubDomains; preload（1 年 + preload）  │
+│                                                                 │
+│  ⚠️  警告：preload 一旦提交到 Chromium 列表，移除非常困难          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 5.8 SQL 注入深层防御（SQLAlchemy 参数化查询）
+
+```python
+# sql_injection_defense.py
+"""SQLAlchemy 防范 SQL 注入的深入分析"""
+from flask import Flask, request, jsonify
+from sqlalchemy import create_engine, text, Table, MetaData
+from typing import Any
+
+app: Flask = Flask(__name__)
+engine = create_engine("postgresql://user:pass@localhost/db")
+
+
+# ❌ 危险：字符串拼接
+@app.route("/search/dangerous")
+def search_dangerous():
+    keyword: str = request.args.get("q", "")
+    sql: str = f"SELECT * FROM articles WHERE title LIKE '%{keyword}%'"
+    # 攻击输入：'; DROP TABLE articles; --
+    with engine.connect() as conn:
+        result = conn.execute(text(sql))  # 直接执行拼接后的 SQL
+        return jsonify([dict(row) for row in result])
+
+
+# ✅ 安全：参数化查询
+@app.route("/search/safe")
+def search_safe():
+    keyword: str = request.args.get("q", "")
+    # SQLAlchemy 参数化查询自动转义特殊字符
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("SELECT * FROM articles WHERE title LIKE :kw"),
+            {"kw": f"%{keyword}%"},
+        )
+        return jsonify([dict(row) for row in result])
+
+
+# ✅ 更安全：ORM 方式
+from sqlalchemy import select, Column, String, Integer
+from sqlalchemy.orm import DeclarativeBase, Session
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class Article(Base):
+    __tablename__ = "articles"
+    id: int = Column(Integer, primary_key=True)  # type: ignore[assignment]
+    title: str = Column(String)  # type: ignore[assignment]
+
+
+@app.route("/search/orm")
+def search_orm():
+    keyword: str = request.args.get("q", "%")
+    with Session(engine) as session:
+        # ORM 自动参数化，完全解决 SQL 注入
+        stmt = select(Article).where(Article.title.like(f"%{keyword}%"))
+        result = session.execute(stmt).scalars().all()
+        return jsonify([{"id": a.id, "title": a.title} for a in result])
+```
+
+**SQL 注入防护层级：**
+
+| 层级 | 方案 | 防御能力 | 注意事项 |
+|------|------|---------|---------|
+| 第一层 | ORM（SQLAlchemy ORM） | 最强 | 自动参数化，推荐 |
+| 第二层 | Core（SQLAlchemy text + bind params） | 强 | 需手动传入参数 |
+| 第三层 | 原始 SQL + 参数化 | 中 | 担心错误拼接 |
+| 危险层 | 字符串拼接 SQL | 无 | 绝对禁止 |
+
+### 5.9 调试与排错实战：安全排查案例
+
+**场景：** 用户报告账号被盗，排查是否存在安全漏洞。
+
+```
+安全排查流程：
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  Step 1：检查认证日志                                            │
+│  搜索该用户在盗窃时间段的所有登录日志                              │
+│  → 发现一条来自异常 IP 的成功登录                                │
+│                                                                 │
+│  Step 2：检查 Session 配置                                       │
+│  SESSION_COOKIE_SECURE = False   ← 漏洞！                        │
+│  SESSION_COOKIE_HTTPONLY = True                                 │
+│  用户在不安全的公共 WiFi 中使用时，Cookie 被劫持                  │
+│                                                                 │
+│  Step 3：审计响应头                                              │
+│  curl -I https://app.example.com                                │
+│  缺少 CSP、HSTS、X-Frame-Options                                │
+│                                                                 │
+│  Step 4：修复                                                    │
+│  1. 启用 SESSION_COOKIE_SECURE = True                           │
+│  2. 添加安全响应头                                               │
+│  3. 强制全站 HTTPS                                              │
+│  4. 登录失败后检查异常行为                                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| 发现 | 严重度 | 修复 | 验证方式 |
+|------|--------|------|---------|
+| Cookie Secure=False | 高 | 启用 `SESSION_COOKIE_SECURE=True` | `curl -I` 检查 Set-Cookie |
+| 缺少安全头 | 中 | 添加 CSP/HSTS/X-Frame-Options | `curl -I` 检查响应头 |
+| 未使用参数化查询 | 高 | 改用 SQLAlchemy ORM | 代码审查 |
+| DEBUG=True 在生产 | 高 | 环境变量控制 | 访问不存在的路由确认 |
+
 ## 本章总结
 
 ```

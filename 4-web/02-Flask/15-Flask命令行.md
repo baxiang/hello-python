@@ -1381,6 +1381,426 @@ MyPlugin enabled: True
 
 ---
 
+### 5.5 环境感知命令（dev/staging/prod）
+
+生产环境中，相同的命令在不同环境应该有不同的行为：
+
+```python
+# env_aware_commands.py
+"""环境感知的自定义 CLI 命令"""
+import click
+from flask import Flask
+from flask.cli import with_appcontext
+from typing import Any
+
+
+def register_env_commands(app: Flask) -> None:
+    """注册环境感知命令"""
+
+    @app.cli.group("env")
+    def env_group() -> None:
+        """环境管理命令"""
+        pass
+
+    @env_group.command("info")
+    @with_appcontext
+    def env_info() -> None:
+        """显示当前环境配置"""
+        from flask import current_app
+
+        env_name: str = current_app.config.get("ENV", "development")
+        debug: bool = current_app.config.get("DEBUG", False)
+        db_uri: str = current_app.config.get("DATABASE_URI", "N/A")
+
+        # 根据环境显示不同颜色
+        env_color: str = {"development": "green", "staging": "yellow", "production": "red"}.get(
+            env_name, "white"
+        )
+        click.secho(f"  环境: {env_name.upper()}", fg=env_color, bold=True)
+        click.echo(f"  Debug: {debug}")
+        click.echo(f"  数据库: {db_uri}")
+
+    @env_group.command("check")
+    @with_appcontext
+    @click.option("--fail-on-warning", is_flag=True, help="警告视为失败")
+    def env_check(fail_on_warning: bool) -> None:
+        """生产环境安全检查"""
+        from flask import current_app
+
+        warnings: list[str] = []
+        errors: list[str] = []
+
+        config = current_app.config
+        secret_len: int = len(config.get("SECRET_KEY", ""))
+        if secret_len < 32:
+            errors.append(f"SECRET_KEY 太短 ({secret_len} 字符，需要 >= 32)")
+
+        if config.get("DEBUG"):
+            errors.append("DEBUG 模式开启！")
+
+        if not config.get("SESSION_COOKIE_SECURE"):
+            warnings.append("SESSION_COOKIE_SECURE 未启用")
+
+        if config.get("DATABASE_URI", "").startswith("sqlite"):
+            warnings.append("生产环境使用 SQLite 不推荐")
+
+        for e in errors:
+            click.secho(f"  [错误] {e}", fg="red")
+        for w in warnings:
+            click.secho(f"  [警告] {w}", fg="yellow")
+
+        has_errors: bool = len(errors) > 0
+        has_warnings: bool = len(warnings) > 0
+
+        if not has_errors and not has_warnings:
+            click.secho("  所有检查通过！", fg="green")
+        elif has_errors:
+            click.echo(f"\n检查失败: {len(errors)} 个错误, {len(warnings)} 个警告")
+            raise SystemExit(1)
+        elif has_warnings and fail_on_warning:
+            click.echo(f"\n检查失败: {len(warnings)} 个警告（--fail-on-warning）")
+            raise SystemExit(1)
+
+    @env_group.command("warmup")
+    @with_appcontext
+    @click.option("--timeout", default=30, type=int, help="超时秒数")
+    def env_warmup(timeout: int) -> None:
+        """预热应用（预加载缓存、数据库连接池等）"""
+        from flask import current_app
+        import time
+
+        click.echo("正在预热应用...")
+
+        # 预加载缓存
+        click.echo("  → 初始化缓存连接...")
+        time.sleep(0.5)
+
+        # 预加载数据库连接池
+        click.echo("  → 预热数据库连接池...")
+        time.sleep(0.5)
+
+        # 预编译模板
+        click.echo("  → 预编译 Jinja2 模板...")
+        try:
+            from jinja2 import Environment, FileSystemLoader
+            import os
+
+            template_dir: str = os.path.join(
+                current_app.config.get("ROOT_PATH", "."), "templates"
+            )
+            if os.path.exists(template_dir):
+                env_jinja = Environment(loader=FileSystemLoader(template_dir))
+                for tmpl in env_jinja.list_templates():
+                    env_jinja.get_template(tmpl)
+            click.echo("    模板预编译完成")
+        except Exception as e:
+            click.secho(f"    警告: 模板预编译跳过 ({e})", fg="yellow")
+
+        click.secho("  预热完成！", fg="green")
+```
+
+```bash
+# 使用
+$ flask --app app env info
+  环境: PRODUCTION
+  Debug: False
+  数据库: postgresql://user:pass@db-host/prod
+
+$ flask --app app env check
+  [错误] SECRET_KEY 太短 (8 字符，需要 >= 32)
+  [错误] DEBUG 模式开启！
+  [警告] SESSION_COOKIE_SECURE 未启用
+检查失败: 2 个错误, 1 个警告
+```
+
+### 5.6 CLI 测试模式深入
+
+```python
+# cli_testing_deep.py
+"""CLI 命令的测试模式"""
+import click
+from flask import Flask
+from flask.testing import FlaskCliRunner
+from flask.cli import with_appcontext
+import pytest
+from typing import Any
+
+
+def register_testable_commands(app: Flask) -> None:
+    """注册可测试的 CLI 命令"""
+
+    @app.cli.command("export-data")
+    @click.option("--format", "-f", type=click.Choice(["json", "csv"]), default="json")
+    @click.option("--output", "-o", type=click.Path(writable=True))
+    @click.argument("model", type=str)
+    @with_appcontext
+    def export_data(model: str, format: str, output: str | None) -> None:
+        """导出数据到文件"""
+        import json
+        import csv
+        import io
+
+        # 模拟数据
+        data: list[dict[str, Any]] = [
+            {"id": 1, "name": "Alice"},
+            {"id": 2, "name": "Bob"},
+        ]
+
+        buffer: io.StringIO = io.StringIO()
+
+        if format == "json":
+            json.dump(data, buffer, ensure_ascii=False, indent=2)
+        elif format == "csv":
+            writer = csv.DictWriter(buffer, fieldnames=["id", "name"])
+            writer.writeheader()
+            writer.writerows(data)
+
+        content: str = buffer.getvalue()
+
+        if output:
+            with open(output, "w") as f:
+                f.write(content)
+            click.echo(f"已导出到 {output}")
+        else:
+            click.echo(content)
+
+
+def test_export_json(cli_runner: FlaskCliRunner) -> None:
+    """测试 JSON 格式输出"""
+    result = cli_runner.invoke(args=["export-data", "-f", "json", "User"])
+    assert result.exit_code == 0
+    assert "Alice" in result.output
+    assert "Bob" in result.output
+
+
+def test_export_csv(cli_runner: FlaskCliRunner) -> None:
+    """测试 CSV 格式输出"""
+    result = cli_runner.invoke(args=["export-data", "-f", "csv", "User"])
+    assert result.exit_code == 0
+    assert "id,name" in result.output
+    assert "1,Alice" in result.output
+
+
+def test_invalid_format(cli_runner: FlaskCliRunner) -> None:
+    """测试非法格式参数"""
+    result = cli_runner.invoke(args=["export-data", "-f", "yaml", "User"])
+    assert result.exit_code != 0
+```
+
+### 5.7 Click vs argparse vs typer 对比
+
+```python
+# cli_frameworks_comparison.py
+"""
+Flask CLI 框架选择指南
+
+Click（Flask 内置）:
+  - 装饰器风格，代码简洁
+  - 与 Flask 深度集成
+  - 自动生成帮助文档
+  - 适合：Flask 项目命令行
+
+argparse（Python 标准库）:
+  - 无外部依赖
+  - 配置式风格（较冗长）
+  - 适合：简单脚本、非 Web 项目
+
+typer（现代替代）:
+  - 类型注解驱动
+  - 基于 Click 构建
+  - 自动生成 shell 补全
+  - 适合：现代 Python 项目
+
+对比：
+"""
+
+# ============ Click ============
+import click  # type: ignore[no-redef]
+
+
+@click.command("greet")
+@click.argument("name")
+@click.option("--count", default=1, type=int)
+def click_greet(name: str, count: int) -> None:
+    """Click 风格"""
+    for _ in range(count):
+        click.echo(f"Hello, {name}!")
+
+
+# ============ argparse ============
+import argparse
+
+
+def argparse_greet() -> None:
+    """argparse 风格"""
+    parser = argparse.ArgumentParser(description="Greet someone")
+    parser.add_argument("name", type=str, help="Name to greet")
+    parser.add_argument("--count", type=int, default=1, help="Number of greetings")
+    args = parser.parse_args()
+    for _ in range(args.count):
+        print(f"Hello, {args.name}!")
+
+
+# ============ typer ============
+# 注意: 需安装 typer
+"""
+import typer
+
+app = typer.Typer()
+
+@app.command()
+def typer_greet(name: str, count: int = 1) -> None:
+    for _ in range(count):
+        typer.echo(f"Hello, {name}!")
+
+if __name__ == "__main__":
+    app()
+"""
+```
+
+| 维度 | Click | argparse | typer |
+|------|-------|----------|-------|
+| 代码量 | 少 | 多 | 最少 |
+| 学习曲线 | 低 | 低 | 中 |
+| Flask 集成 | 原生 | 需手动 | 需适配 |
+| 类型注解 | 参数声明 | 无 | 自动推断 |
+| 帮助文档 | 自动 | 自动 | 自动（Rich 加持） |
+| 依赖 | Click | 无 | typer + click |
+| shell 补全 | 支持 | 不支持 | 支持 |
+
+### 5.8 Cron 任务与 Flask CLI 集成
+
+```python
+# cron_integration.py
+"""Flask CLI 命令与 Cron 定时任务集成"""
+import click
+from flask import Flask
+from flask.cli import with_appcontext
+import sys
+import os
+from typing import Any
+from datetime import datetime
+
+
+def register_cron_commands(app: Flask) -> None:
+    """注册定时任务 CLI 命令"""
+
+    @app.cli.group("cron")
+    def cron_group() -> None:
+        """定时任务管理"""
+        pass
+
+    @cron_group.command("daily-stats")
+    @with_appcontext
+    @click.option("--date", default=None, help="统计日期 (YYYY-MM-DD), 默认昨天")
+    def daily_stats(date: str | None) -> None:
+        """生成每日统计报表"""
+        from datetime import timedelta
+
+        if date is None:
+            date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+        click.echo(f"生成 {date} 的统计报表...")
+        # 业务逻辑
+        click.echo("完成")
+
+    @cron_group.command("cleanup")
+    @with_appcontext
+    @click.option("--older-than", default=30, type=int, help="清理 N 天前的数据")
+    @click.option("--dry-run", is_flag=True, help="试运行不实际删除")
+    def cleanup(older_than: int, dry_run: bool) -> None:
+        """清理过期数据"""
+        from flask import current_app
+
+        click.echo(f"清理 {older_than} 天前的数据...")
+        if dry_run:
+            click.echo("[DRY RUN] 未实际删除")
+        else:
+            # 实际清理逻辑
+            click.echo("清理完成")
+
+    @cron_group.command("health-check")
+    @with_appcontext
+    def health_check() -> None:
+        """系统健康检查（供监控系统调用）"""
+        from flask import current_app
+        ok: bool = True
+
+        # 检查数据库连接
+        try:
+            # db.session.execute(text("SELECT 1"))
+            click.echo("  [OK] 数据库连接正常")
+        except Exception as e:
+            click.echo(f"  [FAIL] 数据库连接失败: {e}")
+            ok = False
+
+        # 检查 Redis 连接
+        try:
+            # redis.ping()
+            click.echo("  [OK] Redis 连接正常")
+        except Exception as e:
+            click.echo(f"  [FAIL] Redis 连接失败: {e}")
+            ok = False
+
+        if not ok:
+            sys.exit(1)
+        click.echo("\n健康检查通过")
+```
+
+**Crontab 配置示例：**
+
+```cron
+# 每天凌晨 2 点生成统计
+0 2 * * * cd /opt/myapp && /opt/myapp/.venv/bin/flask --app app cron daily-stats >> /var/log/myapp/cron.log 2>&1
+
+# 每周日凌晨 3 点清理旧数据
+0 3 * * 0 cd /opt/myapp && /opt/myapp/.venv/bin/flask --app app cron cleanup --older-than 30 >> /var/log/myapp/cron.log 2>&1
+
+# 每 5 分钟健康检查
+*/5 * * * * cd /opt/myapp && /opt/myapp/.venv/bin/flask --app app cron health-check >> /var/log/myapp/cron.log 2>&1
+```
+
+### 5.9 调试与排错实战
+
+**场景：自定义命令不显示在 `flask --help` 中**
+
+```
+排查步骤：
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  Step 1：检查命令注册时机                                         │
+│  $ flask --app app --help                                       │
+│  命令列表中缺少 "init-db"                                        │
+│                                                                 │
+│  Step 2：检查 import 顺序                                        │
+│  # app/__init__.py                                              │
+│  def create_app():                                              │
+│      app = Flask(__name__)                                      │
+│      from app.cli import register_commands                      │
+│      register_commands(app)  ← 确保已调用                        │
+│      return app                                                 │
+│                                                                 │
+│  Step 3：验证装饰器                                              │
+│  @app.cli.command("init-db")  ← 必须基于同一个 app 实例           │
+│                                                                 │
+│  Step 4：确认应用工厂模式                                          │
+│  $ flask --app "app:create_app" init-db                         │
+│                                                                 │
+│  Step 5：问题解决                                                 │
+│  - 确保 register_commands() 在 create_app() 中调用               │
+│  - 不要在模块顶层创建 app 实例（工厂模式下）                        │
+│  - 确认 FLASK_APP 环境变量指向正确的应用                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| 现象 | 根因 | 修复 |
+|------|------|------|
+| 命令不显示 | 命令未注册到 app 实例 | 确保在 `create_app()` 中调用注册函数 |
+| 报错"应用未找到" | FLASK_APP 路径错误 | 使用 `--app` 显式指定 |
+| with_appcontext 失效 | 未在请求/应用上下文中调用 | 添加 `@with_appcontext` |
+| 命令参数报错 | 参数类型不匹配 | 检查 `type=` 声明 |
+
 ## 本章总结
 
 ```

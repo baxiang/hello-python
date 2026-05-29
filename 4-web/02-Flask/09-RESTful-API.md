@@ -582,3 +582,908 @@ class Api:
 | reqparse | 请求参数解析 |
 | fields | 响应字段序列化 |
 | 版本控制 | Blueprint 实现 |
+
+---
+
+## 第六部分：HATEOAS 深层实现
+
+### 6.1 实际场景
+
+前端需要动态发现 API 的可用操作，而不是硬编码 URL。
+
+**问题：如何在 API 响应中嵌入可操作的超媒体链接？**
+
+### 6.2 HATEOAS 响应构建器
+
+```python
+from flask import url_for, request
+from typing import Any
+
+class HATEOASBuilder:
+    """HATEOAS 响应构建器"""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self._data: dict[str, Any] = data
+        self._links: dict[str, dict[str, str]] = {}
+        self._embedded: dict[str, Any] = {}
+
+    def add_link(self, rel: str, href: str, method: str = "GET",
+                 title: str | None = None) -> "HATEOASBuilder":
+        self._links[rel] = {
+            "href": href,
+            "method": method,
+            **({"title": title} if title else {})
+        }
+        return self
+
+    def add_embedded(self, rel: str, resource: dict[str, Any]) -> "HATEOASBuilder":
+        self._embedded[rel] = resource
+        return self
+
+    def build(self) -> dict[str, Any]:
+        result: dict[str, Any] = dict(self._data)
+        if self._links:
+            result["_links"] = self._links
+        if self._embedded:
+            result["_embedded"] = self._embedded
+        return result
+
+
+class ArticleHATEOAS:
+    """文章资源 HATEOAS 链接生成"""
+
+    @staticmethod
+    def single(article: Article, include_author: bool = False) -> dict[str, Any]:
+        builder = HATEOASBuilder({
+            "id": article.id,
+            "title": article.title,
+            "content": article.content,
+            "created_at": article.created_at.isoformat(),
+        })
+
+        article_id = article.id
+        builder.add_link(
+            "self",
+            url_for("api.article_detail", article_id=article_id, _external=True)
+        )
+        builder.add_link(
+            "collection",
+            url_for("api.article_list", _external=True)
+        )
+        builder.add_link(
+            "author",
+            url_for("api.user_detail", user_id=article.author_id, _external=True)
+        )
+
+        # 条件链接：仅当有权限或状态允许时添加
+        if article.is_editable_by(current_user):
+            builder.add_link("update",
+                url_for("api.article_detail", article_id=article_id, _external=True),
+                method="PUT"
+            )
+            builder.add_link("delete",
+                url_for("api.article_detail", article_id=article_id, _external=True),
+                method="DELETE"
+            )
+
+        return builder.build()
+
+    @staticmethod
+    def collection(articles: list[Article], page: int, per_page: int,
+                   total: int) -> dict[str, Any]:
+        builder = HATEOASBuilder({
+            "items": [ArticleHATEOAS.single(a) for a in articles],
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+        })
+
+        base_url = url_for("api.article_list", _external=True)
+
+        builder.add_link("self", f"{base_url}?page={page}&per_page={per_page}")
+
+        if page > 1:
+            builder.add_link("prev", f"{base_url}?page={page-1}&per_page={per_page}")
+        if page * per_page < total:
+            builder.add_link("next", f"{base_url}?page={page+1}&per_page={per_page}")
+
+        builder.add_link("search",
+            f"{base_url}?search={{query}}",
+            title="搜索文章",
+        )
+
+        return builder.build()
+```
+
+### 6.3 客户端 HATEOAS 消费示例
+
+```python
+# 客户端利用 _links 导航，无需硬编码 URL
+import requests
+
+def navigate_api(entry_point: str = "http://localhost:5000/api/") -> None:
+    """客户端通过 _links 动态导航 API"""
+    response = requests.get(entry_point)
+    api_root = response.json()
+
+    # 通过 _links 发现资源
+    articles_url = api_root["_links"]["articles"]["href"]
+    articles_resp = requests.get(articles_url)
+    articles_data = articles_resp.json()
+
+    # 遍历文章列表
+    for article in articles_data["items"]:
+        print(f"  {article['title']}")
+
+    # 通过 _links 翻页
+    next_url = articles_data["_links"]["next"]["href"]
+    next_page = requests.get(next_url)
+```
+
+---
+
+## 第七部分：API 版本控制策略
+
+### 7.1 实际场景
+
+API 升级后，旧客户端不能立即升级，需要同时维护 v1 和 v2。
+
+**问题：API 版本控制有哪些策略？如何选择？**
+
+### 7.2 三种版本控制策略对比
+
+```
+API 版本控制策略：
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  策略一：URL 路径版本（最常用）                               │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  /api/v1/users                                      │    │
+│  │  /api/v2/users                                      │    │
+│  │  优点：直观、浏览器可测试、CDN 缓存友好               │    │
+│  │  缺点：URL 变化，REST 纯化论者认为不 RESTful          │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                             │
+│  策略二：请求头版本（Accept Header）                         │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  Accept: application/vnd.myapp.v2+json               │    │
+│  │  优点：URL 不变，RESTful 更"纯"                      │    │
+│  │  缺点：调试不便，浏览器难测试                         │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                             │
+│  策略三：查询参数版本                                       │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  /api/users?version=2                                │    │
+│  │  优点：极简单                                         │    │
+│  │  缺点：缓存键复杂，语义模糊                           │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 7.3 URL 路径版本 + 请求头版本的混合实现
+
+```python
+from flask import Blueprint, request, abort
+from flask_restful import Api, Resource
+from typing import Callable
+
+def create_versioned_api(app: Flask) -> dict[str, Blueprint]:
+    """创建多版本 API 蓝图"""
+
+    api_v1 = Blueprint("api_v1", __name__, url_prefix="/api/v1")
+    api_v2 = Blueprint("api_v2", __name__, url_prefix="/api/v2")
+
+    # 注册
+    app.register_blueprint(api_v1)
+    app.register_blueprint(api_v2)
+
+    return {"v1": api_v1, "v2": api_v2}
+
+
+def versioned_route(version_map: dict[str, Callable]):
+    """
+    同一 URL 根据版本分发到不同处理器
+
+    用法：
+    @versioned_route({"v1": v1_handler, "v2": v2_handler})
+    def handle():
+        pass
+    """
+    def decorator(f: Callable) -> Callable:
+        def wrapper(*args, **kwargs):
+            # 从请求中检测版本
+            version = detect_api_version()
+            handler = version_map.get(version)
+            if handler is None:
+                abort(400, f"Unsupported API version: {version}")
+            return handler(*args, **kwargs)
+        wrapper.__name__ = f.__name__
+        return wrapper
+    return decorator
+
+
+def detect_api_version() -> str:
+    """检测 API 版本：URL 优先，请求头次之"""
+    # 方式一：URL 路径 /api/v1/...
+    if "/v1/" in request.path:
+        return "v1"
+    if "/v2/" in request.path:
+        return "v2"
+
+    # 方式二：请求头 Accept: application/vnd.myapp.v2+json
+    accept = request.headers.get("Accept", "")
+    for v in ["v3", "v2", "v1"]:
+        if f"vnd.myapp.{v}+json" in accept:
+            return v
+
+    # 默认
+    return "v1"
+```
+
+### 7.4 版本兼容性与废弃策略
+
+```python
+# API 响应中添加弃用警告头
+from functools import wraps
+from datetime import datetime, timedelta
+
+def deprecation_notice(sunset_date: str, alternative: str) -> Callable:
+    """
+    在响应头中标记 API 为废弃状态
+    sunset_date: ISO 8601 格式的废弃日期
+    alternative: 替代 API 的 endpoint
+    """
+    def decorator(f: Callable) -> Callable:
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            response = f(*args, **kwargs)
+            if isinstance(response, tuple):
+                body, status_code, headers = response[0], response[1], {}
+                if len(response) > 2:
+                    headers = response[2]
+            else:
+                body, status_code, headers = response, 200, {}
+
+            headers["Sunset"] = sunset_date
+            headers["Deprecation"] = "true"
+            headers["Link"] = f'<{url_for(alternative, _external=True)}>; rel="alternate"'
+
+            return body, status_code, headers
+        return wrapper
+    return decorator
+```
+
+---
+
+## 第八部分：请求/响应编组（Marshalling）模式
+
+### 8.1 实际场景
+
+同一个用户模型在不同场景下需要返回不同字段（列表页 vs 详情页 vs 公开页）。
+
+**问题：如何灵活地在不同场景下返回不同的数据结构？**
+
+### 8.2 场景化 Marshal 模式
+
+```python
+from flask_restful import fields, marshal_with, marshal
+from typing import Any
+
+# 用户模型：多种序列化方案
+user_public_fields: dict[str, fields.Raw] = {
+    "id": fields.Integer,
+    "username": fields.String,
+    "avatar_url": fields.String(attribute="avatar"),
+}
+
+user_private_fields: dict[str, fields.Raw] = {
+    **user_public_fields,
+    "email": fields.String,
+    "created_at": fields.DateTime(dt_format="iso8601"),
+}
+
+user_admin_fields: dict[str, fields.Raw] = {
+    **user_private_fields,
+    "role": fields.String,
+    "last_login": fields.DateTime(dt_format="iso8601"),
+    "is_active": fields.Boolean,
+}
+
+# 部分响应：根据查询参数 ?fields=id,username,email 返回子集
+def marshal_with_partial(field_map: dict[str, fields.Raw]):
+    """根据 ?fields 参数返回子集字段"""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            requested_fields = request.args.get("fields", "")
+            if requested_fields:
+                field_names = set(requested_fields.split(","))
+                filtered = {
+                    k: v for k, v in field_map.items()
+                    if k in field_names
+                }
+            else:
+                filtered = field_map
+            result = f(*args, **kwargs)
+            return marshal(result, filtered)
+        return wrapper
+    return decorator
+
+
+class UserResource(Resource):
+    def get(self, user_id: int) -> dict[str, Any]:
+        user = User.query.get_or_404(user_id)
+        requesting_user = get_request_user()
+
+        # 根据请求者角色选择序列化方案
+        if requesting_user.id == user.id:
+            return marshal(user, user_private_fields)
+        elif requesting_user.role == "admin":
+            return marshal(user, user_admin_fields)
+        else:
+            return marshal(user, user_public_fields)
+```
+
+### 8.3 输入编组（Request Deserialization）
+
+```python
+from marshmallow import Schema, fields, validate, ValidationError
+from flask import request
+
+class ArticleSchema(Schema):
+    """文章输入验证与反序列化"""
+    title = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    content = fields.Str(required=True, validate=validate.Length(min=1))
+    category = fields.Str(
+        validate=validate.OneOf(["tech", "life", "work"]),
+        missing="tech"
+    )
+    tags = fields.List(fields.Str(), missing=[])
+    published = fields.Bool(missing=False)
+    scheduled_at = fields.DateTime(missing=None)
+
+    class Meta:
+        unknown = "RAISE"  # 拒绝未知字段
+
+
+class ArticleOutputSchema(Schema):
+    """文章输出序列化"""
+    id = fields.Int(dump_only=True)
+    title = fields.Str()
+    content = fields.Str()
+    category = fields.Str()
+    tags = fields.List(fields.Str())
+    published = fields.Bool()
+    created_at = fields.DateTime(dump_only=True)
+
+
+class ArticleCreateResource(Resource):
+    def post(self) -> tuple[dict[str, Any], int]:
+        schema = ArticleSchema()
+
+        try:
+            data = schema.load(request.get_json() or {})
+        except ValidationError as e:
+            return {"errors": e.messages}, 400
+
+        article = Article(
+            title=data["title"],
+            content=data["content"],
+            category=data["category"],
+            tags=data["tags"],
+            published=data["published"],
+        )
+        db.session.add(article)
+        db.session.commit()
+
+        return ArticleOutputSchema().dump(article), 201
+```
+
+---
+
+## 第九部分：分页与游标导航
+
+### 9.1 实际场景
+
+文章列表有 100 万条，传统的 OFFSET/LIMIT 分页性能差。
+
+**问题：如何实现高性能的游标分页？**
+
+### 9.2 偏移分页 vs 游标分页
+
+```
+偏移分页（OFFSET/LIMIT）：
+┌─────────────────────────────────────────────────────────────┐
+│  SELECT * FROM articles ORDER BY id LIMIT 20 OFFSET 500000  │
+│                                                             │
+│  问题：数据库需要扫描前 500,000 行再跳过                     │
+│  偏移越大越慢，并发写入时导致重复或跳行                       │
+└─────────────────────────────────────────────────────────────┘
+
+游标分页（Cursor-based）：
+┌─────────────────────────────────────────────────────────────┐
+│  SELECT * FROM articles WHERE id > 500000 ORDER BY id       │
+│                            LIMIT 20                         │
+│                                                             │
+│  优点：利用 B+Tree 索引，O(log N) 定位，不受偏移影响         │
+│  缺点：无法直接跳转到第 N 页                                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 9.3 游标分页实现
+
+```python
+import base64
+from flask import request, url_for
+from flask_restful import Resource
+from typing import Any
+
+class CursorPaginator:
+    """基于游标的分页器"""
+
+    def __init__(self, query, per_page: int = 20,
+                 cursor_field: str = "id", order: str = "asc") -> None:
+        self.query = query
+        self.per_page = per_page
+        self.cursor_field = cursor_field
+        self.order = order
+
+    def paginate(self, cursor: str | None = None) -> dict[str, Any]:
+        """执行游标分页查询"""
+        query = self.query
+
+        if cursor:
+            try:
+                cursor_value = int(base64.b64decode(cursor).decode())
+                if self.order == "asc":
+                    query = query.filter(
+                        getattr(self.query.column_descriptions[0]["entity"],
+                                self.cursor_field) > cursor_value
+                    )
+                else:
+                    query = query.filter(
+                        getattr(self.query.column_descriptions[0]["entity"],
+                                self.cursor_field) < cursor_value
+                    )
+            except (ValueError, UnicodeDecodeError):
+                pass
+
+        items = query.order_by(
+            getattr(self.query.column_descriptions[0]["entity"],
+                    self.cursor_field).asc()
+            if self.order == "asc" else
+            getattr(self.query.column_descriptions[0]["entity"],
+                    self.cursor_field).desc()
+        ).limit(self.per_page + 1).all()
+
+        has_next = len(items) > self.per_page
+        if has_next:
+            items = items[:self.per_page]
+
+        return {
+            "items": items,
+            "has_next": has_next,
+            "next_cursor": self._encode_cursor(items[-1]) if has_next else None,
+            "per_page": self.per_page,
+        }
+
+    def _encode_cursor(self, item) -> str:
+        value = getattr(item, self.cursor_field)
+        return base64.b64encode(str(value).encode()).decode()
+
+
+class ArticleListResource(Resource):
+    def get(self) -> dict[str, Any]:
+        cursor = request.args.get("cursor")
+        query = Article.query.filter_by(published=True)
+
+        paginator = CursorPaginator(query, per_page=20)
+        result = paginator.paginate(cursor)
+
+        return {
+            "data": [article.to_dict() for article in result["items"]],
+            "pagination": {
+                "has_next": result["has_next"],
+                "next_cursor": result["next_cursor"],
+                "next_url": (
+                    url_for("api.article_list", cursor=result["next_cursor"],
+                            _external=True)
+                    if result["next_cursor"] else None
+                ),
+            }
+        }
+```
+
+---
+
+## 第十部分：Rate Limiting（速率限制）
+
+### 10.1 实际场景
+
+公开 API 需要防止滥用，不同用户/角色有不同的配额。
+
+**问题：如何实现多级速率限制？**
+
+### 10.2 基于用户/角色的分层次限流
+
+```python
+import time
+from functools import wraps
+from flask import request, jsonify, g
+import redis
+
+r = redis.from_url("redis://localhost:6379")
+
+RATE_LIMITS = {
+    "anonymous": {"requests": 10, "window": 60},    # 匿名 10次/分
+    "user":      {"requests": 100, "window": 60},   # 用户 100次/分
+    "premium":   {"requests": 1000, "window": 60},  # 高级 1000次/分
+}
+
+def tiered_rate_limit():
+    """
+    根据用户角色应用不同的速率限制
+    使用 Redis Sorted Set 实现滑动窗口
+    """
+    def decorator(f: Callable) -> Callable:
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            user_tier = getattr(g, "user_tier", "anonymous")
+            limit_config = RATE_LIMITS.get(user_tier, RATE_LIMITS["anonymous"])
+
+            key = f"rate:{user_tier}:{request.remote_addr}"
+            now = int(time.time())
+            window_start = now - limit_config["window"]
+
+            # 滑动窗口：清理过期记录并计数
+            pipe = r.pipeline()
+            pipe.zremrangebyscore(key, 0, window_start)
+            pipe.zadd(key, {str(now): now})
+            pipe.zcard(key)
+            pipe.expire(key, limit_config["window"] + 1)
+            _, _, current_count, _ = pipe.execute()
+
+            remaining = limit_config["requests"] - current_count
+
+            response = f(*args, **kwargs)
+
+            if isinstance(response, tuple):
+                body, status = response[0], response[1]
+                headers = response[2] if len(response) > 2 else {}
+            else:
+                body, status, headers = response, 200, {}
+
+            # 标准限流响应头
+            headers.update({
+                "X-RateLimit-Limit": str(limit_config["requests"]),
+                "X-RateLimit-Remaining": str(max(0, remaining)),
+                "X-RateLimit-Reset": str(window_start + limit_config["window"]),
+            })
+
+            if current_count > limit_config["requests"]:
+                return jsonify({
+                    "error": "Rate limit exceeded",
+                    "retry_after": limit_config["window"]
+                }), 429, headers
+
+            return body, status, headers
+        return wrapper
+    return decorator
+
+
+class ArticleListResource(Resource):
+    @tiered_rate_limit()
+    def get(self):
+        return {"articles": []}
+```
+
+---
+
+## 第十一部分：API 文档与 OpenAPI
+
+### 11.1 实际场景
+
+API 需要有标准化的文档供前端开发者和第三方使用。
+
+**问题：如何自动生成 OpenAPI 文档？**
+
+### 11.2 Flask-RESTX 自动文档
+
+```python
+# pip install flask-restx
+from flask_restx import Api, Resource, Namespace, fields as restx_fields
+
+app: Flask = Flask(__name__)
+api: Api = Api(
+    app,
+    version="1.0",
+    title="Blog API",
+    description="博客系统 RESTful API 文档",
+    doc="/docs",  # Swagger UI 地址
+)
+
+ns = api.namespace("articles", description="文章操作")
+
+article_model = api.model("Article", {
+    "id": restx_fields.Integer(readonly=True, description="文章 ID"),
+    "title": restx_fields.String(
+        required=True,
+        description="文章标题",
+        min_length=1,
+        max_length=200,
+    ),
+    "content": restx_fields.String(required=True, description="文章内容"),
+    "category": restx_fields.String(
+        enum=["tech", "life", "work"],
+        description="分类",
+    ),
+    "tags": restx_fields.List(
+        restx_fields.String,
+        description="标签列表",
+    ),
+    "published": restx_fields.Boolean(
+        default=False,
+        description="是否发布",
+    ),
+    "created_at": restx_fields.DateTime(
+        readonly=True,
+        description="创建时间",
+    ),
+})
+
+@ns.route("/")
+class ArticleList(Resource):
+    @ns.marshal_list_with(article_model)
+    @ns.param("page", "页码", type=int, default=1)
+    @ns.param("per_page", "每页数量", type=int, default=20)
+    def get(self):
+        """获取文章列表（分页）"""
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 20, type=int)
+        return Article.query.paginate(page=page, per_page=per_page).items
+
+    @ns.expect(article_model)
+    @ns.marshal_with(article_model, code=201)
+    @ns.response(400, "参数验证失败")
+    def post(self):
+        """创建新文章"""
+        data = request.get_json()
+        article = Article(**data)
+        db.session.add(article)
+        db.session.commit()
+        return article, 201
+
+
+@ns.route("/<int:article_id>")
+@ns.param("article_id", "文章 ID")
+class ArticleDetail(Resource):
+    @ns.marshal_with(article_model)
+    @ns.response(404, "文章不存在")
+    def get(self, article_id: int):
+        """获取文章详情"""
+        return Article.query.get_or_404(article_id)
+```
+
+---
+
+## 第十二部分：Content Negotiation（内容协商）
+
+### 12.1 实际场景
+
+同一个 API 需要支持 JSON、XML、YAML 多种格式。
+
+**问题：如何根据客户端请求头返回不同格式的响应？**
+
+### 12.2 多格式响应实现
+
+```python
+from flask import request, Response
+import json
+import xmltodict
+import yaml
+
+MIME_TYPES = {
+    "application/json": "json",
+    "application/xml": "xml",
+    "text/xml": "xml",
+    "application/x-yaml": "yaml",
+    "text/yaml": "yaml",
+}
+
+def negotiate_response(data: dict, status_code: int = 200) -> Response:
+    """根据 Accept 头返回对应格式的响应"""
+    accept = request.headers.get("Accept", "application/json")
+
+    best_mime = request.accept_mimetypes.best_match(MIME_TYPES.keys())
+    fmt = MIME_TYPES.get(best_mime, "json")
+
+    if fmt == "xml":
+        body = xmltodict.unparse({"root": data}, pretty=True)
+        mime = "application/xml"
+    elif fmt == "yaml":
+        body = yaml.dump(data, allow_unicode=True, default_flow_style=False)
+        mime = "application/x-yaml"
+    else:
+        body = json.dumps(data, ensure_ascii=False, indent=2)
+        mime = "application/json"
+
+    return Response(body, status=status_code, mimetype=mime)
+
+
+class FlexibleArticleResource(Resource):
+    def get(self, article_id: int) -> Response:
+        article = Article.query.get_or_404(article_id)
+        return negotiate_response(article.to_dict())
+```
+
+### 12.3 全局内容协商装饰器
+
+```python
+def content_negotiation():
+    """自动将 dict 返回值转换为请求头协商的格式"""
+    def decorator(f: Callable) -> Callable:
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            result = f(*args, **kwargs)
+
+            if isinstance(result, Response):
+                return result
+
+            status_code = 200
+            if isinstance(result, tuple):
+                data, status_code = result[0], result[1]
+            else:
+                data = result
+
+            if isinstance(data, dict):
+                return negotiate_response(data, status_code)
+
+            return result
+
+        return wrapper
+    return decorator
+```
+
+---
+
+## 第十三部分：常见坑点排查
+
+### 13.1 PUT vs PATCH 误用
+
+**错误信息：**
+
+```
+（通常无错误，但语义不正确）
+PUT 只更新了 title，期望 content 保持不变，但 content 被清空为 null。
+```
+
+**根因分析：**
+
+PUT 语义是"完整替换"，应该将未提供的字段设为默认值或清空。如果只想更新部分字段，应使用 PATCH。
+
+```python
+# ❌ 误解：把 PUT 当 PATCH 用
+class ArticleResource(Resource):
+    def put(self, article_id: int):
+        data = request.get_json()
+        article = Article.query.get(article_id)
+        article.title = data.get("title", article.title)  # 保留原值
+        article.content = data.get("content", article.content)
+        # 这其实是 PATCH 语义！
+
+# ✅ 正确区分 PUT（完整替换）和 PATCH（部分更新）
+class ArticleResource(Resource):
+    def put(self, article_id: int):
+        """完整替换：未提供的字段应重置为默认值"""
+        data = request.get_json()
+        article = Article.query.get(article_id)
+        article.title = data.get("title", "")
+        article.content = data.get("content", "")
+
+    def patch(self, article_id: int):
+        """部分更新：只更新提供的字段"""
+        data = request.get_json()
+        article = Article.query.get(article_id)
+        if "title" in data:
+            article.title = data["title"]
+        if "content" in data:
+            article.content = data["content"]
+```
+
+### 13.2 分页数据不一致
+
+**错误信息：**
+
+```
+（随机出现）分页时，第 2 页出现了第 1 页已经出现过的数据。
+```
+
+**根因分析：**
+
+OFFSET 分页在数据并发写入时，插入新数据会导致已有数据位置偏移。
+
+```
+修复方案：
+1. 对静态数据（历史记录、日志）使用 OFFSET 分页
+2. 对动态数据（新增频繁）使用游标分页
+3. 添加一致性标记：请求带上 `after=<timestamp>` 参数
+```
+
+### 13.3 问题排查表
+
+| 现象 | 可能原因 | 检查方法 | 解决方案 |
+|------|---------|---------|---------|
+| 200 OK 但没有数据 | GET 请求带了 body | 检查请求方式 | GET 不应带 body |
+| 415 Unsupported Media Type | Content-Type 错误 | 检查请求头 | POST 时设置 `Content-Type: application/json` |
+| 400 Bad Request | reqparse 参数不匹配 | 查看 `parser.errors` | 匹配参数名、类型、location |
+| 500 Internal Error | 未捕获异常导致 500 | 添加错误日志 | 统一错误处理装饰器 |
+| 分页数据重复/缺失 | OFFSET 并发修改 | 观察数据变化 | 改用游标分页 |
+| API 文档不一致 | 文档手动维护 | 对比代码和文档 | 使用 Flask-RESTX 自动生成 |
+
+---
+
+## 第十四部分：调试与排错实战
+
+### 14.1 调试会话：reqparse 参数验证静默失败
+
+```
+场景：POST /api/articles 带 JSON body，但 title 始终为 None。
+
+调试步骤：
+
+Step 1: 检查请求
+import json
+# 在视图函数中打印原始请求
+@app.before_request
+def debug_request():
+    if request.path.startswith("/api"):
+        print(f"[API DEBUG] {request.method} {request.path}")
+        print(f"  Content-Type: {request.content_type}")
+        print(f"  Body: {request.get_data(as_text=True)}")
+
+Step 2: 输出
+[API DEBUG] POST /api/articles
+  Content-Type: application/json; charset=utf-8
+  Body: {"title": "Hello", "content": "World"}
+
+Step 3: 检查 reqparse 配置
+parser = reqparse.RequestParser()
+parser.add_argument("title", type=str, required=True,
+                    location="json")  ← 明确指定 location
+
+args = parser.parse_args()
+print(f"Parsed args: {args}")
+
+# 如果 Content-Type 不是 application/json 或含有 charset，
+# location="json" 可能无法正确解析。
+
+Step 4: 修复 — 同时接受多种 location
+parser.add_argument("title", type=str, required=True,
+                    location=["json", "form"])  # fallback
+```
+
+### 14.2 HTTP 状态码调试工具
+
+```python
+# 在应用启动时验证所有资源的状态码
+def validate_api_status_codes(app: Flask) -> None:
+    """检查 API 端点是否返回正确的状态码"""
+    with app.test_client() as client:
+
+        # 检查 GET 正常场景
+        resp = client.get("/api/articles/1")
+        assert resp.status_code in (200, 404), (
+            f"Unexpected status: {resp.status_code}"
+        )
+
+        # 检查 POST 无 body
+        resp = client.post("/api/articles",
+                          content_type="application/json")
+        assert resp.status_code in (400, 415, 422), (
+            f"POST without body should return error: {resp.status_code}"
+        )
+
+        print("API status code validation: PASSED")
+```
+

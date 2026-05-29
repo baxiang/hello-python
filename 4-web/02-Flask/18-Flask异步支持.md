@@ -949,6 +949,513 @@ for r in results:
 
 ---
 
+### 5.5 Flask 到 Quart 的迁移路径
+
+Quart 是 Flask 的异步等价物，API 几乎完全兼容，但迁移需要注意：
+
+```python
+# flask_to_quart_migration.py
+"""Flask → Quart 迁移指南"""
+
+# ============ Flask 代码 ============
+# # flask_app.py
+# from flask import Flask, request, jsonify
+#
+# app = Flask(__name__)
+#
+# @app.before_request
+# async def before_request():
+#     pass  # Flask 3.x 支持 async
+#
+# @app.route("/api/data")
+# async def get_data():
+#     data = await fetch_data()
+#     return jsonify(data)
+
+
+# ============ Quart 等价代码 ============
+"""
+# quart_app.py
+from quart import Quart, request, jsonify
+
+app = Quart(__name__)
+
+@app.before_request
+async def before_request():
+    pass  # 原生支持 async
+
+@app.route("/api/data")
+async def get_data():
+    data = await fetch_data()
+    return jsonify(data)
+"""
+```
+
+**迁移差异对照表：**
+
+| 特性 | Flask 3.x | Quart | 迁移注意 |
+|------|-----------|-------|---------|
+| 异步视图 | `async def` 支持 | 原生支持 | Flask 需 ASGI 服务器 |
+| WebSocket | 不支持 | 原生支持 | 需 `quart.flask_patch` 兼容 |
+| `before_request` | 支持 async | 原生 async | Flask 中 async 钩子有限制 |
+| `after_request` | 仅 sync | 支持 async | Quart 可 async |
+| 模板渲染 | `render_template` | 同 API | 完全兼容 |
+| 信号 | Blinker | Quart 内置 | API 相同 |
+| 测试客户端 | `app.test_client()` | `app.test_client()` | API 相同 |
+| 扩展兼容 | 大部分 | 需 Quart 专用版本 | flask-sqlalchemy → quart-sqlalchemy |
+| 部署 | Gunicorn + gevent | Hypercorn/Daphne | 服务器不同 |
+
+**渐进式迁移策略：**
+
+```
+迁移路线图：
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  阶段 1：在 Flask 3.x 中将关键路径改为 async                     │
+│  ├── 识别 I/O 密集型端点                                        │
+│  ├── 改为 async def + asyncio.gather                           │
+│  └── 用 ASGI 服务器（Hypercorn）替代 WSGI                        │
+│                                                                 │
+│  阶段 2：评估扩展兼容性                                          │
+│  ├── 检查依赖扩展是否有 Quart 版本                               │
+│  ├── 对不兼容的扩展寻找替代方案                                  │
+│  └── 核心业务逻辑保持与框架解耦                                  │
+│                                                                 │
+│  阶段 3：渐进迁移                                                │
+│  ├── 先迁移独立模块（API 接口、后台任务）                         │
+│  ├── 使用 quart.flask_patch 保持部分 Flask 扩展兼容              │
+│  └── 逐步替换 Flask 专属扩展为 Quart 版本                       │
+│                                                                 │
+│  阶段 4：完全迁移                                                │
+│  ├── 替换所有 `from flask import` 为 `from quart import`       │
+│  ├── 替换 WSGI 部署为 ASGI                                      │
+│  ├── 添加 WebSocket 支持（如需要）                               │
+│  └── 全量回归测试                                               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 5.6 gevent/eventlet monkey-patching 的陷阱
+
+```python
+# gevent_caveats.py
+"""gevent monkey-patching 的常见陷阱与解决方案"""
+
+# ⚠️ 陷阱 1：patch 顺序错误
+# monkey.patch_all() 必须在所有标准库 import 之前调用
+"""
+# ❌ 错误顺序
+import requests     # ← 此时已加载阻塞版本的 socket
+from gevent import monkey
+monkey.patch_all()  # ← 太晚了！requests 已导入
+
+# ✅ 正确顺序
+from gevent import monkey
+monkey.patch_all()  # ← 必须先执行
+import requests     # ← 现在才加载，得到 gevent 版本
+import sqlite3
+import time
+"""
+
+
+# ⚠️ 陷阱 2：C 扩展不兼容
+"""
+gevent 通过 monkey-patching Python 标准库实现异步。
+但以下 C 扩展无法被 patch：
+- psycopg2（同步 PostgreSQL 驱动）
+  → 解决：使用 psycogreen 或切换到 asyncpg
+- mysqlclient（同步 MySQL 驱动）
+  → 解决：使用 PyMySQL 或 aiomysql
+- lxml（XML 解析库）
+  → 解决：无简单方案，放到线程池执行
+"""
+
+
+# ⚠️ 陷阱 3：线程局部存储
+"""
+import threading
+
+my_data = threading.local()
+my_data.user_id = 123  # ← 线程局部存储
+
+# 在 gevent 下，多个 greenlet 共享同一个 OS 线程
+# my_data.user_id 可能被另一个 greenlet 覆盖
+# 解决：使用 gevent.local 替代 threading.local
+"""
+
+
+# ⚠️ 陷阱 4：CPU 密集阻塞
+"""
+def heavy_work():
+    total = 0
+    for i in range(50_000_000):
+        total += i  # ← 纯 CPU 计算，不会让出 greenlet
+    return total
+
+# gevent 无法中断纯 CPU 计算
+# 解决：手动 gevent.sleep(0) 让出协程
+# 或使用 gevent.getcurrent().parent 向 hub 切换
+"""
+
+
+# ⚠️ 陷阱 5：数据库连接池
+"""
+# SQLAlchemy 默认的连接池是线程局部的
+# 在 gevent 下可能导致连接"泄漏"
+
+from sqlalchemy import create_engine
+
+# ❌ 问题配置
+engine = create_engine("postgresql://...")
+
+# ✅ gevent 安全配置
+engine = create_engine(
+    "postgresql://...",
+    poolclass=QueuePool,    # 使用 QueuePool
+    pool_size=10,
+    pool_pre_ping=True,     # 检查连接健康
+)
+"""
+
+
+# ⚠️ 陷阱 6：DNS 解析阻塞
+"""
+import socket
+# socket.gethostbyname() 在 gevent 下可能仍然阻塞
+# 一些库（如 redis、elasticsearch）内部调用 socket 函数
+
+# 解决：
+monkey.patch_all(socket=True, dns=True, aggressive=True)
+# aggressive=True: 即使 C 扩展也尝试 patch（有风险）
+"""
+
+
+# ── 安全使用 gevent 的检查清单 ──
+"""
+1. monkey.patch_all() 放代码最顶部（setup.py 或 __init__.py 开头）
+2. 所有阻塞 I/O 库在 patch_all() 之后 import
+3. 检查第三方库文档是否声明了 gevent 兼容
+4. 使用 gunicorn -k gevent 而非 gunicorn -k sync
+5. 数据库驱动选择纯 Python 版本（PyMySQL > mysqlclient）
+6. 生产环境测试并发场景，确认无连接泄漏
+"""
+```
+
+### 5.7 WebSocket 与 Flask-SocketIO 异步模式
+
+```python
+# websocket_flask_socketio.py
+"""Flask-SocketIO 异步模式集成"""
+# 安装: uv add flask-socketio eventlet
+
+"""
+from flask import Flask, render_template_string
+from flask_socketio import SocketIO, emit, send
+
+app = Flask(__name__)
+app.secret_key = "dev-secret-key"
+
+# async_mode 选项:
+#   "threading" - 多线程（默认，简单但并发低）
+#   "eventlet"  - eventlet 协程（推荐，高性能）
+#   "gevent"    - gevent 协程（高性能）
+#   "asgi"      - ASGI 原生异步（需搭配 Hypercorn）
+socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
+
+# 在线用户追踪
+online_users: dict[str, str] = {}  # sid → username
+
+
+@socketio.on("connect")
+def handle_connect():
+    print(f"Client connected: {request.sid}")
+
+
+@socketio.on("disconnect")
+def handle_disconnect():
+    username = online_users.pop(request.sid, "Unknown")
+    emit("user_left", {"username": username}, broadcast=True)
+    print(f"Client disconnected: {request.sid}")
+
+
+@socketio.on("join")
+def handle_join(data: dict):
+    username = data.get("username", "Anonymous")
+    online_users[request.sid] = username
+    emit("user_joined", {"username": username, "users": list(online_users.values())},
+         broadcast=True)
+
+
+@socketio.on("message")
+def handle_message(data: dict):
+    username = online_users.get(request.sid, "Anonymous")
+    emit("new_message", {
+        "username": username,
+        "text": data.get("text", ""),
+        "timestamp": datetime.now().isoformat(),
+    }, broadcast=True)
+
+
+@socketio.on("typing")
+def handle_typing():
+    username = online_users.get(request.sid, "Anonymous")
+    emit("user_typing", {"username": username}, broadcast=True, include_self=False)
+
+
+# WebSocket 聊天室页面
+CHAT_HTML = '''
+<!DOCTYPE html>
+<html>
+<head><title>Chat</title></head>
+<body>
+    <div id="messages"></div>
+    <input id="msg_input" type="text" placeholder="输入消息...">
+    <button onclick="sendMsg()">发送</button>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        socket.on("connect", () => socket.emit("join", {username: "User" + Date.now()}));
+        socket.on("new_message", (data) => {
+            const div = document.createElement("div");
+            div.textContent = `${data.username}: ${data.text}`;
+            document.getElementById("messages").appendChild(div);
+        });
+        function sendMsg() {
+            const input = document.getElementById("msg_input");
+            socket.emit("message", {text: input.value});
+            input.value = "";
+        }
+    </script>
+</body>
+</html>
+'''
+
+
+@app.route("/chat")
+def chat():
+    return render_template_string(CHAT_HTML)
+"""
+
+# 启动命令:
+# socketio.run(app, host="0.0.0.0", port=5000)
+```
+
+### 5.8 异步 HTTP 客户端集成（httpx）
+
+```python
+# async_httpx_integration.py
+"""Flask 中集成 httpx 异步 HTTP 客户端"""
+from flask import Flask, jsonify
+import asyncio
+import httpx
+from typing import Any
+from contextlib import asynccontextmanager
+
+
+app: Flask = Flask(__name__)
+
+# 全局 httpx 客户端（连接池复用）
+_http_client: httpx.AsyncClient | None = None
+
+
+async def get_http_client() -> httpx.AsyncClient:
+    """获取或创建全局 httpx 客户端"""
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(10.0, connect=5.0),
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+            headers={"User-Agent": "MyFlaskApp/1.0"},
+        )
+    return _http_client
+
+
+@app.teardown_appcontext
+async def close_http_client(error: Any = None) -> None:
+    """应用关闭时清理 httpx 客户端"""
+    global _http_client
+    if _http_client is not None and not _http_client.is_closed:
+        await _http_client.aclose()
+        _http_client = None
+
+
+@app.route("/aggregate/<int:user_id>")
+async def aggregate_user_data(user_id: int) -> tuple[dict[str, Any], int]:
+    """并发聚合多个 API 的数据"""
+    client: httpx.AsyncClient = await get_http_client()
+
+    try:
+        async with asyncio.timeout(8):  # 总超时 8 秒
+            # 并发请求 3 个服务
+            profile_task = client.get(f"http://profile-api/users/{user_id}")
+            orders_task = client.get(f"http://order-api/orders?user_id={user_id}")
+            reviews_task = client.get(f"http://review-api/reviews?user_id={user_id}")
+
+            responses = await asyncio.gather(
+                profile_task, orders_task, reviews_task,
+                return_exceptions=True,
+            )
+
+        result: dict[str, Any] = {
+            "user_id": user_id,
+            "profile": _parse_or_error(responses[0], "profile"),
+            "orders": _parse_or_error(responses[1], "orders"),
+            "reviews": _parse_or_error(responses[2], "reviews"),
+        }
+        return jsonify(result), 200
+
+    except asyncio.TimeoutError:
+        return jsonify({"error": "上游服务超时"}), 504
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def _parse_or_error(response: Any, source: str) -> dict[str, Any]:
+    """安全解析响应或返回错误"""
+    if isinstance(response, Exception):
+        return {"error": str(response), "source": source}
+    if isinstance(response, httpx.Response):
+        if response.is_success:
+            return response.json()
+        return {"error": f"HTTP {response.status_code}", "source": source}
+    return {"error": "Unknown", "source": source}
+```
+
+### 5.9 Gunicorn 异步 Worker 对比
+
+```python
+# gunicorn_workers.py
+"""
+Gunicorn Worker 类型对比与选型
+
+启动命令：
+  gunicorn --worker-class <type> --workers <N> app:app
+"""
+
+# ============ Worker 类型对比 ============
+"""
+┌─────────────────┬──────────────────┬──────────────────────────────┐
+│ Worker 类型      │ 适用场景         │ 并发模型                     │
+├─────────────────┼──────────────────┼──────────────────────────────┤
+│ sync (默认)     │ CPU 密集/简单    │ 每请求一线程（所有 worker）    │
+│                 │ 低并发           │ 默认 1 worker, 1 线程        │
+├─────────────────┼──────────────────┼──────────────────────────────┤
+│ gthread         │ I/O 密集/同步    │ 每 worker 多线程              │
+│                 │ 中等并发         │ --threads 4                  │
+├─────────────────┼──────────────────┼──────────────────────────────┤
+│ gevent          │ I/O 密集/高并发  │ 用户态协程（greenlet）        │
+│                 │ 需 monkey patch  │ --worker-connections 1000    │
+├─────────────────┼──────────────────┼──────────────────────────────┤
+│ eventlet        │ I/O 密集/高并发  │ 用户态协程                   │
+│                 │ WebSocket 兼容   │ 与 gevent 类似               │
+├─────────────────┼──────────────────┼──────────────────────────────┤
+│ uvicorn         │ async 原生       │ asyncio 事件循环              │
+│ (uvicorn.workers│ Flask 3.x async  │ 搭配 ASGI 适配器             │
+│  .UvicornWorker)│                  │                              │
+├─────────────────┼──────────────────┼──────────────────────────────┤
+│ tornado         │ 长轮询/WebSocket │ Tornado IOLoop               │
+│                 │ 历史遗留        │                              │
+└─────────────────┴──────────────────┴──────────────────────────────┘
+"""
+
+
+# ============ 性能场景推荐 ============
+"""
+场景一：传统 CRUD Web 应用（同步 ORM + 模板渲染）
+  推荐: gthread + 4 workers + 4 threads
+  命令: gunicorn -w 4 --threads 4 -k gthread app:app
+
+场景二：高并发 API 网关（调用外部 HTTP 服务）
+  推荐: gevent + 4 workers
+  命令: gunicorn -w 4 -k gevent --worker-connections 1000 app:app
+
+场景三：Flask 3.x async 视图（async def + ASGI）
+  推荐: uvicorn worker
+  命令: gunicorn -w 4 -k uvicorn.workers.UvicornWorker app:app
+
+场景四：WebSocket + HTTP 混合
+  推荐: eventlet
+  命令: gunicorn -w 1 -k eventlet app:app
+"""
+
+
+# ============ 完整 Gunicorn 配置示例 ============
+"""
+# gunicorn_conf.py
+import multiprocessing
+
+bind = "0.0.0.0:8000"
+
+# Worker 配置
+worker_class = "gevent"
+workers = multiprocessing.cpu_count() * 2 + 1
+worker_connections = 1000
+timeout = 30
+keepalive = 5
+
+# 日志
+accesslog = "/var/log/myapp/access.log"
+errorlog = "/var/log/myapp/error.log"
+loglevel = "info"
+access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
+
+# 优雅重启
+graceful_timeout = 30
+max_requests = 10000
+max_requests_jitter = 1000
+
+# 预加载应用（减少内存占用，适合小应用）
+preload_app = True
+
+# 启动命令:
+# gunicorn -c gunicorn_conf.py app:app
+"""
+```
+
+### 5.10 调试与排错实战
+
+**场景：async 视图中 await 不生效，请求仍然串行执行**
+
+```python
+# debug_async_issues.py
+"""异步调试与排错"""
+from flask import Flask
+import asyncio
+import time
+
+app_debug: Flask = Flask(__name__)
+
+
+# ❌ 问题场景：在 async 视图中调用同步阻塞代码
+@app_debug.route("/bug")
+async def bug_endpoint() -> dict[str, float]:
+    start: float = time.monotonic()
+    # time.sleep() 是同步阻塞，会阻塞事件循环
+    time.sleep(2)  # ← 所有并发请求排队等待
+    elapsed: float = time.monotonic() - start
+    return {"elapsed": elapsed, "note": "即使 async 也在阻塞"}
+
+
+# ✅ 修复：使用真正的异步等待
+@app_debug.route("/fixed")
+async def fixed_endpoint() -> dict[str, float]:
+    start: float = time.monotonic()
+    await asyncio.sleep(2)  # ← 让出事件循环
+    elapsed: float = time.monotonic() - start
+    return {"elapsed": elapsed, "note": "非阻塞并发"}
+```
+
+**常见 async 排错表：**
+
+| 现象 | 根因 | 检查方法 |
+|------|------|---------|
+| async 视图执行慢 | 内部调用了同步阻塞函数 | 检查是否有 `time.sleep()`、`requests.get()` 等 |
+| 返回 Coroutine 对象 | 忘记 `await` | 检查 JSON 序列化错误日志 |
+| 事件循环错误 | 嵌套事件循环 | 不要在 async 中调用 `asyncio.run()` |
+| 数据库操作报错 | 同步 ORM 在事件循环中 | 检查是否使用了 `asyncpg`/`aiosqlite` |
+| 请求卡住不返回 | 死锁（async 调用 sync → sync 调用 async） | 检查混合调用路径 |
+
 ## 总结
 
 ```

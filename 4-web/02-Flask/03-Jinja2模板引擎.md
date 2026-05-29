@@ -288,6 +288,49 @@ app.jinja_env.globals["markdown"] = markdown_to_html
 {% endif %}
 ```
 
+### 5.5 自定义测试器
+
+```python
+# 注册自定义测试器
+@app.template_test("adult")
+def is_adult(age: int) -> bool:
+    return age >= 18
+
+@app.template_test("empty_list")
+def is_empty_list(items: list) -> bool:
+    return len(items) == 0
+```
+
+```html
+{% if user.age is adult %}
+    <p>欢迎进入成人区</p>
+{% endif %}
+
+{% if items is empty_list %}
+    <p>没有数据</p>
+{% endif %}
+```
+
+### 5.6 常用过滤器链与组合
+
+```html
+<!-- 过滤器链：多个过滤器依次应用 -->
+<p>{{ article.content|striptags|trim|truncate(200) }}</p>
+
+<!-- 默认值链 -->
+<p>{{ user.avatar|default('/static/default.png') }}</p>
+
+<!-- 条件格式化 -->
+<p>{{ "VIP" if user.level >= 3 else "普通" }}</p>
+
+<!-- 列表过滤器组合 -->
+<ul>
+{% for tag in post.tags|sort|unique %}
+    <li>{{ tag|capitalize }}</li>
+{% endfor %}
+</ul>
+```
+
 ---
 
 ## 第六部分：宏
@@ -339,6 +382,111 @@ app.jinja_env.globals["markdown"] = markdown_to_html
 
 <!-- 导入所有 -->
 {% from 'forms.html' import * %}
+```
+
+### 6.5 宏系统深度实践
+
+```html
+{# templates/macros/cards.html — 卡片组件宏库 #}
+
+{# 基础卡片宏 #}
+{% macro card(title, content, footer='', class='') %}
+<div class="card {{ class }}">
+    <div class="card-header">
+        <h3>{{ title }}</h3>
+    </div>
+    <div class="card-body">
+        {{ caller() if caller else content }}
+    </div>
+    {% if footer %}
+    <div class="card-footer">
+        {{ footer }}
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{# 带调用者内容的卡片 #}
+{% macro user_card(user, show_email=True) %}
+    {% call card(title=user.name, class='user-card') %}
+        <p>角色：{{ user.role }}</p>
+        {% if show_email %}
+        <p>邮箱：{{ user.email }}</p>
+        {% endif %}
+        <time>{{ user.created_at|date }}</time>
+    {% endcall %}
+{% endmacro %}
+
+{# 分页宏 #}
+{% macro pagination(page, total_pages, endpoint) %}
+<nav class="pagination">
+    {% if page > 1 %}
+    <a href="{{ url_for(endpoint, page=page-1) }}">&laquo; 上一页</a>
+    {% endif %}
+
+    {% for p in range(1, total_pages + 1) %}
+        {% if p == page %}
+        <span class="current">{{ p }}</span>
+        {% else %}
+        <a href="{{ url_for(endpoint, page=p) }}">{{ p }}</a>
+        {% endif %}
+    {% endfor %}
+
+    {% if page < total_pages %}
+    <a href="{{ url_for(endpoint, page=page+1) }}">下一页 &raquo;</a>
+    {% endif %}
+</nav>
+{% endmacro %}
+
+{# 表格宏 #}
+{% macro data_table(rows, columns, empty_message='暂无数据') %}
+{% if rows %}
+<table class="data-table">
+    <thead>
+        <tr>
+        {% for col in columns %}
+            <th>{{ col.label }}</th>
+        {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+        <tr>
+        {% for col in columns %}
+            <td>{{ row[col.key] }}</td>
+        {% endfor %}
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">{{ empty_message }}</p>
+{% endif %}
+{% endmacro %}
+```
+
+```html
+{# 使用宏库 #}
+{% from 'macros/cards.html' import card, user_card, pagination, data_table %}
+
+{% call card(title="最新动态", class="news-card") %}
+    <ul>
+    {% for item in news_items %}
+        <li>{{ item.title }}</li>
+    {% endfor %}
+    </ul>
+{% endcall %}
+
+{{ user_card(current_user, show_email=False) }}
+
+{{ pagination(page=3, total_pages=10, endpoint='posts.list') }}
+
+{% set cols = [
+    {"key": "id", "label": "ID"},
+    {"key": "name", "label": "姓名"},
+    {"key": "score", "label": "分数"},
+] %}
+{{ data_table(students, cols) }}
 ```
 
 ---
@@ -424,6 +572,120 @@ app.jinja_env.globals["markdown"] = markdown_to_html
 {% endblock %}
 ```
 
+### 7.4 多级模板继承实战
+
+```html
+{# templates/base.html — 第一层：全局布局 #}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}默认标题{% endblock %}</title>
+    {% block head_meta %}{% endblock %}
+    {% block head_styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    {% endblock %}
+</head>
+<body>
+    {% block body_header %}
+    <header class="global-header">
+        <nav>{% block nav %}{% endblock %}</nav>
+    </header>
+    {% endblock %}
+
+    {% block body_content %}
+    <main>{% block content %}{% endblock %}</main>
+    {% endblock %}
+
+    {% block body_footer %}
+    <footer class="global-footer">{% block footer %}{% endblock %}</footer>
+    {% endblock %}
+
+    {% block body_scripts %}
+    <script src="{{ url_for('static', filename='js/base.js') }}"></script>
+    {% endblock %}
+</body>
+</html>
+```
+
+```html
+{# templates/layouts/admin.html — 第二层：管理后台布局 #}
+{% extends "base.html" %}
+
+{% block title %}管理后台 - {{ self.page_title() if self.page_title is defined else '' }}{% endblock %}
+
+{% block head_styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+
+{% block body_content %}
+<div class="admin-layout">
+    <aside class="admin-sidebar">
+        {% block sidebar %}
+        <ul class="nav">
+            <li><a href="{{ url_for('admin.dashboard') }}">仪表盘</a></li>
+            <li><a href="{{ url_for('admin.users') }}">用户管理</a></li>
+            <li><a href="{{ url_for('admin.posts') }}">文章管理</a></li>
+        </ul>
+        {% endblock %}
+    </aside>
+    <div class="admin-main">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}
+```
+
+```html
+{# templates/admin/users.html — 第三层：用户管理页面 #}
+{% extends "layouts/admin.html" %}
+
+{% block page_title %}用户管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>用户列表</h2>
+    <a class="btn" href="{{ url_for('admin.create_user') }}">新增用户</a>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr><th>ID</th><th>用户名</th><th>邮箱</th><th>操作</th></tr>
+    </thead>
+    <tbody>
+    {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.email }}</td>
+            <td>
+                <a href="{{ url_for('admin.edit_user', id=user.id) }}">编辑</a>
+                <a href="{{ url_for('admin.delete_user', id=user.id) }}">删除</a>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+```
+
+### 7.5 模板继承中的 set 与 block 嵌套
+
+```html
+{# 在子模板中设置父模板使用的变量 #}
+{% extends "base.html" %}
+
+{% set page_class = "home-page" %}
+{% set body_data = {"controller": "home", "action": "index"} %}
+
+{% block body_content %}
+<body class="{{ page_class }}" data-controller="{{ body_data.controller }}">
+    {{ super() }}
+</body>
+{% endblock %}
+```
+
 ---
 
 ## 第八部分：包含
@@ -452,6 +714,20 @@ app.jinja_env.globals["markdown"] = markdown_to_html
 ```html
 <!-- 根据变量选择模板 -->
 {% include template_name %}
+```
+
+### 8.4 include vs macro vs extends 高级场景
+
+```html
+{# include 适合：大块独立 UI 片段，基本不需要参数 #}
+{% include 'shared/footer.html' %}
+
+{# macro 适合：需要参数控制的重复 UI 组件 #}
+{% from 'shared/forms.html' import input_field %}
+{{ input_field('email', '邮箱', type='email') }}
+
+{# extends 适合：整体页面布局替换 #}
+{% extends "layouts/base.html" %}
 ```
 
 ---
@@ -544,6 +820,37 @@ app.jinja_env.globals["markdown"] = markdown_to_html
 {% endblock %}
 ```
 
+### 9.2 场景化模板配置
+
+```python
+from flask import Flask, render_template
+
+app = Flask(__name__)
+
+# 设置全局变量 — 所有模板自动可用
+@app.context_processor
+def inject_globals():
+    return {
+        "site_name": "我的博客",
+        "current_year": 2025,
+        "nav_items": [
+            {"name": "首页", "url": "/"},
+            {"name": "文章", "url": "/posts"},
+            {"name": "关于", "url": "/about"},
+        ],
+    }
+
+# 设置全局函数
+@app.context_processor
+def inject_functions():
+    return {
+        "is_admin": lambda user: user.get("role") == "admin",
+    }
+
+# 另一种方式：直接设置 jinja_env
+app.jinja_env.globals["APP_VERSION"] = "2.0.1"
+```
+
 ---
 
 ### L2 实践层：用好
@@ -576,6 +883,146 @@ app.jinja_env.globals["markdown"] = markdown_to_html
 | `{% extends %}` | 全页面布局继承（base.html → page.html） |
 | `{% include %}` | 嵌入独立组件片段（导航栏、页脚） |
 | `{% macro %}` | 带参数的可复用 UI 组件（表单项） |
+
+---
+
+## 第十部分：Jinja2 进阶技巧
+
+### 10.1 转义与 XSS 防护深入
+
+```python
+from markupsafe import Markup, escape
+
+# Markup 类型：标记为安全，跳过转义
+safe_html = Markup("<strong>安全的内容</strong>")
+
+# escape：手动转义
+unsafe = escape("<script>alert('xss')</script>")
+# 结果: &lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;
+
+# 在 Python 视图中注册
+@app.template_filter("safe_html")
+def safe_html_filter(text: str) -> Markup:
+    """仅在完全信任输入时使用"""
+    return Markup(text)
+```
+
+```html
+{# 模板中转义与安全输出 #}
+
+{# 自动转义（默认） — 安全 #}
+{{ user_supplied_content }}
+
+{# 显式转义 #}
+{{ user_supplied_content|e }}
+
+{# 标记安全（危险！仅在你信任数据时使用） #}
+{{ trusted_html|safe }}
+
+{# 条件安全：仅允许白名单 HTML 标签 #}
+{{ user_content|striptags|truncate(200) }}
+```
+
+### 10.2 模板性能优化
+
+```python
+from flask import Flask
+
+app = Flask(__name__)
+
+# 生产环境配置
+app.jinja_env.cache = {}  # 启用模板缓存
+app.jinja_env.auto_reload = False  # 禁用自动重载
+
+# 模板字节码缓存（文件系统）
+from jinja2 import FileSystemBytecodeCache
+app.jinja_env.bytecode_cache = FileSystemBytecodeCache("/tmp/jinja2_cache")
+
+# 或内存缓存
+from jinja2 import MemcachedBytecodeCache
+import pylibmc
+client = pylibmc.Client(["127.0.0.1"])
+app.jinja_env.bytecode_cache = MemcachedBytecodeCache(client)
+```
+
+```html
+{# 模板优化技巧 #}
+
+{# 1. 使用 {% cache %} 缓存片段（需要 Flask-Caching） #}
+{% cache 300, 'sidebar' %}
+    {# 复杂的侧边栏渲染 #}
+{% endcache %}
+
+{# 2. 避免在模板中做复杂计算 #}
+{# ❌ 不好 #}
+{% set avg = (items|sum / items|length)|round(2) %}
+
+{# ✅ 在视图中计算好再传入 #}
+{{ average_score }}  {# 视图函数中已计算 #}
+
+{# 3. 减少嵌套循环的层级 #}
+{# ❌ 3 层嵌套 #}
+{% for category in categories %}
+    {% for sub in category.sub_categories %}
+        {% for item in sub.items %}
+            {{ item.name }}
+        {% endfor %}
+    {% endfor %}
+{% endfor %}
+
+{# ✅ 在 Python 中扁平化数据 #}
+{% for item in flat_items %}
+    {{ item.name }}
+{% endfor %}
+```
+
+### 10.3 Jinja2 模板测试
+
+```python
+from jinja2 import Environment, DictLoader
+
+def test_template_rendering():
+    """单元测试模板渲染结果"""
+    env = Environment(loader=DictLoader({
+        "test.html": """
+            <h1>{{ title }}</h1>
+            {% if items %}
+            <ul>
+            {% for item in items %}
+                <li>{{ item }}</li>
+            {% endfor %}
+            </ul>
+            {% endif %}
+        """
+    }))
+
+    # 测试正常渲染
+    template = env.get_template("test.html")
+    output = template.render(title="Hello", items=["a", "b", "c"])
+
+    assert "<h1>Hello</h1>" in output
+    assert "<li>a</li>" in output
+    assert "<li>b</li>" in output
+
+    # 测试空列表
+    output2 = template.render(title="Empty", items=[])
+    assert "<ul>" not in output2
+
+    # 测试 XSS 防护
+    unsafe_env = Environment()
+    tmpl = unsafe_env.from_string("{{ user_input }}")
+    output3 = tmpl.render(user_input="<script>alert(1)</script>")
+    assert "&lt;script&gt;" in output3
+    assert "<script>" not in output3
+```
+
+### 10.4 常见错误与排查
+
+| 错误现象 | 原因分析 | 解决方案 | 预防措施 |
+|----------|---------|---------|---------|
+| `TemplateNotFound: xxx.html` | 模板文件不在 `templates/` 目录，或路径拼写错误 | 检查文件路径和 Flask 实例化时的 `template_folder` | 使用绝对路径或统一约定模板目录 |
+| `UndefinedError: 'xxx' is undefined` | 模板中引用了不存在的变量 | ① `{{ var\|default('') }}` ② 视图函数补充变量 | 始终为模板变量提供默认值 |
+| 模板修改后不生效 | 缓存了编译后的模板 | 开发时 `app.jinja_env.auto_reload = True` | 生产环境禁用 auto_reload |
 
 ---
 
@@ -789,7 +1236,18 @@ Jinja2 的模板继承机制类似 Python 类的 MRO（Method Resolution Order�
 
 **扩展性：** Jinja2 模板缓存默认启用（`cache_size=400`）。生产环境应设置 `cache=SimpleCache(400)` 或 `cache=FileSystemCache()`。模板数量超过 400 时，LRU 淘汰最久未使用的模板。
 
-### 9.6 设计动机
+### 9.6 Jinja2 vs Mako vs Django Templates
+
+| 维度 | Jinja2 | Mako | Django Templates |
+|------|--------|------|------------------|
+| 语法风格 | `{{ var }}` / `{% tag %}` | `${var}` / `<% %>` | `{{ var }}` / `{% tag %}` |
+| 性能 | 快（编译为 Python） | 最快（直接生成 Python） | 较慢（解析式） |
+| 内嵌 Python | 不支持（需沙盒） | 支持 `<% %>` | 不支持 |
+| 模板继承 | `extends` + `block` | `inherits` + `block` | `extends` + `block` |
+| 自动转义 | 默认开启 | 需手动开启 | 默认开启 |
+| 适用场景 | 通用 Web、安全要求高 | 高性能、需嵌入式 Python | Django 项目标配 |
+
+### 9.7 设计动机
 
 | 设计决策 | 动机 | 权衡 |
 |----------|------|------|
@@ -799,7 +1257,7 @@ Jinja2 的模板继承机制类似 Python 类的 MRO（Method Resolution Order�
 | block 而非占位符的继承机制 | 支持多层继承和 `super()` 组合 | 继承链过深时调试困难 |
 | 宏作为模板函数 | 代码复用，参数化组件 | 宏内无法访问调用者上下文（需 `with context`） |
 
-### 9.7 知识关联
+### 9.8 知识关联
 
 ```
               模板文件 (.html)
@@ -844,8 +1302,13 @@ Jinja2 的模板继承机制类似 Python 类的 MRO（Method Resolution Order�
 | 变量 | `{{ variable }}` |
 | 条件 | `{% if %}` |
 | 循环 | `{% for %}` |
-| 过滤器 | `| filter` |
+| 过滤器 | `\| filter` |
 | 宏 | `{% macro %}` |
 | 继承 | `{% extends %}` |
 | 包含 | `{% include %}` |
 | 块 | `{% block %}` |
+| 自定义过滤器 | `@app.template_filter()` |
+| 自定义测试器 | `@app.template_test()` |
+| 沙盒环境 | `SandboxedEnvironment` 安全渲染 |
+| 转义 | 默认 autoescape 防 XSS |
+| 性能优化 | 字节码缓存、减少嵌套、视图中计算 |
