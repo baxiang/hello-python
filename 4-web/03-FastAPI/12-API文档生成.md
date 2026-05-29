@@ -1561,6 +1561,797 @@ def get_order(
 
 ---
 
+## 常见坑点排查
+
+### 坑点 1：自定义 openapi() 函数后文档不更新
+
+**错误现象**：修改了路由或模型后，`/docs` 页面仍然显示旧内容。
+
+**根因**：自定义 `app.openapi()` 函数中，`openapi_schema` 被缓存后不再重新生成。
+
+**修复**：确保在开发环境禁用缓存，或每次强制重建：
+
+```python
+def custom_openapi() -> dict:
+    # 开发模式每次都重新生成
+    if app.openapi_schema and not settings.debug:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        routes=app.routes,
+    )
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
+# 或者在启动时设置
+@app.on_event("startup")
+def clear_openapi_cache():
+    app.openapi_schema = None
+```
+
+### 坑点 2：`responses` 参数中模型引用不生效
+
+**错误现象**：
+
+```python
+@app.get("/items/{item_id}", responses={404: {"model": ErrorResponse}})
+def get_item(item_id: int):
+    ...
+# Swagger 中 404 response 仍然是默认格式，没有 ErrorResponse schema
+```
+
+**根因**：`responses` 中的 `model` 参数用于生成 OpenAPI schema 文档，但不改变实际响应行为。实际返回什么由你的代码决定。
+
+**修复**：同时定义文档和实际行为：
+
+```python
+@app.get(
+    "/items/{item_id}",
+    responses={
+        200: {"description": "Success", "model": ItemResponse},
+        404: {"description": "Not Found", "model": ErrorResponse},
+    },
+)
+def get_item(item_id: int):
+    item = find_item(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail=f"Item {item_id} not found")
+    return item
+```
+
+### 坑点 3：`response_model` 与 `responses` 冲突
+
+**错误现象**：
+
+```python
+@app.get(
+    "/items",
+    response_model=list[ItemResponse],  # 全局返回模型
+    responses={200: {"model": PaginatedResponse[ItemResponse]}},  # 冲突！
+)
+def get_items():
+    ...
+```
+
+**根因**：当同时指定 `response_model` 和 `responses` 中的 200 模型时，`response_model` 优先级更高，`responses` 中的 200 会被忽略。
+
+**修复**：只用一种方式定义成功响应：
+
+```python
+# 方式一：用 response_model
+@app.get("/items", response_model=list[ItemResponse])
+def get_items(): ...
+
+# 方式二：用 responses 定义所有状态码
+@app.get("/items", responses={
+    200: {"model": list[ItemResponse]},
+    422: {"description": "Validation Error"},
+})
+def get_items(): ...
+```
+
+### 坑点 4：Pydantic v2 的 `examples` vs `json_schema_extra`
+
+**错误现象**：
+
+```python
+class Item(BaseModel):
+    name: str = Field(..., example="test")  # Pydantic v1 写法，v2 中不显示！
+```
+
+**根因**：Pydantic v2 中 `Field(example=)` 不再直接用于 JSON Schema，需要使用 `examples`（复数）或 `json_schema_extra`。
+
+**修复**：
+
+```python
+class Item(BaseModel):
+    # ✅ Pydantic v2 正确写法
+    name: str = Field(..., examples=["test"])
+
+    # 或者
+    name: str = Field(..., json_schema_extra={"example": "test"})
+```
+
+### 坑点排查表
+
+| 现象 | 根因 | 修复 | 预防 |
+|------|------|------|------|
+| /docs 内容不更新 | openapi_schema 缓存 | 开发环境每次重建 | `debug=True` 时跳过缓存 |
+| response model 不在 Schema 中 | `model` 只写文档不改变行为 | 同时定义 model 和实际 return 类型 | 检查 `response_model` 和 `responses` |
+| 200 响应 Schema 错误 | response_model 覆盖 responses | 只用一种方式 | 统一风格 |
+| `example=` 不显示 | Pydantic v1 vs v2 差异 | 使用 `examples=[]` | 升级后检查所有 Field |
+| /docs 白屏 | Swagger JS CDN 被墙 | 使用本地 Swagger 资源 | `swagger_ui_parameters` |
+| tags 元数据丢失 | tags 顺序不正确 | 使用 `openapi_tags` | FastAPI() 的 `openapi_tags` 参数 |
+
+---
+
+## 进阶用法
+
+### 7.1 Swagger UI 自定义：修改 CSS/JS/Favicon
+
+```python
+from fastapi import FastAPI
+from fastapi.openapi.docs import (
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html,
+)
+
+app = FastAPI(
+    docs_url=None,  # 禁用默认 /docs
+    redoc_url=None,
+)
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url or "/openapi.json",
+        title=f"{app.title} - API Docs",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_js_url="/static/swagger-ui-bundle.js",     # 本地 JS
+        swagger_css_url="/static/swagger-ui.css",           # 本地 CSS
+        swagger_favicon_url="/static/favicon.ico",          # 自定义 favicon
+    )
+
+
+@app.get("/docs/oauth2-redirect", include_in_schema=False)
+async def swagger_ui_redirect():
+    return get_swagger_ui_oauth2_redirect_html()
+
+
+# 通过 swagger_ui_parameters 自定义 Swagger UI 行为
+app = FastAPI(
+    swagger_ui_parameters={
+        "deepLinking": True,          # URL 锚点直接链接到具体端点
+        "defaultModelsExpandDepth": 1, # Schema 默认展开一层
+        "defaultModelExpandDepth": 1,
+        "displayRequestDuration": True, # 显示请求耗时
+        "filter": True,                # 启用搜索过滤
+        "syntaxHighlight.activate": True,
+        "syntaxHighlight.theme": "monokai",
+        "tryItOutEnabled": True,       # 默认开启 Try it out
+        "persistAuthorization": True,  # 刷新后保持认证状态
+    }
+)
+```
+
+### 7.2 自定义 Swagger UI 注入 CSS
+
+```python
+# static/custom-swagger.css
+custom_css = """
+.swagger-ui .topbar {
+    background-color: #1a1a2e;
+}
+.swagger-ui .topbar .download-url-wrapper .select-label {
+    color: #eee;
+}
+.swagger-ui .info .title {
+    color: #16213e;
+}
+.swagger-ui .scheme-container {
+    background-color: #f8f9fa;
+    box-shadow: none;
+}
+.swagger-ui .opblock-tag {
+    border-bottom: 2px solid #e9ecef;
+}
+.swagger-ui .opblock.opblock-get {
+    border-color: #61affe;
+    background: rgba(97,175,254,.1);
+}
+.swagger-ui .opblock.opblock-post {
+    border-color: #49cc90;
+    background: rgba(73,204,144,.1);
+}
+.swagger-ui .opblock.opblock-put {
+    border-color: #fca130;
+    background: rgba(252,161,48,.1);
+}
+.swagger-ui .opblock.opblock-delete {
+    border-color: #f93e3e;
+    background: rgba(249,62,62,.1);
+}
+"""
+
+@app.get("/custom-swagger.css", include_in_schema=False)
+def swagger_css():
+    from fastapi.responses import Response
+    return Response(content=custom_css, media_type="text/css")
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui():
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="API Docs",
+        swagger_css_url="/custom-swagger.css",
+    )
+```
+
+### 7.3 安全方案文档（OAuth2 + Bearer 完整示例）
+
+```python
+from fastapi.security import (
+    OAuth2PasswordBearer,
+    OAuth2PasswordRequestForm,
+    HTTPBearer,
+    APIKeyHeader,
+    APIKeyQuery,
+)
+
+# Bearer Token
+bearer_scheme = HTTPBearer(
+    scheme_name="JWT",
+    description="输入 JWT token: Bearer <your-token>",
+    bearerFormat="JWT",
+)
+
+# OAuth2 密码流
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/auth/token",
+    scheme_name="OAuth2Password",
+    description="OAuth2 密码授权模式",
+    scopes={
+        "read": "读取权限",
+        "write": "写入权限",
+        "admin": "管理员权限",
+    },
+)
+
+# API Key（请求头）
+api_key_header = APIKeyHeader(
+    name="X-API-Key",
+    scheme_name="ApiKeyHeader",
+    description="通过请求头 X-API-Key 传递 API Key",
+)
+
+# API Key（查询参数）
+api_key_query = APIKeyQuery(
+    name="api_key",
+    scheme_name="ApiKeyQuery",
+    description="通过查询参数 ?api_key=xxx 传递 API Key",
+)
+
+app = FastAPI(
+    title="安全 API",
+    version="1.0.0",
+    # 全局安全方案（Swagger UI 中显示在所有端点）
+    swagger_ui_init_oauth={
+        "clientId": "your-client-id",
+        "clientSecret": "your-client-secret",
+        "appName": "API Docs",
+        "scopes": "read write",
+    },
+)
+
+
+@app.post("/auth/token", tags=["认证"])
+async def login(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+) -> dict:
+    """获取访问令牌"""
+    return {
+        "access_token": "eyJhbGciOi...",
+        "token_type": "bearer",
+    }
+
+
+@app.get("/public", tags=["公开"])
+def public_endpoint() -> dict:
+    """无需认证的公开端点"""
+    return {"message": "Public data"}
+
+
+@app.get(
+    "/protected/jwt",
+    tags=["受保护"],
+    dependencies=[Depends(bearer_scheme)],  # 需要 Bearer Token
+    responses={401: {"description": "无效的 JWT Token"}},
+)
+def protected_jwt() -> dict:
+    return {"message": "Protected by JWT"}
+
+
+@app.get(
+    "/protected/api-key-header",
+    tags=["受保护"],
+    dependencies=[Depends(api_key_header)],
+)
+def protected_api_key_header() -> dict:
+    return {"message": "Protected by API Key (Header)"}
+
+
+@app.get(
+    "/protected/oauth2",
+    tags=["受保护"],
+    dependencies=[Depends(oauth2_scheme)],
+)
+def protected_oauth2() -> dict:
+    return {"message": "Protected by OAuth2"}
+
+
+# 生成的 OpenAPI 中会包含所有安全方案
+# components.securitySchemes:
+#   JWT: { type: http, scheme: bearer, bearerFormat: JWT }
+#   OAuth2Password: { type: oauth2, flows: { password: ... } }
+#   ApiKeyHeader: { type: apiKey, in: header, name: X-API-Key }
+#   ApiKeyQuery: { type: apiKey, in: query, name: api_key }
+```
+
+### 7.4 API 版本化文档
+
+```python
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+
+app = FastAPI(docs_url=None, openapi_url=None)
+
+
+# ===== v1 路由 =====
+v1_app = FastAPI(
+    title="API v1",
+    version="1.0.0-deprecated",
+    description="## API v1（已弃用，请迁移到 v2）",
+    docs_url=None,
+    openapi_url=None,
+)
+
+@v1_app.get("/items", tags=["商品"], deprecated=True)
+def v1_get_items() -> list[dict]:
+    return [{"id": 1, "name": "Apple"}]
+
+@v1_app.get("/users", tags=["用户"], deprecated=True)
+def v1_get_users() -> list[dict]:
+    return [{"id": 1, "name": "Alice"}]
+
+
+# ===== v2 路由 =====
+v2_app = FastAPI(
+    title="API v2",
+    version="2.0.0",
+    description="## API v2（当前版本）",
+    docs_url=None,
+    openapi_url=None,
+)
+
+@v2_app.get("/items", tags=["商品"])
+def v2_get_items() -> list[dict]:
+    return [{"id": 1, "name": "Apple Pro"}]
+
+@v2_app.get("/users", tags=["用户"])
+def v2_get_users() -> list[dict]:
+    return [{"id": 1, "name": "Alice Wang"}]
+
+
+# ===== 挂载子应用 =====
+app.mount("/v1", v1_app)
+app.mount("/v2", v2_app)
+
+
+# ===== 自定义文档端点 =====
+def get_versioned_openapi(version: str) -> dict:
+    if version == "v1":
+        target = v1_app
+        spec = get_openapi(
+            title="API v1 (Deprecated)",
+            version="1.0.0",
+            routes=v1_app.routes,
+            description="## Deprecated — 请使用 /v2",
+        )
+    else:
+        target = v2_app
+        spec = get_openapi(
+            title="API v2",
+            version="2.0.0",
+            routes=v2_app.routes,
+        )
+    return spec
+
+
+@app.get("/v1/openapi.json", include_in_schema=False)
+def v1_openapi() -> dict:
+    return get_versioned_openapi("v1")
+
+
+@app.get("/v2/openapi.json", include_in_schema=False)
+def v2_openapi() -> dict:
+    return get_versioned_openapi("v2")
+
+
+@app.get("/v1/docs", include_in_schema=False)
+async def v1_docs():
+    from fastapi.openapi.docs import get_swagger_ui_html
+    return get_swagger_ui_html(
+        openapi_url="/v1/openapi.json",
+        title="API v1 - Deprecated",
+    )
+
+
+@app.get("/v2/docs", include_in_schema=False)
+async def v2_docs():
+    from fastapi.openapi.docs import get_swagger_ui_html
+    return get_swagger_ui_html(
+        openapi_url="/v2/openapi.json",
+        title="API v2",
+    )
+
+
+@app.get("/docs", include_in_schema=False)
+async def docs_index():
+    """文档首页：列出所有版本"""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse("""
+    <html>
+    <head><title>API Documentation</title></head>
+    <body>
+        <h1>API Versions</h1>
+        <ul>
+            <li><a href="/v2/docs">API v2 (Current)</a></li>
+            <li><a href="/v1/docs">API v1 (Deprecated)</a></li>
+        </ul>
+    </body>
+    </html>
+    """)
+```
+
+### 7.5 生成客户端 SDK
+
+```bash
+# 方式一：openapi-generator（最通用）
+npm install -g @openapitools/openapi-generator-cli
+
+# 生成 Python 客户端
+openapi-generator-cli generate \
+  -i http://localhost:8000/openapi.json \
+  -g python \
+  -o ./generated/python-client \
+  --additional-properties=packageName=my_api_client
+
+# 生成 TypeScript 客户端
+openapi-generator-cli generate \
+  -i http://localhost:8000/openapi.json \
+  -g typescript-axios \
+  -o ./generated/ts-client
+
+# 方式二：fastapi-code-generator（FastAPI 专用）
+pip install fastapi-code-generator
+
+# 生成 Python 客户端代码
+fastapi-codegen --input openapi.json --output client.py
+```
+
+```python
+# Python 脚本：程序化生成客户端
+import subprocess
+import json
+
+def generate_clients(openapi_url: str, output_dir: str):
+    """自动生成多语言客户端"""
+
+    languages = {
+        "python": {"packageName": "api_client", "projectName": "my-api-client"},
+        "typescript-axios": {"npmName": "@my/api-client"},
+        "go": {"packageName": "apiclient"},
+    }
+
+    for lang, props in languages.items():
+        cmd = [
+            "openapi-generator-cli", "generate",
+            "-i", openapi_url,
+            "-g", lang,
+            "-o", f"{output_dir}/{lang}",
+        ]
+        for k, v in props.items():
+            cmd.extend(["--additional-properties", f"{k}={v}"])
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"✓ Generated {lang} client")
+        else:
+            print(f"✗ Failed to generate {lang}: {result.stderr[:200]}")
+
+if __name__ == "__main__":
+    generate_clients(
+        "http://localhost:8000/openapi.json",
+        "./generated-clients",
+    )
+```
+
+### 7.6 多场景请求/响应示例
+
+```python
+from pydantic import BaseModel, Field
+from fastapi import FastAPI
+from typing import Annotated
+
+
+class UserCreate(BaseModel):
+    """用户注册请求"""
+
+    username: str = Field(
+        ...,
+        min_length=3,
+        max_length=30,
+        pattern=r"^[a-zA-Z0-9_]+$",
+        json_schema_extra={
+            "examples": ["john_doe", "alice_wang"],
+            "invalid_examples": {
+                "too_short": {"value": "ab", "reason": "长度不足 3 个字符"},
+                "special_char": {"value": "john@doe", "reason": "包含非法字符 @"},
+                "too_long": {"value": "a" * 31, "reason": "超过 30 个字符限制"},
+            },
+        },
+    )
+    email: str = Field(
+        ...,
+        json_schema_extra={
+            "examples": ["john@example.com"],
+            "format": "email",
+        },
+    )
+    role: str = Field(
+        default="user",
+        pattern="^(user|admin|moderator)$",
+        json_schema_extra={
+            "examples": ["user", "admin"],
+            "invalid_examples": {
+                "invalid_role": {"value": "superuser", "reason": "角色不存在"},
+            },
+        },
+    )
+
+
+class UserResponse(BaseModel):
+    """用户注册成功响应"""
+    id: int = Field(examples=[1])
+    username: str = Field(examples=["john_doe"])
+    email: str = Field(examples=["john@example.com"])
+    role: str = Field(examples=["user"])
+
+
+class ValidationErrorDetail(BaseModel):
+    field: str = Field(examples=["email"])
+    message: str = Field(examples=["不是有效的邮箱格式"])
+
+
+class ErrorResponse(BaseModel):
+    detail: str = Field(examples=["请求参数验证失败"])
+
+
+@app.post(
+    "/users",
+    summary="注册新用户",
+    description="""
+注册新的用户账号。
+
+## 请求示例
+
+### 成功场景
+```json
+{
+  "username": "john_doe",
+  "email": "john@example.com",
+  "role": "user"
+}
+```
+
+### 参数校验失败
+```json
+{
+  "username": "ab",
+  "email": "not-an-email",
+  "role": "superuser"
+}
+```
+
+响应 422:
+```json
+{
+  "detail": "请求参数验证失败"
+}
+```
+    """,
+    response_model=UserResponse,
+    status_code=201,
+    responses={
+        201: {"description": "注册成功", "model": UserResponse},
+        400: {"description": "用户名或邮箱已被注册", "model": ErrorResponse},
+        422: {"description": "参数验证失败", "model": ErrorResponse},
+    },
+    openapi_extra={
+        "x-code-samples": [
+            {"lang": "Python", "source": "import requests\nr = requests.post(...)"},
+            {"lang": "JavaScript", "source": "fetch('/users', { method: 'POST', ... })"},
+            {"lang": "curl", "source": "curl -X POST http://localhost:8000/users -H 'Content-Type: application/json' -d '{\"username\":\"...\"}'"},
+        ],
+    },
+)
+def create_user(user: UserCreate) -> dict:
+    return {
+        "id": 1,
+        "username": user.username,
+        "email": user.email,
+        "role": user.role,
+    }
+```
+
+### 7.7 自定义 OpenAPI 钩子：自动添加通用参数
+
+```python
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+from fastapi.routing import APIRoute
+
+
+def add_common_parameters(openapi_schema: dict) -> dict:
+    """为所有 GET 端点自动添加通用分页参数到 OpenAPI schema"""
+
+    for path, methods in openapi_schema.get("paths", {}).items():
+        for method, operation in methods.items():
+            if method.lower() == "get" and method != "parameters":
+                params = operation.get("parameters", [])
+
+                # 只在没有自定义分页参数时添加
+                has_page = any(p.get("name") == "page" for p in params)
+                if not has_page:
+                    params.append({
+                        "name": "page",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "integer", "default": 1, "minimum": 1},
+                        "description": "页码，从 1 开始",
+                    })
+                    params.append({
+                        "name": "size",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
+                        "description": "每页记录数",
+                    })
+
+                operation["parameters"] = params
+
+    return openapi_schema
+
+
+def custom_openapi_with_hooks() -> dict:
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        routes=app.routes,
+    )
+
+    # 钩子 1：添加通用分页参数
+    openapi_schema = add_common_parameters(openapi_schema)
+
+    # 钩子 2：添加服务器列表
+    openapi_schema["servers"] = [
+        {"url": "https://api.example.com/v2", "description": "生产环境"},
+        {"url": "https://staging-api.example.com/v2", "description": "预发布环境"},
+        {"url": "http://localhost:8000", "description": "本地开发"},
+    ]
+
+    # 钩子 3：修改所有 JSON 响应的默认 content-type
+    for path, methods in openapi_schema.get("paths", {}).items():
+        for method, operation in methods.items():
+            if method in ("parameters", "servers"):
+                continue
+            responses = operation.get("responses", {})
+            for status_code, response in responses.items():
+                if "content" in response and "application/json" in response.get("content", {}):
+                    # 确保 application/json 是默认格式
+                    pass
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi_with_hooks
+
+
+@app.get("/items")
+def get_items():
+    """通过钩子自动添加了 page 和 size 参数"""
+    return []
+```
+
+---
+
+## 调试与排错技巧
+
+### 技巧 1：查看完整的 OpenAPI JSON
+
+```bash
+# 命令行查看
+curl -s http://localhost:8000/openapi.json | python -m json.tool > openapi.json
+code openapi.json  # VS Code 打开查看
+
+# 浏览器直接访问
+open http://localhost:8000/openapi.json
+```
+
+### 技巧 2：检查 Schema 是否包含预期模型
+
+```python
+def debug_schemas(app: FastAPI) -> set[str]:
+    """打印所有已注册的 Schema 名称"""
+    spec = app.openapi()
+    schemas = spec.get("components", {}).get("schemas", {})
+    print(f"Registered schemas ({len(schemas)}):")
+    for name in sorted(schemas.keys()):
+        print(f"  - {name}")
+
+    # 检查是否有未引用的 Schema
+    refs = set()
+    import json
+    spec_str = json.dumps(spec)
+    import re
+    for match in re.findall(r'"\$ref":\s*"#/components/schemas/(\w+)"', spec_str):
+        refs.add(match)
+
+    unused = set(schemas.keys()) - refs
+    if unused:
+        print(f"\nUnreferenced schemas: {unused}")
+    return set(schemas.keys())
+```
+
+### 技巧 3：验证 Swagger UI 资源加载
+
+```bash
+# 检查 Swagger UI 是否从 CDN 加载（可能被墙）
+curl -s http://localhost:8000/docs | grep "swagger-ui"
+
+# 输出类似:
+# <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+# <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+
+# 如果 CDN 不可达，使用本地资源或国内镜像
+app = FastAPI(
+    swagger_js_url="https://cdn.bootcdn.net/ajax/libs/swagger-ui/5.10.5/swagger-ui-bundle.js",
+    swagger_css_url="https://cdn.bootcdn.net/ajax/libs/swagger-ui/5.10.5/swagger-ui.css",
+)
+```
+
+{% hint style="tip" %}
+**文档质量评分**：一个良好的 API 文档应满足：
+1. 所有端点都有 `summary` + `description`
+2. 所有参数都有 `description` + `examples`
+3. 所有可能的状态码都有 `responses` 定义
+4. 模型字段都有 `Field(description=..., examples=...)`
+5. 认证方式在 `/docs` 的 Authorize 面板中可配置
+6. 提供至少一个完整的请求/响应示例
+{% endhint %}
+
+---
+
 ## 总结
 
 | 知识点 | 说明 |
@@ -1575,6 +2366,12 @@ def get_order(
 | securitySchemes | 认证方案文档 |
 | openapi_extra | 自定义扩展 |
 | 静态导出 | openapi.json → HTML |
+| 自定义 CSS/JS | Swagger UI 定制主题和品牌 |
+| OAuth2 文档 | 完整的 OAuth2 密码流 / Bearer 文档 |
+| API 版本化 | 多版本共存、独立 /docs 端点 |
+| 客户端 SDK 生成 | openapi-generator 自动生成多语言 SDK |
+| 多场景示例 | 成功/失败/校验错误的完整示例 |
+| OpenAPI 钩子 | 自动添加通用参数、服务器列表等 |
 
 ```
 +---------------------------------------------------+

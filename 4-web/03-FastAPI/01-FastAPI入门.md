@@ -792,6 +792,675 @@ app.openapi = custom_openapi
 
 ---
 
+## 渐进式代码示例
+
+### Level 1：最简应用（单文件原型）
+
+适合快速原型验证、学习单个 API 行为：
+
+```python
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+@app.get("/users/{user_id}")
+def get_user(user_id: int):
+    return {"id": user_id, "name": f"User_{user_id}"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, port=8000)
+```
+
+### Level 2：结构化应用（分模块）
+
+适合小型项目，引入路由拆分和请求体验证：
+
+```
+project/
+├── main.py           # 入口
+├── routers/
+│   ├── users.py      # 用户路由
+│   └── items.py      # 商品路由
+└── schemas/
+    ├── user.py       # Pydantic 模型
+    └── item.py
+```
+
+```python
+# routers/users.py
+from fastapi import APIRouter
+from schemas.user import UserCreate, UserResponse
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+@router.post("/", response_model=UserResponse, status_code=201)
+def create_user(user: UserCreate):
+    return {"id": 1, **user.model_dump()}
+
+@router.get("/{user_id}", response_model=UserResponse)
+def get_user(user_id: int):
+    return {"id": user_id, "name": "test", "email": "t@t.com"}
+```
+
+```python
+# main.py
+from fastapi import FastAPI
+from routers import users, items
+
+app = FastAPI(title="My API", version="1.0.0")
+app.include_router(users.router)
+app.include_router(items.router)
+```
+
+### Level 3：进阶应用（中间件 + 生命周期）
+
+适合中型项目，引入中间件、lifespan 事件、异常处理器：
+
+```python
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+import time
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动时
+    print("Starting up...")
+    yield
+    # 关闭时
+    print("Shutting down...")
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.middleware("http")
+async def timing_middleware(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed = time.perf_counter() - start
+    response.headers["X-Response-Time"] = f"{elapsed:.4f}"
+    return response
+
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+```
+
+### Level 4：生产级结构（分层架构）
+
+适合大型团队，引入 repository 模式、service 层、配置管理：
+
+```
+project/
+├── main.py                 # 应用入口
+├── api/
+│   ├── deps.py             # 依赖注入
+│   └── v1/
+│       ├── router.py       # 路由聚合
+│       ├── users.py        # 用户端点
+│       └── items.py        # 商品端点
+├── core/
+│   ├── config.py           # 配置管理（pydantic-settings）
+│   └── security.py         # 认证逻辑
+├── models/
+│   └── user.py             # ORM 模型
+├── schemas/
+│   └── user.py             # Pydantic 模型
+├── services/
+│   └── user.py             # 业务逻辑
+├── repositories/
+│   └── user.py             # 数据访问
+└── db/
+    ├── session.py          # 数据库会话
+    └── base.py             # 声明式基类
+```
+
+```python
+# core/config.py
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    DATABASE_URL: str = "sqlite:///./app.db"
+    SECRET_KEY: str
+    ENVIRONMENT: str = "development"
+    UVICORN_WORKERS: int = 4
+
+    model_config = {"env_file": ".env"}
+
+settings = Settings()
+```
+
+```python
+# api/v1/users.py
+from fastapi import APIRouter, Depends
+from api.deps import get_current_user, get_db
+from services.user import UserService
+from schemas.user import UserCreate, UserResponse
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+@router.post("/", response_model=UserResponse, status_code=201)
+async def create_user(
+    user_in: UserCreate,
+    db=Depends(get_db),
+):
+    service = UserService(db)
+    return await service.create(user_in)
+
+@router.get("/me", response_model=UserResponse)
+async def read_me(
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    service = UserService(db)
+    return await service.get(current_user.id)
+```
+
+---
+
+## 常见坑点排查
+
+### 坑点 1：`async def` 端点内调用同步阻塞 I/O
+
+**症状：** API 响应时间极长，并发请求全部超时
+
+```python
+# ❌ 错误代码
+import time
+
+@app.get("/slow")
+async def slow_endpoint():
+    time.sleep(5)  # 阻塞整个事件循环 5 秒！
+    return {"status": "done"}
+```
+
+**错误输出：**
+```
+并发发送 10 个请求，第一个请求耗时 5s，后续 9 个请求累计耗时 5s~10s+
+```
+
+**根因分析：** `time.sleep()` 是同步阻塞调用，在 `async def` 中直接调用会阻塞 asyncio 事件循环，导致在此期间所有其他协程无法调度执行。
+
+**修复方案：**
+
+```python
+import asyncio
+
+@app.get("/slow")
+async def slow_endpoint():
+    await asyncio.sleep(5)  # ✅ 释放控制权给事件循环
+    return {"status": "done"}
+```
+
+| 预防措施 | 说明 |
+|---------|------|
+| 事件循环阻塞检测 | `PYTHONASYNCIODEBUG=1` 开启 asyncio 调试模式，检测长时间阻塞 |
+| 使用 `anyio.to_thread.run_sync` | 将同步操作显式放入线程池 |
+| 代码审查 checklist | 确认 `async def` 端点中所有 I/O 调用都是异步的 |
+
+### 坑点 2：路径参数顺序导致路由匹配错误
+
+**症状：** `/items/featured` 接口返回 422 验证错误或匹配到错误的处理函数
+
+```python
+# ❌ 错误：具体路径定义在动态路径之后
+@app.get("/items/{item_id}")
+def get_item(item_id: int):
+    return {"id": item_id}
+
+@app.get("/items/featured")
+def get_featured_items():
+    return {"items": []}
+
+# GET /items/featured → 422: "featured" 不是有效的 int
+```
+
+**根因分析：** Starlette 按路由注册顺序匹配，`/items/{item_id}` 先注册，`"featured"` 被当作 `item_id` 尝试转为 `int` 而失败。
+
+**修复方案：**
+
+```python
+# ✅ 正确：固定路径定义在动态路径之前
+@app.get("/items/featured")
+def get_featured_items():
+    return {"items": []}
+
+@app.get("/items/{item_id}")
+def get_item(item_id: int):
+    return {"id": item_id}
+```
+
+### 坑点 3：`response_model` 遗漏导致敏感字段泄露
+
+**症状：** 用户查询接口意外返回了 `hashed_password`、`internal_id` 等敏感字段
+
+```python
+# ❌ 直接返回 ORM 对象，包含所有字段
+@app.get("/users/{user_id}")
+def get_user(user_id: int, db=Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    return user  # 返回了 hashed_password, internal_id 等
+```
+
+**根因分析：** 当不使用 `response_model` 时，FastAPI 不会过滤输出字段。ORM 对象的所有属性都会被序列化到响应中。
+
+**修复方案：**
+
+```python
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    model_config = {"from_attributes": True}
+
+@app.get("/users/{user_id}", response_model=UserResponse)  # ✅
+def get_user(user_id: int, db=Depends(get_db)):
+    return db.query(User).filter(User.id == user_id).first()
+```
+
+### 坑点 4：文件上传未设置大小限制
+
+**症状：** 用户上传超大文件导致服务器内存耗尽（OOM）
+
+```python
+# ❌ 无大小限制
+@app.post("/upload")
+async def upload(file: UploadFile):  # 可接收任意大小文件
+    contents = await file.read()     # 全部读入内存
+    return {"size": len(contents)}
+```
+
+**修复方案：**
+
+```python
+from fastapi import File
+SECRET_KEY = "supersecret"  # for illustration - use env var
+
+@app.post("/upload")
+async def upload(file: UploadFile = File(..., max_length=10 * 1024 * 1024)):  # ✅ 限 10MB
+    contents = await file.read()
+    return {"size": len(contents)}
+```
+
+### 坑点排查速查表
+
+| 症状 | 可能原因 | 排查命令/方法 |
+|------|---------|-------------|
+| 接口返回 422 | Pydantic 验证失败 | 查看 `/docs` 中 Schema 示例，检查请求体格式 |
+| `async def` 端点响应极慢 | 事件循环被阻塞 | `PYTHONASYNCIODEBUG=1` 检测慢回调 |
+| 数据库连接超时 | 连接池耗尽 | `SQLALCHEMY_WARN_20=1` 检查连接创建/释放 |
+| Swagger UI 加载失败 | CORS 或静态资源 | 检查浏览器 DevTools Network 面板 |
+| `reload` 模式不生效 | 文件监听路径错误 | 确保 `--reload-dir` 指向正确的包目录 |
+| POST 请求返回 405 | 方法不允许 | 检查是否有对应 `@app.post` 装饰器 |
+
+---
+
+## 调试与排错技巧
+
+### 完整调试会话：排查 500 Internal Server Error
+
+**场景：** 创建一个用户时，服务端返回 500 错误，日志中没有任何有用信息。
+
+**步骤 1：开启详细日志**
+
+```python
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("uvicorn.error")
+logger.setLevel(logging.DEBUG)
+```
+
+同时启动 uvicorn 时传入额外参数：
+
+```bash
+uvicorn main:app --reload --log-level debug --access-log
+```
+
+**步骤 2：添加全局异常处理器捕获未处理异常**
+
+```python
+import traceback
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    traceback.print_exc()  # 打印完整堆栈
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "type": type(exc).__name__},
+    )
+```
+
+**步骤 3：使用中间件记录请求上下文**
+
+```python
+@app.middleware("http")
+async def debug_middleware(request: Request, call_next):
+    print(f"\n[DEBUG] {request.method} {request.url}")
+    print(f"[DEBUG] Headers: {dict(request.headers)}")
+    body = await request.body()
+    print(f"[DEBUG] Body: {body[:500]}")
+    # 重建 request（body 只能读一次）
+    async def receive():
+        return {"type": "http.request", "body": body}
+    request._receive = receive
+    response = await call_next(request)
+    print(f"[DEBUG] Status: {response.status_code}")
+    return response
+```
+
+**步骤 4：使用 IPDB 进行交互式调试**
+
+```python
+@app.post("/users")
+async def create_user(user: UserCreate):
+    import ipdb; ipdb.set_trace()  # 断点
+    # ... 业务逻辑
+```
+
+**步骤 5：使用 `pdb` 追踪特定条件下的请求**
+
+```python
+@app.post("/users")
+async def create_user(user: UserCreate):
+    if user.email == "debug@test.com":
+        breakpoint()  # Python 3.7+ 内置断点
+    return {"id": 1, **user.model_dump()}
+```
+
+### 常见调试工具速查
+
+| 工具 | 用途 | 用法 |
+|------|------|------|
+| `uvicorn --log-level debug` | 查看请求/响应详细日志 | 启动参数 |
+| `breakpoint()` / `pdb` | 交互式断点调试 | 代码中插入 |
+| `traceback.print_exc()` | 打印完整异常堆栈 | 异常处理器中 |
+| `fastapi.testclient.TestClient` | 单元测试 + 请求模拟 | pytest 测试用例 |
+| `curl -v` | 查看完整 HTTP 交互 | 命令行测试 |
+| `httpx` + `asyncio` | 异步并发测试 | 压力测试脚本 |
+| `/docs` Swagger UI | 交互式 API 测试 | 浏览器访问 |
+| `middleware` + `print` | 请求/响应日志 | 自定义中间件 |
+
+### 性能分析技巧
+
+```python
+import cProfile
+import pstats
+import io
+
+def profile_endpoint():
+    pr = cProfile.Profile()
+    pr.enable()
+    # ... 测试代码 ...
+    pr.disable()
+    s = io.StringIO()
+    ps = pstats.Stats(pr, stream=s).sort_stats("cumulative")
+    ps.print_stats(20)
+    print(s.getvalue())
+```
+
+---
+
+## 进阶用法
+
+### ASGI vs WSGI 深度对比
+
+ASGI (Asynchronous Server Gateway Interface) 和 WSGI (Web Server Gateway Interface) 是 Python Web 服务器的两种接口标准。
+
+```
+WSGI (同步模型)：
+Client → Web Server (Gunicorn) → WSGI App (Flask/Django)
+         每个请求占用一个线程/进程
+         线程数 = 并发上限
+         阻塞 I/O 会饿死其他请求
+
+ASGI (异步模型)：
+Client → ASGI Server (Uvicorn) → ASGI App (FastAPI/Starlette)
+         事件循环管理所有请求
+         并发上限 = 事件循环吞吐
+         阻塞 I/O 不会饿死其他请求（协程切换）
+```
+
+| 维度 | WSGI | ASGI |
+|------|------|------|
+| 并发模型 | 同步（线程/进程池） | 异步（事件循环 + 协程） |
+| 协议支持 | HTTP 1.x | HTTP 1.x / 2 / WebSocket / SSE |
+| C10K 场景 | 受限于线程数（~几百） | 轻松 10K+ 并发连接 |
+| 线程开销 | 每线程 ~8MB 栈 | 每协程 ~KB 级 |
+| 代表服务器 | Gunicorn, uWSGI | Uvicorn, Hypercorn, Daphne |
+| 代表框架 | Flask, Django (WSGI 模式) | FastAPI, Starlette, Django (ASGI 模式) |
+| 兼容性 | 所有 Python Web 框架 | 仅 ASGI 框架 |
+| 接口参数 | `(environ, start_response)` | `(scope, receive, send)` |
+
+**ASGI 接口三要素：**
+
+```python
+async def asgi_app(scope, receive, send):
+    """
+    scope:   dict — 连接信息（type, method, path, headers 等）
+    receive: awaitable — 接收客户端消息（HTTP body / WebSocket message）
+    send:    awaitable — 发送响应消息
+    """
+    assert scope["type"] == "http"
+    await send({
+        "type": "http.response.start",
+        "status": 200,
+        "headers": [(b"content-type", b"application/json")],
+    })
+    await send({
+        "type": "http.response.body",
+        "body": b'{"status": "ok"}',
+    })
+```
+
+### Uvicorn Worker 类型精讲
+
+Uvicorn 支持多种 worker 实现，每种针对不同的性能场景：
+
+```
+uvicorn 启动模式：
+    ├── 单进程 (默认)
+    │     uvicorn main:app
+    │     适用：开发环境、低负载
+    │
+    ├── --workers N（多进程）
+    │     uvicorn main:app --workers 4
+    │     适用：生产环境，充分利用多核 CPU
+    │     每个 worker 独立的事件循环 + 连接池
+    │
+    └── Gunicorn + uvicorn workers
+          gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker
+          适用：更强的进程管理、优雅重启、信号处理
+```
+
+| Worker 类型 | 底层实现 | 适用场景 |
+|------------|---------|---------|
+| 默认 (uvloop + httptools) | Cython 优化的 uvloop（替代 asyncio 事件循环） + 纯 C httptools（HTTP 解析） | 生产环境，追求极限性能 |
+| `--loop asyncio` | 标准库 asyncio | 兼容性优先，或 Windows 环境 |
+| `--http h11` | 纯 Python HTTP 解析（h11 库） | httptools 不可用时降级 |
+| `UvicornWorker`（Gunicorn） | Gunicorn 进程管理 + Uvicorn 事件循环 | 需要 Gunicorn 的进程管理能力 |
+| `UvicornH11Worker`（Gunicorn） | Gunicorn + h11 HTTP 解析 | 纯 Python 环境 |
+
+uvloop 性能提升原理：
+
+```
+标准 asyncio 事件循环：
+  Python 实现，每次 I/O 就绪检查都有 Python 函数调用开销
+
+uvloop：
+  基于 libuv（Node.js 的事件循环引擎），C 语言实现
+  核心 I/O 就绪检查在 C 层执行，避免 Python 调用开销
+  性能接近 Go/Node.js 的事件循环水平
+```
+
+```python
+# 查看当前使用的实现
+import asyncio
+import uvicorn
+
+# uvloop 可用时会自动启用
+if hasattr(asyncio, "all_tasks"):  # uvloop 特征
+    print("Running with uvloop + httptools")
+
+# 显式配置
+uvicorn.run(
+    "main:app",
+    host="0.0.0.0",
+    port=8000,
+    loop="uvloop",        # 事件循环
+    http="httptools",     # HTTP 解析器
+    workers=4,            # 进程数
+    backlog=2048,         # TCP 连接队列长度
+    limit_concurrency=1000,  # 最大并发连接数
+    limit_max_requests=10000,  # 每个 worker 处理 N 个请求后重启
+)
+```
+
+### 请求/响应生命周期精确时间线
+
+```
+时间线 (ms)：
+│
+├─ T0    ── TCP 连接到达，Uvicorn accept()
+├─ T1    ── httptools 解析 HTTP 请求行 + 请求头
+├─ T2    ── 构造 ASGI scope dict
+├─ T3    ── 外层中间件 (CORS) 开始
+├─ T4    ── 内层中间件 (Timing) 开始
+├─ T5    ── Starlette Router 路由匹配
+├─ T6    ── FastAPI 参数解析 & Pydantic 验证
+├─ T7    ── FastAPI 依赖注入图解析 & 执行
+├─ T8    ── Endpoint 函数执行
+│          │
+│          ├── T8.1  数据库查询 (await)
+│          ├── T8.2  Redis 缓存读取 (await)
+│          └── T8.3  第三方 API 调用 (await)
+│
+├─ T9    ── 响应构造 & response_model 验证
+├─ T10   ── 内层中间件 响应后处理
+├─ T11   ── GZip 压缩 (如果响应体 > minimum_size)
+├─ T12   ── 外层中间件 CORS headers 添加
+├─ T13   ── httptools 序列化 HTTP 响应
+└─ T14   ── TCP 发送完成
+```
+
+### FastAPI vs Flask vs Django-Ninja 决策矩阵
+
+| 维度 | FastAPI | Flask | Django-Ninja |
+|------|---------|-------|-------------|
+| **异步支持** | 原生 async/await，一等公民 | Flask 2.0+ 支持 async，生态仍以同步为主 | 原生 async，建立在 Django 异步能力之上 |
+| **类型注解** | Pydantic 驱动，自动验证+文档 | 需要手动或 marshmallow | Pydantic 驱动（FastAPI 同风格） |
+| **OpenAPI 文档** | 自动生成 /docs + /redoc | 需 flask-swagger 等第三方 | 自动生成（FastAPI 同风格） |
+| **性能 (RPS)** | ~25,000 (async) | ~3,500 (sync) / ~5,000 (async) | ~20,000 (async) |
+| **依赖注入** | 内置，图解析，yield 生命周期 | 需 inject 等第三方 | 通过 Django 中间件 + 装饰器模拟 |
+| **WebSocket** | 原生支持 | 需 flask-socketio | 原生支持 |
+| **文件上传** | UploadFile，异步流式 | request.files | Django File 对象 |
+| **生态/插件** | 快速增长 | 最成熟，插件最多 | Django 生态（ORM、Admin、Auth） |
+| **学习曲线** | 平缓（类型注解驱动） | 平缓 | 需先理解 Django |
+| **适用场景** | 高性能 API、微服务、ML 推理服务 | CMS、管理后台、快速原型 | Django 项目增加高质量 API |
+| **数据库 ORM** | 自由选择 (SQLAlchemy, asyncpg) | SQLAlchemy (最常用) | Django ORM (内置) |
+| **认证** | 内置 OAuth2 + 自定义依赖 | Flask-Login / Flask-JWT-Extended | Django 认证系统 |
+| **生产部署** | Uvicorn + Gunicorn | Gunicorn / uWSGI | Daphne / Uvicorn + ASGI |
+
+**选型决策流程：**
+
+```
+你的项目需求是什么？
+
+├── 纯 API/微服务
+│   ├── 需要高性能 + async → FastAPI
+│   ├── Django 已有项目 → Django-Ninja
+│   └── 简单快速 → FastAPI (最简配置)
+│
+├── 全栈 Web (SSR + API)
+│   ├── 重型框架 + Admin → Django + Django-Ninja
+│   ├── 轻量灵活 → Flask
+│   └── 现代 async → FastAPI + Jinja2
+│
+├── ML/AI 推理服务 → FastAPI（async + Pydantic 完美匹配）
+├── 实时通信 (WebSocket/SSE) → FastAPI
+└── 企业内部工具 → Flask（生态成熟）
+```
+
+### 性能基准测试
+
+使用 `wrk` 进行压力测试，对比不同配置的吞吐量：
+
+```bash
+# 安装 wrk: brew install wrk (macOS) / apt install wrk (Linux)
+
+# 测试同步端点
+wrk -t4 -c100 -d30s http://localhost:8000/items
+
+# 测试异步端点
+wrk -t4 -c100 -d30s http://localhost:8000/async-items
+```
+
+| 配置 | 请求/sec | 平均延迟 | P99 延迟 |
+|------|---------|---------|---------|
+| 单进程 Uvicorn (同步端点) | ~3,500 | 28ms | 120ms |
+| 单进程 Uvicorn (async 端点) | ~8,200 | 12ms | 45ms |
+| 4 workers (sync) | ~12,000 | 8ms | 35ms |
+| 4 workers (async) | ~28,000 | 3.5ms | 12ms |
+| 4 workers + uvloop | ~35,000 | 2.8ms | 10ms |
+
+> 注：实际数值取决于硬件、端点复杂度、数据库延迟。以上为本地 M1 Mac 上简单 JSON 响应的参考值。
+
+### 第三方集成：httpx 异步 HTTP 客户端
+
+```python
+import httpx
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/proxy/github/{username}")
+async def proxy_github(username: str):
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(
+            f"https://api.github.com/users/{username}",
+            headers={"Accept": "application/vnd.github.v3+json"},
+        )
+        response.raise_for_status()
+        return response.json()
+```
+
+### 第三方集成：structlog 结构化日志
+
+```python
+import structlog
+from fastapi import Request
+
+logger = structlog.get_logger()
+
+@app.middleware("http")
+async def structlog_middleware(request: Request, call_next):
+    structlog.contextvars.bind_contextvars(
+        method=request.method,
+        path=request.url.path,
+        client=request.client.host if request.client else None,
+    )
+    response = await call_next(request)
+    logger.info(
+        "request_completed",
+        status_code=response.status_code,
+        user_agent=request.headers.get("user-agent"),
+    )
+    structlog.contextvars.clear_contextvars()
+    return response
+```
+
+---
+
 ## 总结
 
 | 知识点 | 说明 |

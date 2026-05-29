@@ -524,6 +524,659 @@ WebSocket
 
 ---
 
+## 常见坑点排查
+
+### 坑点 1：Nginx 代理后 WebSocket 连接立即断开
+
+**错误现象**：开发环境 WebSocket 正常工作，部署到 Nginx 后连接建立后立即 404/502。
+
+**根因**：Nginx 默认不转发 WebSocket 的 Upgrade 头。需要显式配置：
+
+```nginx
+# ❌ 不正确的 Nginx 配置
+location /ws {
+    proxy_pass http://backend:8000;
+}
+
+# ✅ 正确的 Nginx 配置
+location /ws {
+    proxy_pass http://backend:8000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_read_timeout 3600s;  # 长连接超时设置
+    proxy_send_timeout 3600s;
+}
+```
+
+### 坑点 2：广播时一个断开连接导致全部阻塞
+
+**错误现象**：
+
+```python
+async def broadcast(self, message: str):
+    for ws in self.active_connections:
+        await ws.send_text(message)  # 一个断开，全部阻塞！
+```
+
+当 `active_connections` 列表中有一个 WebSocket 已断开时，`send_text()` 会抛异常，导致剩余连接收不到消息。
+
+**修复**：
+
+```python
+async def broadcast(self, message: str):
+    disconnected = []
+    for ws in self.active_connections:
+        try:
+            await ws.send_text(message)
+        except Exception:
+            disconnected.append(ws)
+    for ws in disconnected:
+        self.active_connections.remove(ws)
+```
+
+### 坑点 3：在 WebSocket handler 中调用同步阻塞函数
+
+**错误现象**：WebSocket 连接建立后，服务端越来越慢，最终所有 WebSocket 连接都卡住。
+
+**根因**：`time.sleep()` 或同步数据库查询在 async handler 中直接调用，阻塞了整个事件循环。
+
+```python
+# ❌ 同步阻塞（阻塞事件循环）
+@app.websocket("/ws")
+async def ws(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        result = heavy_sync_computation(data)  # 阻塞 5 秒！
+        await websocket.send_text(result)
+```
+
+**修复**：
+
+```python
+import asyncio
+
+# ✅ 将同步操作放到线程池
+@app.websocket("/ws")
+async def ws(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        result = await asyncio.to_thread(heavy_sync_computation, data)
+        await websocket.send_text(result)
+```
+
+### 坑点 4：accept() 之前尝试 send 操作
+
+**错误现象**：
+
+```python
+@app.websocket("/ws")
+async def ws(websocket: WebSocket):
+    await websocket.send_text("Welcome!")  # RuntimeError!
+    await websocket.accept()
+```
+
+**根因**：ASGI WebSocket 协议规定，服务端必须在 `accept()` 之后才能发送消息。发送必须在握手完成后进行。
+
+**修复**：始终先 `accept()`：
+
+```python
+@app.websocket("/ws")
+async def ws(websocket: WebSocket):
+    await websocket.accept()
+    await websocket.send_text("Welcome!")
+```
+
+### 坑点排查表
+
+| 现象 | 根因 | 修复 | 预防 |
+|------|------|------|------|
+| Nginx 下 WebSocket 404/502 | 缺少 Upgrade/Connection 头配置 | 添加 `proxy_set_header Upgrade` | Nginx 配置模板中包含 WebSocket 配置 |
+| 广播消息丢失 | 一个断连阻塞全部 | try/except 逐个发送 | 连接管理器使用 `asyncio.Lock` |
+| 所有 WebSocket 卡顿 | 同步函数阻塞事件循环 | `asyncio.to_thread()` | 代码审查检查 handler 中的同步调用 |
+| `send_text` 前报 RuntimeError | 未 `accept()` 就发送 | 先 `accept()` 再发送 | handler 首行写 `await ws.accept()` |
+| 内存持续增长 | 断开的连接未从列表移除 | broadcast 时清理断连 | 添加心跳机制自动清理 |
+| 消息重复 | 客户端重连后旧连接未清理 | 使用 client_id 覆盖旧连接 | 维护 `{client_id: WebSocket}` |
+
+---
+
+## 进阶用法
+
+### 5.1 房间/频道系统
+
+```python
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from typing import Annotated
+import asyncio
+import json
+
+
+class RoomManager:
+    """基于房间/频道的连接管理器"""
+
+    def __init__(self):
+        # {room_name: {client_id: WebSocket}}
+        self.rooms: dict[str, dict[str, WebSocket]] = {}
+        self._lock = asyncio.Lock()
+
+    async def join(self, room: str, client_id: str, websocket: WebSocket) -> None:
+        await websocket.accept()
+        async with self._lock:
+            if room not in self.rooms:
+                self.rooms[room] = {}
+            self.rooms[room][client_id] = websocket
+        await self.broadcast(room, {
+            "type": "system",
+            "client_id": client_id,
+            "event": "joined",
+            "room": room,
+        })
+
+    async def leave(self, room: str, client_id: str) -> None:
+        async with self._lock:
+            if room in self.rooms:
+                self.rooms[room].pop(client_id, None)
+                if not self.rooms[room]:
+                    del self.rooms[room]
+        await self.broadcast(room, {
+            "type": "system",
+            "client_id": client_id,
+            "event": "left",
+            "room": room,
+        })
+
+    async def broadcast(self, room: str, message: dict) -> None:
+        members = list(self.rooms.get(room, {}).items())
+        disconnected = []
+        for cid, ws in members:
+            try:
+                await ws.send_json(message)
+            except Exception:
+                disconnected.append(cid)
+        if disconnected:
+            async with self._lock:
+                for cid in disconnected:
+                    self.rooms.get(room, {}).pop(cid, None)
+
+    async def send_to(self, room: str, client_id: str, message: dict) -> bool:
+        if room in self.rooms and client_id in self.rooms[room]:
+            try:
+                await self.rooms[room][client_id].send_json(message)
+                return True
+            except Exception:
+                await self.leave(room, client_id)
+        return False
+
+    def room_info(self, room: str) -> dict:
+        return {
+            "room": room,
+            "members": len(self.rooms.get(room, {})),
+        }
+
+    def all_rooms(self) -> list[dict]:
+        return [{"name": r, "members": len(m)} for r, m in self.rooms.items()]
+
+
+room_manager = RoomManager()
+
+@app.websocket("/ws/{room}")
+async def room_websocket(
+    room: str,
+    websocket: WebSocket,
+    client_id: Annotated[str, Query()],
+):
+    await room_manager.join(room, client_id, websocket)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
+
+            if msg_type == "broadcast":
+                await room_manager.broadcast(room, {
+                    "type": "message",
+                    "from": client_id,
+                    "content": data.get("content", ""),
+                })
+            elif msg_type == "private":
+                target = data.get("to", "")
+                await room_manager.send_to(room, target, {
+                    "type": "private",
+                    "from": client_id,
+                    "content": data.get("content", ""),
+                })
+            elif msg_type == "ping":
+                await websocket.send_json({"type": "pong"})
+
+    except WebSocketDisconnect:
+        await room_manager.leave(room, client_id)
+
+
+# HTTP 端点获取房间信息
+@app.get("/rooms")
+def get_rooms() -> list[dict]:
+    return room_manager.all_rooms()
+
+
+@app.get("/rooms/{room}")
+def get_room(room: str) -> dict:
+    return room_manager.room_info(room)
+```
+
+### 5.2 带认证的 WebSocket + REST 混合架构
+
+```python
+import jwt
+from datetime import datetime, timedelta
+from fastapi import WebSocketDisconnect
+
+
+SECRET_KEY = "your-secret-key"
+
+def create_token(user_id: int) -> str:
+    return jwt.encode({
+        "user_id": user_id,
+        "exp": datetime.utcnow() + timedelta(hours=24),
+    }, SECRET_KEY, algorithm="HS256")
+
+def verify_token(token: str) -> dict | None:
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        return None
+
+
+@app.websocket("/ws/protected")
+async def protected_ws(
+    websocket: WebSocket,
+    token: Annotated[str, Query()],
+):
+    # 在 accept 前验证
+    payload = verify_token(token)
+    if not payload:
+        await websocket.close(code=1008, reason="Authentication failed")
+        return
+
+    user_id = payload["user_id"]
+    await websocket.accept()
+    await websocket.send_json({"type": "welcome", "user_id": user_id})
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            await websocket.send_json({
+                "type": "echo",
+                "user_id": user_id,
+                "data": data,
+            })
+    except WebSocketDisconnect:
+        pass
+
+
+# REST 端点配套查询
+@app.get("/ws/online-users")
+def online_users() -> list[dict]:
+    """查询所有在线的 WebSocket 用户"""
+    result = []
+    for room, members in room_manager.rooms.items():
+        for cid in members:
+            result.append({"client_id": cid, "room": room})
+    return result
+```
+
+### 5.3 指数退避重连策略（客户端）
+
+```javascript
+class ReconnectingWebSocket {
+    constructor(url, maxRetries = 10, initialDelay = 1000) {
+        this.url = url;
+        this.maxRetries = maxRetries;
+        this.initialDelay = initialDelay;
+        this.retryCount = 0;
+        this.connect();
+    }
+
+    connect() {
+        this.ws = new WebSocket(this.url);
+
+        this.ws.onopen = () => {
+            console.log('Connected');
+            this.retryCount = 0;  // 重置计数
+        };
+
+        this.ws.onclose = (event) => {
+            if (event.code === 1008) {
+                console.error('Auth failed, not reconnecting');
+                return;
+            }
+            if (this.retryCount < this.maxRetries) {
+                const delay = this.initialDelay * Math.pow(2, this.retryCount);
+                const jitter = delay * (0.5 + Math.random() * 0.5);
+                console.log(`Reconnecting in ${Math.round(jitter)}ms (attempt ${this.retryCount + 1})`);
+                setTimeout(() => {
+                    this.retryCount++;
+                    this.connect();
+                }, jitter);
+            } else {
+                console.error('Max retries reached');
+            }
+        };
+
+        this.ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'ping') {
+                this.ws.send(JSON.stringify({type: 'pong'}));
+            }
+            this.onMessage?.(data);
+        };
+    }
+
+    send(data) {
+        if (this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(data));
+        } else {
+            console.warn('WebSocket not connected, message queued');
+        }
+    }
+
+    close() {
+        this.maxRetries = 0;
+        this.ws.close();
+    }
+}
+```
+
+### 5.4 生产级 Nginx WebSocket 代理配置
+
+```nginx
+upstream websocket_backend {
+    least_conn;
+    server backend1:8000 weight=1 max_fails=3 fail_timeout=30s;
+    server backend2:8000 weight=1 max_fails=3 fail_timeout=30s;
+}
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api.example.com;
+
+    ssl_certificate     /etc/ssl/certs/api.crt;
+    ssl_certificate_key /etc/ssl/private/api.key;
+
+    location /ws/ {
+        proxy_pass http://websocket_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 86400s;   # 24 小时长连接超时
+        proxy_send_timeout 86400s;
+        proxy_connect_timeout 10s;
+
+        # WebSocket 不需要缓冲
+        proxy_buffering off;
+    }
+
+    # REST API 正常代理
+    location /api/ {
+        proxy_pass http://websocket_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+### 5.5 大消息分片处理
+
+当 WebSocket 消息超过帧大小限制（默认为 1MB）时，需要分片传输：
+
+```python
+import asyncio
+
+MAX_FRAME_SIZE = 1024 * 1024  # 1MB
+
+
+@app.websocket("/ws/large-files")
+async def large_file_ws(websocket: WebSocket):
+    await websocket.accept()
+
+    async def send_large(data: bytes, chunk_size: int = 65536):
+        """分片发送大数据块"""
+        for i in range(0, len(data), chunk_size):
+            chunk = data[i:i + chunk_size]
+            await websocket.send_bytes(chunk)
+            if i + chunk_size < len(data):
+                await asyncio.sleep(0.01)  # 微小的让步，避免阻塞
+
+    async def receive_large() -> bytes:
+        """分片接收大数据块"""
+        chunks = bytearray()
+        while True:
+            msg = await websocket.receive()
+            if "bytes" in msg:
+                chunks.extend(msg["bytes"])
+            if "text" in msg and msg["text"] == "EOF":
+                break
+        return bytes(chunks)
+
+    try:
+        # 发送
+        big_data = b"x" * (10 * 1024 * 1024)  # 10MB 测试数据
+        await send_large(big_data)
+        await websocket.send_text("EOF")
+        print("Sent 10MB file")
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        await websocket.close()
+```
+
+### 5.6 ASGI WebSocket 协议底层事件
+
+```python
+@app.websocket("/ws/protocol-debug")
+async def protocol_debug(websocket: WebSocket):
+    await websocket.accept()
+
+    # ASGI WebSocket 的三种核心事件:
+    # 1. websocket.receive → {"type": "websocket.receive", "bytes": b"...", "text": "..."}
+    # 2. websocket.send    → sub-type: "websocket.send", "websocket.close"
+    # 3. websocket.disconnect → {"type": "websocket.disconnect", "code": 1000}
+
+    try:
+        while True:
+            raw = await websocket.receive()
+
+            match raw["type"]:
+                case "websocket.receive":
+                    if "text" in raw:
+                        print(f"Got text: {raw['text'][:50]}...")
+                    elif "bytes" in raw:
+                        print(f"Got bytes: {len(raw['bytes'])} bytes")
+                case "websocket.disconnect":
+                    print(f"Disconnect: code={raw.get('code', 'none')}")
+                    break
+    except Exception:
+        pass
+    finally:
+        try:
+            await websocket.close(code=1000)
+        except Exception:
+            pass
+```
+
+---
+
+## 调试与排错技巧
+
+### 技巧 1：WebSocket 连接状态监控
+
+```python
+@app.websocket("/ws/monitored")
+async def monitored_ws(websocket: WebSocket):
+    await websocket.accept()
+    state = {"connected": True, "messages": 0, "bytes_sent": 0, "bytes_received": 0}
+    try:
+        while True:
+            data = await websocket.receive_text()
+            state["messages"] += 1
+            state["bytes_received"] += len(data.encode())
+            response = f"Echo ({state['messages']}): {data}"
+            await websocket.send_text(response)
+            state["bytes_sent"] += len(response.encode())
+            if state["messages"] % 100 == 0:
+                print(f"Stats: {state}")
+    except WebSocketDisconnect:
+        state["connected"] = False
+        print(f"Final stats: {state}")
+```
+
+### 技巧 2：使用 wscat 手动测试 WebSocket
+
+```bash
+# 安装 wscat
+npm install -g wscat
+
+# 连接 WebSocket
+wscat -c "ws://localhost:8000/ws" -H "Authorization: Bearer token123"
+
+# 连接带查询参数的 WebSocket
+wscat -c "ws://localhost:8000/ws?token=abc123"
+
+# 发送 JSON 消息
+> {"type": "chat", "content": "hello"}
+< {"type": "chat", "from": "system", "content": "Echo: hello"}
+
+# 发送二进制消息（hex）
+> --binary 48656c6c6f
+```
+
+### 技巧 3：连接泄漏检测
+
+```python
+import gc
+
+@app.get("/debug/ws-connections")
+def debug_ws_connections() -> dict:
+    """查看当前所有 WebSocket 连接状态"""
+    rooms_info = []
+    for room_name, members in room_manager.rooms.items():
+        for cid, ws in members:
+            rooms_info.append({
+                "room": room_name,
+                "client_id": cid,
+                "client_state": ws.client_state.name if ws.client_state else "unknown",
+            })
+    return {
+        "total_rooms": len(room_manager.rooms),
+        "connections": rooms_info,
+    }
+```
+
+{% hint style="warning" %}
+**生产环境禁用** `/debug/ws-connections` 端点，或添加管理员认证，避免暴露内部状态。
+{% endhint %}
+
+---
+
+## 生产部署架构
+
+### 多 Worker 跨进程广播（Redis Pub/Sub）
+
+当有多个 Worker 进程时，WebSocket 连接分散在不同进程上：
+
+```
+                     Nginx (upstream)
+                          │
+          ┌───────────────┼───────────────┐
+          ▼               ▼               ▼
+    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │ Worker 1 │    │ Worker 2 │    │ Worker 3 │
+    │ WS: A,B  │    │ WS: C,D  │    │ WS: E,F  │
+    └────┬─────┘    └────┬─────┘    └────┬─────┘
+         │               │               │
+         └───────────────┼───────────────┘
+                         │
+                   ┌─────┴─────┐
+                   │   Redis   │  ← Pub/Sub 实现跨进程广播
+                   └───────────┘
+```
+
+```python
+import redis.asyncio as redis
+import json
+import asyncio
+
+
+class DistributedConnectionManager:
+    """支持多进程的 WebSocket 连接管理器"""
+
+    def __init__(self, redis_url: str = "redis://localhost:6379"):
+        self.redis = redis.from_url(redis_url)
+        self.local_connections: dict[str, WebSocket] = {}
+        self._pubsub: redis.client.PubSub | None = None
+        self._listener_task: asyncio.Task | None = None
+        self._lock = asyncio.Lock()
+
+    async def start(self):
+        self._pubsub = self.redis.pubsub()
+        await self._pubsub.subscribe("ws:broadcast")
+        self._listener_task = asyncio.create_task(self._listen())
+
+    async def _listen(self):
+        """监听 Redis 广播消息并推送到本地连接"""
+        async for message in self._pubsub.listen():
+            if message["type"] == "message":
+                data = json.loads(message["data"])
+                for ws in list(self.local_connections.values()):
+                    try:
+                        await ws.send_json(data)
+                    except Exception:
+                        pass
+
+    async def connect(self, client_id: str, websocket: WebSocket):
+        await websocket.accept()
+        async with self._lock:
+            self.local_connections[client_id] = websocket
+
+    async def disconnect(self, client_id: str):
+        async with self._lock:
+            self.local_connections.pop(client_id, None)
+
+    async def broadcast(self, message: dict):
+        """跨进程广播：发布到 Redis，所有进程的 listener 都会收到"""
+        await self.redis.publish("ws:broadcast", json.dumps(message))
+
+    async def send_personal(self, client_id: str, message: dict):
+        if client_id in self.local_connections:
+            try:
+                await self.local_connections[client_id].send_json(message)
+            except Exception:
+                await self.disconnect(client_id)
+
+
+# lifespan 中启动
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    distributed_manager = DistributedConnectionManager()
+    await distributed_manager.start()
+    app.state.ws_manager = distributed_manager
+    yield
+```
+
+---
+
 ## 总结
 
 | 知识点 | 说明 |
@@ -533,3 +1186,9 @@ WebSocket
 | receive_text | 接收消息 |
 | send_text | 发送消息 |
 | 连接管理器 | 广播和私聊 |
+| 房间/频道系统 | 多房间隔离、按房间广播 |
+| 认证 (accept 前) | Query 参数传 token，accept 前验证 |
+| 指数退避重连 | 客户端自动重连策略 |
+| Nginx 代理配置 | Upgrade/Connection 头、长连接超时 |
+| 大消息分片 | 超过 1MB 消息的分片收发 |
+| ASGI 底层事件 | websocket.receive/send/disconnect |
