@@ -6,6 +6,12 @@
 
 ---
 
+## 概念铺垫
+
+消息闪现（Flash）是 Flask 的"一次性消息"机制，通过 session 存储消息（以 `_flashes` 键），读取后自动清除。Flask 默认使用客户端签名 Cookie 作为 Session 存储（SecureCookieSession），数据经过 ItsDangerous 库的 HMAC-SHA256 签名（非加密），用户可读取内容但无法篡改。Flask-Session 扩展支持服务端存储（Redis/文件系统/数据库），解决 Cookie 4KB 限制和数据安全问题。
+
+---
+
 ## 本章学习路径
 
 ```

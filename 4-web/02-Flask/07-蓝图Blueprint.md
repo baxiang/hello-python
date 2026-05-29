@@ -6,6 +6,14 @@
 
 ---
 
+## 概念铺垫
+
+蓝图（Blueprint）是 Flask 中组织大型应用的模块化机制，采用延迟注册（Deferred Registration）模式。蓝图创建时不立即注册路由，而是在 `app.register_blueprint()` 时才将所有路由、错误处理器、请求钩子注入到应用的 `url_map` 中。endpoint 使用命名空间隔离（`蓝图名.函数名`）避免路由名称冲突。
+
+---
+
+### L1 理解层：会用
+
 ## 第一部分：蓝图基础
 
 ### 1.1 实际场景
@@ -258,6 +266,43 @@ def create_app() -> Flask:
 ```
 
 ---
+
+### L2 实践层：用好
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| 蓝图按业务模块拆分 | 代码可维护 | `users_bp`、`posts_bp`、`admin_bp` |
+| `url_prefix` 统一 URL 前缀 | 避免路由冲突 | `Blueprint("users", url_prefix="/users")` |
+| 蓝图级错误处理器 | 不同模块不同错误页面 | `@api_bp.errorhandler(404)` |
+| 使用 `url_for("蓝图.视图")` 跨蓝图引用 | endpoint 命名空间隔离 | `url_for("admin.dashboard")` |
+| 蓝图内用 `.视图` 简写 | 省略蓝图前缀 | `url_for(".index")` |
+
+#### 反模式
+
+```python
+# ❌ 错误：所有路由放在一个文件
+@app.route("/users/...")
+@app.route("/posts/...")
+@app.route("/admin/...")
+
+# ✅ 正确：用蓝图拆分
+# users_bp = Blueprint("users", __name__, url_prefix="/users")
+# posts_bp = Blueprint("posts", __name__, url_prefix="/posts")
+# app.register_blueprint(users_bp)
+# app.register_blueprint(posts_bp)
+```
+
+#### 蓝图 vs 应用级路由
+
+| 场景 | 推荐方式 |
+|------|---------|
+| 简单应用（<5 路由） | 应用级路由足够 |
+| 中型应用（5-20 路由） | 开始考虑蓝图 |
+| 大型应用（>20 路由） | 必须使用蓝图 |
+
+---
+
+### L3 专家层：深入
 
 ## 第六部分：L3 专家层
 

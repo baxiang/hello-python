@@ -6,6 +6,35 @@
 
 ---
 
+## 概念铺垫
+
+FastAPI 基于 Python 类型注解和 Pydantic 模型自动生成符合 OpenAPI 3.1 规范的文档。整个文档生成流程无需手动维护，代码即文档。
+
+```
+Python 代码 (type hints + Pydantic)
+    │
+    ▼ FastAPI 解析引擎
+    │  ├── 路由定义 → paths
+    │  ├── Pydantic 模型 → components/schemas
+    │  ├── 安全方案 → components/securitySchemes
+    │  └── 应用配置 → info/tags/servers
+    │
+    ▼
+OpenAPI 3.1 JSON (/openapi.json)
+    │
+    ├── /docs (Swagger UI)
+    └── /redoc (ReDoc)
+```
+
+**核心概念：**
+- **OpenAPI Schema 生成**：首次访问 `/openapi.json` 时构建并缓存，后续请求直接返回缓存
+- **Swagger UI**：交互式文档，支持 "Try it out" 在线调试
+- **ReDoc**：只读文档，适合对外发布
+
+---
+
+### L1 理解层：会用
+
 ## 第一部分：OpenAPI 规范（L1）
 
 ### 1.1 实际场景
@@ -549,6 +578,8 @@ Swagger UI 会展开嵌套模型，显示完整的层级结构：
 ```
 
 ---
+
+### L2 实践层：用好
 
 ## 第四部分：L2 实践层
 

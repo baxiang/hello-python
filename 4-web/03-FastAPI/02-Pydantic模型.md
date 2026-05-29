@@ -6,6 +6,32 @@
 
 ---
 
+## 概念铺垫
+
+Pydantic 是 FastAPI 的数据验证基石，v2 版本将核心验证逻辑迁移到 Rust 编写的 `pydantic-core`，性能相比 v1 提升 10-40 倍。Pydantic 的工作分为两个独立管道：
+
+```
+输入管道 (Validation):
+  原始输入 (dict/JSON) → Before Validator → Rust 核心验证 → After Validator → 模型实例
+
+输出管道 (Serialization):
+  模型实例 → Plain Serializer → Wrap Serializer → JSON/dict
+```
+
+**核心概念：**
+- **Schema 编译**：模型定义时，Python 类型注解被编译为 pydantic-core Schema，此过程只执行一次
+- **验证/序列化分离**：输入和输出使用独立的管道，互不干扰
+- **Rust 引擎**：`SchemaValidator` 在 Rust 层批量执行类型检查和转换，避免 Python 函数调用开销
+
+Pydantic 与 FastAPI 的关系：
+- FastAPI 用 Pydantic 验证请求体、路径参数、查询参数
+- Pydantic 的 `model_json_schema()` 为 FastAPI 生成 OpenAPI Schema
+- `response_model` 利用 Pydantic 的序列化管道过滤输出字段
+
+---
+
+### L1 理解层：会用
+
 ## 第一部分：Pydantic 基础
 
 ### 1.1 实际场景
@@ -60,14 +86,14 @@ class Model(BaseModel):
     age: int
     price: float
     is_active: bool
-    
+
     # 可选类型
     description: str | None = None
-    
+
     # 列表和字典
     tags: list[str] = []
     metadata: dict[str, str] = {}
-    
+
     # 日期时间
     created_at: datetime | None = None
 ```
@@ -115,7 +141,7 @@ class User(BaseModel):
     email: str = Field(..., pattern=r'^[\w\.-]+@[\w\.-]+\.\w+$')
     age: int = Field(..., ge=0, le=150)
     price: float = Field(..., gt=0)
-    
+
     # 自定义验证器
     @field_validator('username')
     @classmethod
@@ -134,7 +160,7 @@ from pydantic import BaseModel, field_validator
 class User(BaseModel):
     password: str
     confirm_password: str
-    
+
     @field_validator('confirm_password')
     @classmethod
     def passwords_match(cls, v: str, info) -> str:
@@ -298,7 +324,7 @@ class User(BaseModel):
         validate_assignment=True,   # 赋值时验证
         extra='forbid'             # 禁止额外字段
     )
-    
+
     id: int
     name: str
 ```
@@ -332,7 +358,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
     confirm_password: str
-    
+
     @field_validator('confirm_password')
     @classmethod
     def passwords_match(cls, v: str, info) -> str:
@@ -345,7 +371,7 @@ class UserResponse(UserBase):
     id: int
     is_active: bool = True
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -364,7 +390,7 @@ class PostResponse(PostBase):
     author_id: int
     created_at: datetime
     tags: list[str] = []
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -394,6 +420,91 @@ def get_user(user_id: int) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="User not found")
     return users_db[user_id]
 ```
+
+---
+
+### L2 实践层：用好
+
+## 最佳实践
+
+### 1. 输入输出模型完全分离
+
+```
+UserCreate (输入)          UserResponse (输出)
+  username                   id
+  email                      username
+  password                   email
+  confirm_password           is_active
+                             created_at
+```
+
+- **输入模型**：包含验证规则、密码字段、确认字段
+- **输出模型**：隐藏敏感字段（密码），含 `from_attributes=True` 支持 ORM 转换
+- **共享基类**：`UserBase` 包含公共字段，输入和输出模型各自继承
+
+### 2. ConfigDict 最佳配置
+
+```python
+from pydantic import BaseModel, ConfigDict
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,      # ORM 对象直接转换为模型
+        str_strip_whitespace=True, # 自动去除字符串首尾空格
+        validate_assignment=True,  # 属性赋值时也触发验证
+        extra='forbid',            # 拒绝未定义的额外字段（安全）
+    )
+    id: int
+    username: str
+```
+
+### 3. 验证器选择
+
+| 验证器 | 执行时机 | 适用场景 |
+|--------|----------|----------|
+| `@field_validator('field')` | 单个字段验证后 | 字段格式校验、值规范化 |
+| `@field_validator('field2')` with `info.data` | 单个字段验证后 | 跨字段验证（确认密码） |
+| `@model_validator(mode='before')` | 所有字段验证前 | 预处理原始输入、数据转换 |
+| `@model_validator(mode='after')` | 所有字段验证后 | 复杂的跨字段业务校验 |
+
+### 4. Field 约束
+
+- 数值：`ge`(>=), `gt`(>), `le`(<=), `lt`(<), `multiple_of`
+- 字符串：`min_length`, `max_length`, `pattern`（正则）
+- 通用：`default`, `default_factory`, `description`, `examples`
+- 列表：`min_length`, `max_length`
+
+## 反模式
+
+| ❌ 反模式 | ✅ 改进 |
+|-----------|---------|
+| 同一个模型既做输入又做输出，密码字段暴露 | 分离为 `UserCreate` / `UserResponse` |
+| 不设置 `extra='forbid'`，接受任意额外字段 | `model_config = ConfigDict(extra='forbid')` |
+| 忘记 `model_rebuild()` 导致递归模型报错 | 自引用模型定义后调用 `Category.model_rebuild()` |
+| 敏感数据（身份证号、银行卡）不加 `repr=False` | `Field(..., repr=False)` 避免日志泄露 |
+| 使用 v1 的 `@validator`（已废弃） | 迁移到 v2 的 `@field_validator` |
+| 在 `field_validator` 中做耗时 I/O | 字段验证应该是纯函数，I/O 放入 endpoint |
+| `model_dump()` 后手动处理日期格式化 | 使用 `@field_serializer` 统一格式化 |
+
+## 何时选用什么
+
+| 需求 | 选用方案 |
+|------|---------|
+| 验证单个字段值 | `@field_validator('field')` |
+| 验证字段间关系 | `@field_validator` + `info.data` |
+| 预处理整个输入 | `@model_validator(mode='before')` |
+| 跨字段业务规则 | `@model_validator(mode='after')` |
+| 格式化输出字段 | `@field_serializer('field')` |
+| ORM 对象转模型 | `ConfigDict(from_attributes=True)` |
+| 拒绝未知字段 | `ConfigDict(extra='forbid')` |
+| 模型继承 | `class UserCreate(BaseUser)` |
+| 高效 JSON 输出 | `model_dump_json()` 而非 `model_dump()` |
+| JSON 输入解析 | `User.model_validate_json(json_str)` |
+
+---
+
+### L3 专家层：深入
 
 ## 第七部分：L3 专家层
 

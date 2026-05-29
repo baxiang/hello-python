@@ -6,6 +6,12 @@
 
 ---
 
+## 概念铺垫
+
+Flask 安全防御体系覆盖 OWASP Top 10 风险。XSS 通过 Jinja2 autoescape（自动 HTML 转义）防御；CSRF 通过 HMAC 签名的 Token 验证请求来源；Session 基于 ItsDangerous 的签名 Cookie（不加密，仅防篡改）；密码存储使用 bcrypt/argon2（计算慢 + 内置盐值）。安全响应头（CSP、HSTS、X-Frame-Options）由 Flask-Talisman 统一管理。Host Header 攻击通过白名单验证和配置 BASE_URL 防范。
+
+---
+
 ## 第一部分：XSS 跨站脚本攻击（L1）
 
 ### 1.1 什么是 XSS

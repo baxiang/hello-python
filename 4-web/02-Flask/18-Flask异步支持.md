@@ -6,6 +6,12 @@
 
 ---
 
+## 概念铺垫
+
+Flask 3.x 原生支持 `async def` 视图函数，可在 ASGI 服务器（Hypercorn/Daphne）或 WSGI 服务器（Gunicorn + gevent）下运行。Flask 本质上仍是 WSGI 框架，sync 视图通过 `run_sync` 适配器在线程池执行，async 视图直接 await 执行。asyncio 协程适合 I/O 密集型场景（外部 HTTP 调用、数据库查询），CPU 密集型应使用 `run_in_executor` 分发到线程/进程池。gevent 通过 greenlet（用户态协程 + monkey patch）提供另一种异步方案。如需全面异步 + WebSocket，选择 Quart 而非 Flask。
+
+---
+
 ## 第一部分：Flask 3.x 原生异步（L1）
 
 ### 1.1 实际场景

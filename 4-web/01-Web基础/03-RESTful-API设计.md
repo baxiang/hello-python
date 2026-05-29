@@ -5,7 +5,7 @@
 
 ---
 
-## L1 理解层：会用
+## 概念铺垫
 
 ### 第一部分：REST 是什么
 
@@ -207,9 +207,27 @@ PUT vs PATCH：
 
 ---
 
-## L2 实践层：用好
+### L1 理解层：会用
 
-### 第四部分：最佳实践与反模式
+#### 基础 CRUD 实现
+
+```python
+# ❌ 动词 URL（反模式）
+@app.post("/api/getUser")
+@app.post("/api/createUser")
+@app.post("/api/updateUser")
+@app.post("/api/deleteUser")
+
+# ✅ RESTful 设计
+@app.get("/api/users/{user_id}")      # 获取
+@app.post("/api/users")               # 创建
+@app.put("/api/users/{user_id}")      # 更新
+@app.delete("/api/users/{user_id}")   # 删除
+```
+
+---
+
+### L2 实践层：用好
 
 #### RESTful API 最佳实践
 
@@ -225,20 +243,6 @@ PUT vs PATCH：
 | **API 加版本前缀** | 便于向后兼容 | `/api/v1/users` |
 
 #### 反模式 1：动词 URL
-
-```python
-# ❌ 动词 URL（反模式）
-@app.post("/api/getUser")
-@app.post("/api/createUser")
-@app.post("/api/updateUser")
-@app.post("/api/deleteUser")
-
-# ✅ RESTful 设计
-@app.get("/api/users/{user_id}")      # 获取
-@app.post("/api/users")               # 创建
-@app.put("/api/users/{user_id}")      # 更新
-@app.delete("/api/users/{user_id}")   # 删除
-```
 
 **问题：**
 - HTTP 方法已表达操作意图，URL 再用动词是冗余
@@ -274,7 +278,7 @@ PUT vs PATCH：
 @app.get("/api/likes?comment_id={comment_id}")
 ```
 
-### API 版本控制策略
+#### API 版本控制策略
 
 ```
 API 版本控制策略：
@@ -342,11 +346,18 @@ app.include_router(v1_router)
 app.include_router(v2_router)
 ```
 
+#### 反模式清单
+
+| 反模式 | 问题 | ✅ 正确做法 | 适用场景 |
+|--------|------|-----------|---------|
+| **动词 URL** | HTTP 方法已表达操作意图 | 名词复数 URL + 正确 HTTP 方法 | 所有 REST API |
+| **GET 做修改操作** | GET 不安全，被缓存/预加载 | 用 POST/PUT/DELETE | 所有涉及修改的端点 |
+| **过度嵌套** | URL 过长，难以维护 | 最多嵌套 2 层，或通过查询参数 | 所有集合资源 |
+| **不版本化 API** | 修改破坏向后兼容 | URL 路径或请求头版本化 | 公开和内部 API |
+
 ---
 
-## L3 专家层：深入
-
-### 第五部分：底层原理
+### L3 专家层：深入
 
 #### REST 成熟度模型（Richardson Maturity Model）
 
@@ -419,7 +430,54 @@ async def get_user_with_links(user_id: int) -> dict:
     return add_links(user)
 ```
 
-### 性能考量
+#### OpenAPI 规范概要
+
+OpenAPI（原 Swagger）是描述 RESTful API 的规范标准，基于 JSON Schema 定义接口的输入输出，自动生成交互式文档。
+
+```yaml
+# openapi_spec.yaml（简化示例）
+openapi: "3.0.3"
+info:
+  title: "用户管理 API"
+  version: "1.0.0"
+paths:
+  /api/users:
+    get:
+      summary: "获取用户列表"
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: "成功返回用户列表"
+    post:
+      summary: "创建用户"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+      responses:
+        "201":
+          description: "用户创建成功"
+components:
+  schemas:
+    UserCreate:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+```
+
+#### 性能考量
 
 | 设计选择 | 性能影响 | 说明 |
 |---------|---------|------|
@@ -428,7 +486,7 @@ async def get_user_with_links(user_id: int) -> dict:
 | 字段过滤 | 减少响应体大小 | `GET /api/users?fields=id,name` |
 | 超媒体链接 | 增加响应体 ~20% | 换来客户端灵活性和自描述 |
 
-### 设计动机
+#### 设计动机
 
 **为什么 REST 流行？**
 
@@ -451,7 +509,7 @@ async def get_user_with_links(user_id: int) -> dict:
 | 发现性 | HATEOAS 支持 | 需查看文档 |
 | 适用场景 | 公开 API、Web 服务 | 内部微服务、gRPC |
 
-### 知识关联
+#### 知识关联
 
 ```
 RESTful API 知识关联：

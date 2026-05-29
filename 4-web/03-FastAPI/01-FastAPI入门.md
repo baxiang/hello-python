@@ -6,6 +6,25 @@
 
 ---
 
+## 概念铺垫
+
+FastAPI 构建在 Starlette（ASGI 框架）与 Pydantic（数据验证）之上，利用 Python 类型注解实现自动参数校验、序列化与 API 文档生成。理解其底层链路对深入使用至关重要：
+
+```
+HTTP Request → ASGI Server (Uvicorn) → Starlette (路由/Middleware) → FastAPI (验证/DI) → Endpoint
+```
+
+ASGI 是 Python 异步 Web 服务器的标准接口，Starlette 提供轻量级 ASGI 工具包，FastAPI 在其上增加了类型驱动的数据验证和依赖注入系统。
+
+核心设计理念：
+- **类型注解驱动**：用 Python type hints 同时完成验证、序列化、文档
+- **自动文档生成**：基于 OpenAPI 3.1 规范，零额外配置
+- **async 优先**：原生支持异步端点，适配高并发场景
+
+---
+
+### L1 理解层：会用
+
 ## 第一部分：快速开始
 
 ### 1.1 实际场景
@@ -510,6 +529,81 @@ if __name__ == "__main__":
 ```
 
 ---
+
+### L2 实践层：用好
+
+## 最佳实践
+
+### 1. sync vs async 端点选择
+
+```
+端点是否需要等待 I/O（数据库、HTTP 调用、文件读取）？
+    ├── 否 ──> def（同步端点，放入线程池）
+    │         适用：纯计算、内存操作
+    │
+    └── 是 ──> async def（异步端点，不阻塞事件循环）
+              适用：数据库查询、外部 API 调用、WebSocket
+```
+
+**关键规则**：如果端点内没有任何 `await`，使用 `def` 即可。混用同步阻塞调用（如 `time.sleep`、同步 HTTP 请求）与 `async def` 会导致事件循环阻塞，其他请求无法处理。
+
+| 场景 | 使用 | 原因 |
+|------|------|------|
+| 纯内存计算、静态数据 | `def` | 线程池执行，无 I/O 开销 |
+| 数据库查询（同步 ORM） | `def` | SQLAlchemy 同步会话 |
+| 数据库查询（异步） | `async def` | asyncpg、AsyncSession |
+| 外部 HTTP 调用 | `async def` | httpx.AsyncClient |
+| 文件读写 | `async def` | aiofiles |
+| WebSocket | `async def` | 必须异步 |
+
+### 2. 响应模型规范
+
+- **始终定义 `response_model`**：过滤敏感字段（密码、内部 ID），控制输出格式
+- **输入输出模型分离**：`UserCreate`（输入）vs `UserResponse`（输出），各司其职
+- **使用 `status_code`**：明确指定创建返回 201、删除返回 204
+- **不要直接返回 ORM 对象**：通过 `response_model` 配合 `ConfigDict(from_attributes=True)` 转换
+
+### 3. 路由组织原则
+
+- 单一职责：一个 router 文件一个业务域
+- 版本控制：`/v1/`, `/v2/` 前缀隔离，避免破坏性变更影响旧客户端
+- prefix + tags 配合：`APIRouter(prefix="/users", tags=["用户管理"])`
+- 不要在根应用上堆积路由，超过 5 个端点即考虑拆分
+
+### 4. 参数验证
+
+- 所有路径参数用 `Path(...)` 显式声明约束（ge、le、gt、lt）
+- 查询参数用 `Query()` 设置默认值和约束
+- 善用 `description` 参数，它会直接出现在 OpenAPI 文档中
+
+## 反模式
+
+| ❌ 反模式 | ✅ 改进 |
+|-----------|---------|
+| `async def` 内调用 `time.sleep(5)` 或同步 `requests.get()` | 用 `await asyncio.sleep(5)` 或 `httpx.AsyncClient` |
+| 不写 `response_model`，直接返回 ORM 对象 | 定义 `UserResponse` 模型，设置 `from_attributes=True` |
+| 所有路由写在一个文件 | 按业务域拆分 router 文件，`app.include_router()` 注册 |
+| 类型注解写 `Any` 或省略 | 精确注解：`list[ItemResponse]`、`dict[str, int]` |
+| 路径参数不设置约束（`user_id: int`） | `user_id: int = Path(..., ge=1)` |
+| 返回 `{"status": "ok"}` 用 200 但实际创建了新资源 | `@app.post(..., status_code=201)` |
+| 多个相似的 `/items` 路由散落各处 | 用 `APIRouter(prefix="/items", tags=["商品管理"])`聚合 |
+
+## 何时选用什么
+
+| 需求 | 选用方案 |
+|------|---------|
+| 资源标识从 URL 提取 | 路径参数 `/{resource_id}` |
+| 过滤、分页、搜索 | 查询参数 `?status=pending&page=2` |
+| 创建/更新数据 | 请求体（Pydantic 模型） |
+| 控制返回字段 | `response_model` |
+| 访问原始请求信息 | `Request` 对象 |
+| 按模块分离路由 | `APIRouter` + `include_router` |
+| 文件上传 | `UploadFile` + `File()` |
+| 版本兼容 | `APIRouter(prefix="/v1")` + `APIRouter(prefix="/v2")` |
+
+---
+
+### L3 专家层：深入
 
 ## 第十部分：L3 专家层
 

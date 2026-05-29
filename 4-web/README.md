@@ -45,7 +45,7 @@ order: 1
 ```
 
 **学习建议：**
-- **完整学习**：Web 基础 → Flask 全 11 章 → FastAPI 全 12 章 → 安全专题
+- **完整学习**：Web 基础 → Flask 全 18 章 → FastAPI 全 12 章 → 安全专题
 - **只学 API 开发**：Web 基础 → FastAPI 路径 → 分页与过滤 → API 文档生成
 - **只学 Web 全栈**：Web 基础 → Flask 路径 → 再学 FastAPI
 - **复习者**：直接跳到实战项目章节，查漏补缺

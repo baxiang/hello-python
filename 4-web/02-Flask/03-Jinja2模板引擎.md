@@ -6,19 +6,11 @@
 
 ---
 
-## 第一部分：Jinja2 简介
+## 概念铺垫
 
-### 1.1 实际场景
+Jinja2 是 Flask 默认的模板引擎，是一个现代且设计师友好的 Python 模板语言。它将模板编译为 Python 代码后执行，支持自动 HTML 转义（防 XSS）、模板继承、宏、过滤器和沙盒渲染。
 
-你需要在 Web 应用中展示动态内容，比如显示用户姓名、文章列表、当前日期等。纯字符串拼接太繁琐。
-
-**问题：如何优雅地将数据渲染到 HTML 页面中？**
-
-### 1.2 概念说明
-
-Jinja2 是 Flask 默认的模板引擎，是一个现代且设计师友好的 Python 模板语言。
-
-### 1.3 配置 Jinja2
+Jinja2 配置：
 
 ```python
 from flask import Flask
@@ -46,7 +38,7 @@ app.jinja_env.filters["datetime"] = datetime_format
 
 ---
 
-## 第二部分：模板基础语法
+### L1 理解层：会用
 
 ### 2.1 实际场景
 
@@ -553,6 +545,41 @@ app.jinja_env.globals["markdown"] = markdown_to_html
 ```
 
 ---
+
+### L2 实践层：用好
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| 使用模板继承代替复制 HTML | DRY 原则，统一布局 | `{% extends "base.html" %}` |
+| 宏封装可复用片段 | 表单输入框、按钮等 | `{% macro input_field(...) %}` |
+| 自动转义防 XSS | Jinja2 默认转义 HTML | 模板中 `{{ user_input }}` 自动安全 |
+| 自定义过滤器组织业务逻辑 | 日期格式化、文本截断等复用 | `{{ created_at\|date_format }}` |
+| `super()` 继承父块内容 | 块内追加而非覆盖 | `{% block styles %}{{ super() }}{% endblock %}` |
+
+#### 反模式
+
+```html
+<!-- ❌ 错误：用户输入使用 |safe -->
+<p>{{ user_comment | safe }}</p>  <!-- XSS 漏洞！ -->
+
+<!-- ✅ 正确：自动转义 -->
+<p>{{ user_comment }}</p>
+
+<!-- ❌ 错误：每页重复头部/底部 -->
+<!-- ✅ 正确：使用 extends + block 继承 -->
+```
+
+#### 何时使用宏 vs include vs extends
+
+| 方式 | 适用场景 |
+|------|---------|
+| `{% extends %}` | 全页面布局继承（base.html → page.html） |
+| `{% include %}` | 嵌入独立组件片段（导航栏、页脚） |
+| `{% macro %}` | 带参数的可复用 UI 组件（表单项） |
+
+---
+
+### L3 专家层：深入
 
 ## 第九部分：L3 专家层 — 底层原理
 

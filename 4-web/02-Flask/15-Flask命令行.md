@@ -6,6 +6,12 @@
 
 ---
 
+## 概念铺垫
+
+Flask CLI 基于 [Click](https://click.palletsprojects.com/) 框架构建，提供命令树（Group → Command → Parameter）模型。核心流程：FlaskGroup 入口 → `load_dotenv()` 加载 .env → `locate_app()` 自动发现应用 → `ScriptInfo` 缓存应用信息 → 执行具体 Command.callback()。应用自动发现顺序：FLASK_APP 环境变量 → app.py → wsgi.py → app/__init__.py。通过 entry_points 机制可注册第三方扩展命令。
+
+---
+
 ## 第一部分：命令行基础（L1）
 
 ### 1.1 实际场景

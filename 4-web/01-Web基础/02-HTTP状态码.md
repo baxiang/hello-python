@@ -5,7 +5,7 @@
 
 ---
 
-## L1 理解层：会用
+## 概念铺垫
 
 ### 第一部分：状态码分类
 
@@ -49,56 +49,19 @@ HTTP 状态码是三位数字，第一位数字定义类别：
 
 ---
 
-### 第二部分：最常用状态码详解
+### 第二部分：最常用状态码语义
 
 #### 200 OK
 
-请求成功。服务器已处理请求并返回结果。
-
-```python
-# http_status_examples.py
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-
-app = FastAPI()
-
-@app.get("/api/users/{user_id}")
-async def get_user(user_id: int) -> JSONResponse:
-    """获取用户信息 — 成功时返回 200。"""
-    user = {"id": user_id, "name": "Alice", "email": "alice@example.com"}
-    return JSONResponse(status_code=200, content=user)
-```
+请求成功。服务器已处理请求并返回结果。适用于 GET/PUT/PATCH 操作成功时。
 
 #### 201 Created
 
-资源创建成功。通常配合 `Location` 头返回新资源的 URL。
-
-```python
-# http_status_examples.py（续）
-
-@app.post("/api/users")
-async def create_user(name: str, email: str) -> JSONResponse:
-    """创建用户 — 成功时返回 201。"""
-    new_user = {"id": 42, "name": name, "email": email}
-    return JSONResponse(
-        status_code=201,
-        content=new_user,
-        headers={"Location": f"/api/users/{new_user['id']}"},
-    )
-```
+资源创建成功。通常配合 `Location` 头返回新资源的 URL。适用于 POST 操作成功时。
 
 #### 204 No Content
 
-请求成功处理，但没有内容返回。常用于 DELETE 操作。
-
-```python
-# http_status_examples.py（续）
-
-@app.delete("/api/users/{user_id}")
-async def delete_user(user_id: int) -> JSONResponse:
-    """删除用户 — 成功时返回 204（无响应体）。"""
-    return JSONResponse(status_code=204, content=None)
-```
+请求成功处理，但没有内容返回。常用于 DELETE 操作，或无需返回数据的更新。
 
 #### 301 Moved Permanently vs 302 Found
 
@@ -127,28 +90,7 @@ async def delete_user(user_id: int) -> JSONResponse:
 
 #### 400 Bad Request
 
-请求格式有误，服务器无法解析。
-
-```python
-# http_status_examples.py（续）
-from pydantic import BaseModel, EmailStr, ValidationError
-
-class UserCreate(BaseModel):
-    name: str
-    email: EmailStr
-
-@app.post("/api/users/validate")
-async def create_user_validated(user_data: dict) -> JSONResponse:
-    """验证用户数据 — 格式错误返回 400。"""
-    try:
-        user = UserCreate(**user_data)
-        return JSONResponse(status_code=201, content=user.model_dump())
-    except ValidationError as e:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "请求数据格式错误", "details": e.errors()},
-        )
-```
+请求格式有误，服务器无法解析。比如 JSON 格式错误、字段类型不匹配、缺少必填字段。
 
 #### 401 Unauthorized vs 403 Forbidden
 
@@ -180,7 +122,90 @@ async def create_user_validated(user_data: dict) -> JSONResponse:
 
 #### 404 Not Found
 
-请求的资源不存在。
+请求的资源不存在。注意与查询无结果区分：资源不存在是 404，查询成功但无匹配结果应返回 200 + 空列表。
+
+#### 500 Internal Server Error
+
+服务器内部错误。通常是代码 bug、数据库连接失败、未捕获异常等。生产环境不应暴露详细错误信息。
+
+#### 502 vs 503
+
+| 状态码 | 含义 | 常见场景 |
+|--------|------|---------|
+| 502 | 网关/代理收到上游服务器的无效响应 | Nginx 后端服务崩溃、响应格式错误 |
+| 503 | 服务器暂时无法处理请求 | 维护模式、过载、限流 |
+
+---
+
+### L1 理解层：会用
+
+#### 示例1：返回 200 OK
+
+```python
+# http_status_examples.py
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+@app.get("/api/users/{user_id}")
+async def get_user(user_id: int) -> JSONResponse:
+    """获取用户信息 — 成功时返回 200。"""
+    user = {"id": user_id, "name": "Alice", "email": "alice@example.com"}
+    return JSONResponse(status_code=200, content=user)
+```
+
+#### 示例2：返回 201 Created
+
+```python
+# http_status_examples.py（续）
+
+@app.post("/api/users")
+async def create_user(name: str, email: str) -> JSONResponse:
+    """创建用户 — 成功时返回 201。"""
+    new_user = {"id": 42, "name": name, "email": email}
+    return JSONResponse(
+        status_code=201,
+        content=new_user,
+        headers={"Location": f"/api/users/{new_user['id']}"},
+    )
+```
+
+#### 示例3：返回 204 No Content
+
+```python
+# http_status_examples.py（续）
+
+@app.delete("/api/users/{user_id}")
+async def delete_user(user_id: int) -> JSONResponse:
+    """删除用户 — 成功时返回 204（无响应体）。"""
+    return JSONResponse(status_code=204, content=None)
+```
+
+#### 示例4：返回 400 Bad Request
+
+```python
+# http_status_examples.py（续）
+from pydantic import BaseModel, EmailStr, ValidationError
+
+class UserCreate(BaseModel):
+    name: str
+    email: EmailStr
+
+@app.post("/api/users/validate")
+async def create_user_validated(user_data: dict) -> JSONResponse:
+    """验证用户数据 — 格式错误返回 400。"""
+    try:
+        user = UserCreate(**user_data)
+        return JSONResponse(status_code=201, content=user.model_dump())
+    except ValidationError as e:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "请求数据格式错误", "details": e.errors()},
+        )
+```
+
+#### 示例5：返回 404 Not Found
 
 ```python
 # http_status_examples.py（续）
@@ -197,9 +222,7 @@ async def get_user_not_found(user_id: int) -> JSONResponse:
     return JSONResponse(status_code=200, content=user)
 ```
 
-#### 500 Internal Server Error
-
-服务器内部错误。通常是代码 bug、数据库连接失败等。
+#### 示例6：返回 500 Internal Server Error
 
 ```python
 # http_status_examples.py（续）
@@ -221,23 +244,16 @@ async def get_report(report_id: int) -> JSONResponse:
         )
 ```
 
-#### 502 vs 503
-
-| 状态码 | 含义 | 常见场景 |
-|--------|------|---------|
-| 502 | 网关/代理收到上游服务器的无效响应 | Nginx 后端服务崩溃、响应格式错误 |
-| 503 | 服务器暂时无法处理请求 | 维护模式、过载、限流 |
-
 ---
 
-## L2 实践层：用好
+### L2 实践层：用好
 
-### 第三部分：常见状态码误用
+#### 常见状态码误用
 
-#### 误用 1：404 vs 400
+##### 误用 1：404 vs 400
 
-| 场景 | 错误用法 | 正确用法 | 原因 |
-|------|---------|---------|------|
+| 场景 | ❌ 错误用法 | ✅ 正确用法 | 原因 |
+|------|-----------|-----------|------|
 | 请求参数格式错误 | `404` | `400` | 资源存在，只是请求数据不对 |
 | 请求的 URL 路径不存在 | `400` | `404` | 资源本身不存在 |
 | 查询条件过滤后无结果 | `404` | `200` + 空列表 | 查询成功，只是没有匹配数据 |
@@ -260,14 +276,17 @@ async def search_users(query: str, page: int = 1) -> JSONResponse:
     return JSONResponse(status_code=200, content={"data": results, "total": 0})
 ```
 
-#### 误用 2：301 vs 302
+##### 误用 2：301 vs 302
 
-| 场景 | 错误用法 | 正确用法 | 后果 |
-|------|---------|---------|------|
+| 场景 | ❌ 错误用法 | ✅ 正确用法 | 后果 |
+|------|-----------|-----------|------|
 | 临时维护页面 | `301` | `302` | 301 被浏览器缓存，维护结束后仍跳转 |
 | 永久更换域名 | `302` | `301` | 搜索引擎不传递权重，SEO 损失 |
 
-#### 误用 3：总是返回 200
+**何时用 301？** — 域名永久变更、URL 结构永久重构时。  
+**何时用 302？** — 临时跳转、A/B 测试、维护模式时。
+
+##### 误用 3：总是返回 200
 
 有些 API 在业务错误时也返回 200，在响应体中用 `code` 字段标识错误：
 
@@ -290,22 +309,20 @@ async def create_user_bad(user_data: dict) -> JSONResponse:
 - 缓存层（CDN、浏览器）无法正确缓存
 - 监控工具无法基于状态码告警
 
-### 反模式清单
+#### 反模式清单
 
-| 反模式 | 问题 | 正确做法 |
-|--------|------|---------|
-| **总返回 200** | 状态码失去意义 | 用 4xx/5xx 表达错误 |
-| **查询无结果返回 404** | 查询成功只是无匹配 | 返回 200 + 空列表 |
-| **401 和 403 混用** | 客户端无法区分处理 | 未认证 401，无权限 403 |
-| **301 用于临时跳转** | 浏览器永久缓存 | 临时跳改用 302/307 |
+| 反模式 | 问题 | ✅ 正确做法 | 适用场景 |
+|--------|------|-----------|---------|
+| **总返回 200** | 状态码失去意义 | 用 4xx/5xx 表达错误 | 所有 API 端点 |
+| **查询无结果返回 404** | 查询成功只是无匹配 | 返回 200 + 空列表 | 搜索/过滤/列表接口 |
+| **401 和 403 混用** | 客户端无法区分处理 | 未认证 401，无权限 403 | 认证与鉴权 |
+| **301 用于临时跳转** | 浏览器永久缓存 | 临时跳改用 302/307 | 维护页/AB测试 |
 
 ---
 
-## L3 专家层：深入
+### L3 专家层：深入
 
-### 第四部分：底层原理
-
-#### 状态码在 HTTP 响应中的位置
+#### 状态码解析流程
 
 ```
 HTTP 响应状态码的解析流程：
@@ -361,7 +378,7 @@ async def get_user_cached(user_id: int, request: Request) -> Response:
     )
 ```
 
-### 性能考量
+#### 性能考量
 
 | 状态码 | 响应体大小 | 缓存策略 | 说明 |
 |--------|-----------|---------|------|
@@ -373,7 +390,7 @@ async def get_user_cached(user_id: int, request: Request) -> Response:
 | 404 | 错误描述 | 可短期缓存 | 避免重复请求不存在资源 |
 | 500 | 错误描述 | 不可缓存 | 服务器需修复 |
 
-### 设计动机
+#### 设计动机
 
 **为什么有这么多状态码？**
 
@@ -384,7 +401,7 @@ async def get_user_cached(user_id: int, request: Request) -> Response:
 | 201 vs 200 | 创建成功应返回 201，客户端知道可以 GET 新资源 |
 | 401 vs 403 | 未认证 vs 无权限，客户端处理方式不同 |
 
-### 知识关联
+#### 知识关联
 
 ```
 HTTP 状态码知识关联：

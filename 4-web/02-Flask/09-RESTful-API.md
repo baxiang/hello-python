@@ -6,6 +6,16 @@
 
 ---
 
+## 概念铺垫
+
+REST（Representational State Transfer）是一种 Web API 设计风格。Flask-RESTful 基于 Flask 的 `MethodView`，通过 `Resource` 类将 HTTP 方法映射到类方法（`get()`/`post()`/`put()`/`delete()`）。Richardson 成熟度模型将 REST API 分为四级：Level 0（RPC）、Level 1（资源拆分）、Level 2（HTTP 动词+状态码）、Level 3（HATEOAS 超媒体驱动）。
+
+Flask-RESTful 提供 `reqparse`（请求参数解析验证）、`fields`（响应字段序列化），以及通过 Blueprint 实现 API 版本控制。
+
+---
+
+### L1 理解层：会用
+
 ## 第一部分：Flask-RESTful 简介
 
 ### 1.1 实际场景
@@ -305,6 +315,43 @@ app.register_blueprint(api_v2)
 ```
 
 ---
+
+### L2 实践层：用好
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| 统一错误响应格式 | 前端易解析 | `{"error":{"code":"...","message":"..."}}` |
+| 使用正确 HTTP 状态码 | 语义明确 | 201 Created、204 No Content、404 Not Found |
+| API 版本控制（URL 路径） | 向后兼容 | `/api/v1/articles`、`/api/v2/articles` |
+| `reqparse` 白名单验证 | 防止注入未预期字段 | `location="json"` + `required=True` |
+| `marshal_with` 序列化 | 控制输出字段 | 隐藏内部字段、格式化日期 |
+
+#### 反模式
+
+```python
+# ❌ 错误：POST 返回 200
+def post(self):
+    return {"created": article}, 200  # 应为 201
+
+# ✅ 正确：POST 返回 201 Created
+def post(self):
+    return article, 201
+
+# ❌ 错误：所有错误用 500
+abort(500, message="Not Found")  # 应为 404
+```
+
+#### REST 成熟度目标
+
+| 项目规模 | 建议目标 |
+|---------|---------|
+| 内部工具 API | Level 1-2 |
+| 公开 API | Level 2（最低）+ Level 3 可选项 |
+| 微服务间通信 | Level 1-2 足够 |
+
+---
+
+### L3 专家层：深入
 
 ## 第六部分：L3 专家层
 

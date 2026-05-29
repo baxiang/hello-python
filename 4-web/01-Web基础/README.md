@@ -3,7 +3,7 @@ order: 1
 ---
 
 
-# 01-Web基础
+# HTTP 协议、状态码与 RESTful 设计
 
 Web 基础是学习 Python Web 开发的起点，涵盖 HTTP 协议、RESTful API 设计等核心概念。
 

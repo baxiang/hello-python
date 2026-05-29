@@ -6,6 +6,31 @@
 
 ---
 
+## 概念铺垫
+
+WebSocket 通过 HTTP Upgrade 机制建立持久化的双向连接，协议从 HTTP/1.1 升级为 WebSocket（`ws://` 或加密 `wss://`），之后通过帧（Frame）进行数据交换。
+
+```
+HTTP 握手阶段：
+  Client ── GET /ws (Upgrade: websocket) ──→ Server
+  Client ←── 101 Switching Protocols ────── Server
+
+WebSocket 通信阶段：
+  Client ════ 帧 (Frame) ════ Server
+```
+
+**核心概念：**
+- **握手**：客户端发送 `Upgrade: websocket` 请求头，服务端验证并返回 `101` 状态码，此后使用 WebSocket 帧通信
+- **帧结构**：每个帧包含 FIN（分片标志）、Opcode（帧类型：文本/二进制/关闭/Ping/Pong）、MASK（客户端掩码 XOR）、Payload 数据
+- **Ping/Pong**：应用层心跳机制，Ping 帧 (0x9) 探测连接，Pong 帧 (0xA) 响应，与 TCP Keep-Alive 互补
+- **客户端掩码**：RFC 6455 规定客户端到服务端的帧必须用 4 字节密钥 XOR 编码，防止缓存污染攻击
+
+FastAPI 的 `WebSocket` 类封装了 ASGI websocket 协议：`accept()` 握手、`receive_text()`/`receive_bytes()` 接收、`send_text()`/`send_bytes()` 发送、`close()` 优雅关闭。
+
+---
+
+### L1 理解层：会用
+
 ## 第一部分：基础 WebSocket
 
 ### 1.1 实际场景
@@ -25,7 +50,7 @@ app: FastAPI = FastAPI()
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    
+
     try:
         while True:
             data: str = await websocket.receive_text()
@@ -66,17 +91,17 @@ from typing import List
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
-    
+
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
         self.active_connections.append(websocket)
-    
+
     def disconnect(self, websocket: WebSocket) -> None:
         self.active_connections.remove(websocket)
-    
+
     async def send_personal_message(self, message: str, websocket: WebSocket) -> None:
         await websocket.send_text(message)
-    
+
     async def broadcast(self, message: str) -> None:
         for connection in self.active_connections:
             await connection.send_text(message)
@@ -112,19 +137,19 @@ app: FastAPI = FastAPI()
 class ConnectionManager:
     def __init__(self):
         self.connections: Dict[str, WebSocket] = {}
-    
+
     async def connect(self, client_id: str, websocket: WebSocket) -> None:
         await websocket.accept()
         self.connections[client_id] = websocket
-    
+
     def disconnect(self, client_id: str) -> None:
         if client_id in self.connections:
             del self.connections[client_id]
-    
+
     async def send(self, client_id: str, message: str) -> None:
         if client_id in self.connections:
             await self.connections[client_id].send_text(message)
-    
+
     async def broadcast(self, message: str) -> None:
         for ws in self.connections.values():
             await ws.send_text(message)
@@ -140,7 +165,7 @@ async def websocket_endpoint(client_id: str, websocket: WebSocket):
         while True:
             data: str = await websocket.receive_text()
             message: dict = json.loads(data)
-            
+
             if message.get("type") == "broadcast":
                 await manager.broadcast(f"[{client_id}] {message.get('content')}")
             elif message.get("type") == "private":
@@ -159,6 +184,118 @@ def root() -> dict[str, str]:
 ```
 
 ---
+
+### L2 实践层：用好
+
+## 最佳实践
+
+### 1. 在 accept() 前认证
+
+```python
+@app.websocket("/ws")
+async def ws_endpoint(websocket: WebSocket, token: str = Query(...)):
+    # 在 accept 前验证 token
+    user = verify_token(token)
+    if not user:
+        await websocket.close(code=1008)  # Policy Violation
+        return
+
+    await websocket.accept()
+    # 后续通信...
+```
+
+**关键点**：`accept()` 之前可以拒绝连接，避免无效连接占用资源。使用查询参数传递 token（浏览器 WebSocket API 不支持自定义请求头）。
+
+### 2. 心跳保活
+
+```python
+import asyncio
+
+@app.websocket("/ws/{client_id}")
+async def ws_endpoint(client_id: str, websocket: WebSocket):
+    await websocket.accept()
+
+    async def heartbeat():
+        try:
+            while True:
+                await asyncio.sleep(30)
+                await websocket.send_json({"type": "ping"})
+        except Exception:
+            pass
+
+    task = asyncio.create_task(heartbeat())
+    try:
+        while True:
+            data = await websocket.receive_json()
+            if data.get("type") == "pong":
+                continue  # 心跳响应
+            # 处理业务消息...
+    except WebSocketDisconnect:
+        pass
+    finally:
+        task.cancel()
+```
+
+**为什么需要心跳**：Nginx 等反向代理有 `proxy_read_timeout`（默认 60s），空闲连接超时后会被断开。Ping/Pong 可保持应用层活跃。
+
+### 3. 连接管理器线程安全
+
+```python
+import asyncio
+
+class ConnectionManager:
+    def __init__(self):
+        self.connections: dict[str, WebSocket] = {}
+        self._lock = asyncio.Lock()
+
+    async def connect(self, client_id: str, websocket: WebSocket):
+        await websocket.accept()
+        async with self._lock:
+            self.connections[client_id] = websocket
+
+    async def disconnect(self, client_id: str):
+        async with self._lock:
+            self.connections.pop(client_id, None)
+
+    async def broadcast(self, message: str):
+        async with self._lock:
+            disconnected = []
+            for cid, ws in self.connections.items():
+                try:
+                    await ws.send_text(message)
+                except Exception:
+                    disconnected.append(cid)
+            for cid in disconnected:
+                self.connections.pop(cid, None)
+```
+
+## 反模式
+
+| ❌ 反模式 | ✅ 改进 |
+|-----------|---------|
+| accept 前不验证身份 | 在 accept 前验证 token，拒绝未授权连接 |
+| 无心跳机制，连接静默断开 | 30-60 秒间隔的 Ping/Pong 心跳 |
+| 广播时连接断开导致所有连接阻塞 | 广播时逐个 try/except，记录失败连接后移除 |
+| 在 ws handler 中执行同步阻塞操作 | 异步操作或用 `asyncio.to_thread()` |
+| 不处理 `WebSocketDisconnect` 异常 | 始终 try/except WebSocketDisconnect |
+| 生产环境使用 `ws://` | 使用 `wss://`（TLS 加密） |
+| 连接管理器无锁保护 | 使用 `asyncio.Lock` 防止并发修改 |
+
+## 何时选用什么
+
+| 需求 | 选用方案 |
+|------|---------|
+| 双向实时通信 | WebSocket |
+| 服务端单向推送（无需客户端响应） | SSE (Server-Sent Events) |
+| 低频更新（分钟级） | HTTP 轮询（最简单） |
+| 聊天应用、在线协作 | WebSocket + 连接管理器 |
+| 股票行情、体育比分 | WebSocket + 广播 |
+| 文件上传进度 | WebSocket + 二进制帧 |
+| 需要认证的 WebSocket | `Query(token=...)` + accept 前验证 |
+
+---
+
+### L3 专家层：深入
 
 ## 第四部分：L3 专家层
 
@@ -295,7 +432,7 @@ app: FastAPI = FastAPI()
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
-    
+
     # 启动心跳任务
     async def ping_loop() -> None:
         try:
@@ -304,9 +441,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 await websocket.send_bytes(b"")  # 触发 ASGI ping
         except Exception:
             pass
-    
+
     ping_task: asyncio.Task = asyncio.create_task(ping_loop())
-    
+
     try:
         while True:
             data: str = await websocket.receive_text()
