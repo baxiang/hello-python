@@ -4,20 +4,17 @@
 >
 > `asyncio` 是 Python 处理高并发 I/O 密集型任务的标准解决方案。它通过**单线程 + 事件循环**的机制，在不需要多线程锁的情况下，实现极高的并发性能。
 
----
+## 概念铺垫
 
-## L1 理解层：会用
+### 为什么需要 asyncio？
 
-## 1. 核心概念与模型
-
-### 1.1 为什么需要 asyncio？
 在传统的同步编程中，代码是阻塞的。例如网络请求发出后，线程会傻傻等待响应，期间什么也做不了。
 
 **多线程 vs 异步：**
 *   **多线程**：操作系统负责调度，切换成本高，且存在线程安全问题（锁、死锁）。
 *   **异步 (Asyncio)**：用户态（代码层面）主动让出控制权（协作式多任务）。**没有锁**，单线程内切换，效率极高。
 
-### 1.2 三大核心组件
+### 三大核心组件
 
 1.  **协程 (Coroutine)**：`async def` 定义的函数。它是一个可以暂停和恢复的计算过程。
 2.  **事件循环 (Event Loop)**：程序运行的核心引擎。它负责监听 IO 事件，并在任务间切换。
@@ -44,13 +41,32 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### 理解 Await 与挂起
+
+#### ❌ 误区：挂起 ≠ 阻塞
+*   **阻塞 (Blocking)**：像 `time.sleep()`。线程直接"卡死"，CPU 闲着，其他代码也跑不了。
+*   **挂起 (Suspending/Yielding)**：遇到 `await` 时，当前协程会**主动暂停**，并**把控制权交还给事件循环**。事件循环会立刻去执行队列里的其他任务。等待的事情办完了，事件循环再回来接着执行。
+
+#### 生活比喻：奶茶店点单
+1.  **阻塞 (Blocking)**：你在柜台前死等，店员叫后面的号你也听不见，队伍全堵死。（多线程模型）
+2.  **挂起 (Await)**：你点完单拿到小票（协程对象），去座位上玩手机（交出控制权）。奶茶做好了广播叫号（I/O 完成），你才起身去取（恢复执行）。
+
+### 什么是 Awaitable 对象？
+
+`await` 关键字后面**不能**随便跟一个整数、字符串或普通函数。它只能跟**"承诺未来会返回结果"**的对象（Awaitable 对象）。
+
+**只有这三类对象可以被 await：**
+1. **协程对象**：调用 `async def` 函数的返回值。
+2. **Task 对象**：由 `asyncio.create_task()` 创建。
+3. **Future 对象**：通常用于底层并发原语。
+
 ---
 
-## 2. 语法基础：Hello World 与避坑
+## 分层学习
 
-### 2.1 基本语法
+### L1 理解层：会用
 
-**asyncio三要素：** async、await、事件循环。
+#### 基本语法
 
 **asyncio三要素：** async、await、事件循环。
 
@@ -79,8 +95,6 @@ asyncio语法：
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 最简示例
-
 ```python
 # asyncio_hello_world.py
 import asyncio
@@ -98,8 +112,6 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-### 关键代码解释
-
 | 代码 | 含义 | 说明 |
 |------|------|------|
 | `async def` | 定义协程 | 函数返回协程对象 |
@@ -107,12 +119,9 @@ asyncio.run(main())
 | `asyncio.sleep()` | 异步睡眠 | 非阻塞等待 |
 | `asyncio.run()` | 运行协程 | 启动事件循环 |
 
----
+#### 致命陷阱：阻塞调用
 
-### 2.2 ⚠️ 致命陷阱：阻塞调用
 在 `async` 函数中，**绝对不能使用同步阻塞代码**（如 `time.sleep`, `requests.get`）。一旦阻塞，整个事件循环都会卡死，所有其他任务都无法运行。
-
-**对比实验：**
 
 ```python
 # blocking_vs_nonblocking.py
@@ -132,17 +141,7 @@ async def good_task(name: str) -> None:
     print(f"{name} 结束")
 ```
 
-### 2.3 核心机制：理解 Await 与挂起
-
-这是异步编程中最难理解，也是最重要的概念。
-
-#### ❌ 误区：挂起 ≠ 阻塞
-*   **阻塞 (Blocking)**：像 `time.sleep()`。线程直接“卡死”，CPU 闲着，其他代码也跑不了。
-*   **挂起 (Suspending/Yielding)**：遇到 `await` 时，当前协程会**主动暂停**，并**把控制权交还给事件循环**。事件循环会立刻去执行队列里的其他任务。等等待的事情办完了，事件循环再回来接着执行。
-
-#### 生活比喻：奶茶店点单
-1.  **阻塞 (Blocking)**：你在柜台前死等，店员叫后面的号你也听不见，队伍全堵死。（多线程模型）
-2.  **挂起 (Await)**：你点完单拿到小票（协程对象），去座位上玩手机（交出控制权）。奶茶做好了广播叫号（I/O 完成），你才起身去取（恢复执行）。
+#### 异步时间线示例
 
 ```python
 async def main():
@@ -154,16 +153,7 @@ async def main():
     # 只有等 2s 到了，循环才会回到这里继续执行
 ```
 
-### 2.4 什么是 Awaitable 对象？
-
-`await` 关键字后面**不能**随便跟一个整数、字符串或普通函数。它只能跟**“承诺未来会返回结果”**的对象（Awaitable 对象）。
-
-**只有这三类对象可以被 await：**
-1. **协程对象**：调用 `async def` 函数的返回值。
-2. **Task 对象**：由 `asyncio.create_task()` 创建。
-3. **Future 对象**：通常用于底层并发原语。
-
-**代码示例：**
+#### Awaitable 对象示例
 
 ```python
 # await_demo.py
@@ -185,30 +175,28 @@ async def main() -> None:
     # await sync_func() 
 ```
 
-### 2.5 ⚠️ 新手必踩：常见报错
+#### 常见报错
 
-#### 报错 1：`RuntimeWarning: coroutine 'xxx' was never awaited`
-**原因**：你调用了异步函数（比如 `fetch()`），但**忘记加 `await`**。Python 只是创建了一个协程对象，但并没有运行它。
-**解决**：加上 `await` 或者用 `asyncio.create_task()`。
+**报错 1：`RuntimeWarning: coroutine 'xxx' was never awaited`**
+原因：调用了异步函数但**忘记加 `await`**。Python 只是创建了一个协程对象，但并没有运行它。
+解决：加上 `await` 或者用 `asyncio.create_task()`。
 
 ```python
 # unawaited_coroutine_demo.py
-# 警告代码
 async def main() -> None:
     fetch()  # 警告！函数没执行
 ```
 
-#### 报错 2：`TypeError: object list can't be used in 'await' expression`
-**原因**：`await` 后面跟了一个不支持异步的对象（比如列表）。
-**解决**：检查你的返回值，确保调用的是异步函数，而不是已经计算好的结果。
+**报错 2：`TypeError: object list can't be used in 'await' expression`**
+原因：`await` 后面跟了一个不支持异步的对象（比如列表）。
+解决：检查你的返回值，确保调用的是异步函数。
 
 ---
 
-## L2 实践层：用好
+### L2 实践层：用好
 
-## 3. 进阶并发控制
+#### 并发执行：asyncio.gather
 
-### 3.1 并发执行：asyncio.gather
 当你需要同时运行多个任务并收集结果时，使用 `gather`。
 
 ```python
@@ -220,7 +208,7 @@ async def fetch_data(id: int) -> dict:
     return {"id": id, "status": "success"}
 
 async def main():
-    # 1. 并发执行所有任务，总耗时约 1 秒
+    # 并发执行所有任务，总耗时约 1 秒
     results = await asyncio.gather(
         fetch_data(1),
         fetch_data(2),
@@ -228,15 +216,15 @@ async def main():
     )
     print(f"结果：{results}")
 
-    # 2. 异常处理：return_exceptions=True
+    # 异常处理：return_exceptions=True
     # 默认情况下，一个任务报错，gather 会立即抛出异常并停止。
     # 设为 True 可以将异常作为返回值收集，保证其他任务继续。
-    # results = await asyncio.gather(..., return_exceptions=True)
 
 asyncio.run(main())
 ```
 
-### 3.2 任务调度：asyncio.create_task
+#### 任务调度：asyncio.create_task
+
 如果你希望任务在后台运行，或者需要更精细的控制（如取消任务、检查状态），使用 `create_task`。
 
 *   `gather` 关注的是**结果**。
@@ -253,24 +241,22 @@ async def background_work() -> int:
     return 42
 
 async def main() -> None:
-    # 立即将协程包装为 Task 并排入事件循环
     task = asyncio.create_task(background_work())
     
     print("主程序：任务已创建，继续做其他事...")
-    await asyncio.sleep(0.5)  # 模拟主程序耗时操作
+    await asyncio.sleep(0.5)
     
-    # 此时后台任务可能还在运行
     if not task.done():
         print("主程序：后台任务还没做完，先不等它了")
         
-    # 必须等待 task 完成，否则程序退出时任务会被取消
     result = await task 
     print(f"主程序：最终结果 {result}")
 
 asyncio.run(main())
 ```
 
-### 3.3 超时控制：asyncio.wait_for
+#### 超时控制：asyncio.wait_for
+
 防止某个任务卡死导致程序永远挂起。
 
 ```python
@@ -279,12 +265,11 @@ import asyncio
 
 async def slow_task() -> str:
     print("开始执行慢任务...")
-    await asyncio.sleep(10) # 模拟卡死
+    await asyncio.sleep(10)  # 模拟卡死
     return "Done"
 
 async def main() -> None:
     try:
-        # 最多等待 2 秒
         result = await asyncio.wait_for(slow_task(), timeout=2.0)
         print(result)
     except asyncio.TimeoutError:
@@ -293,7 +278,8 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-### 3.4 限制并发量：asyncio.Semaphore（实战必学）
+#### 限制并发量：asyncio.Semaphore
+
 如果你有成千上万个 URL 要爬，直接全部 `gather` 会打满带宽或被封 IP。使用信号量限制同时运行的任务数。
 
 ```python
@@ -301,10 +287,9 @@ asyncio.run(main())
 import asyncio
 import random
 
-sem = asyncio.Semaphore(3) # 最多允许 3 个并发
+sem = asyncio.Semaphore(3)  # 最多允许 3 个并发
 
 async def limited_task(task_id: int) -> None:
-    # 获取信号量（如果已满 3 个，则在此等待）
     async with sem:
         print(f"任务 {task_id} 开始执行 (当前并发受限)")
         await asyncio.sleep(random.uniform(0.5, 1.5))
@@ -317,7 +302,8 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-### 3.5 Python 3.11+ 新特性：TaskGroup (结构化并发)
+#### Python 3.11+ TaskGroup（结构化并发）
+
 在旧版本中，`gather` 有一个缺点：如果一个任务失败，它可能不会优雅地取消其他正在运行的任务。**TaskGroup** 引入了结构化并发，更安全。
 
 **优势**：
@@ -337,7 +323,6 @@ async def risky_task(name: str, fail: bool = False) -> str:
     return name
 
 async def main() -> None:
-    # 使用 TaskGroup
     async with asyncio.TaskGroup() as tg:
         task1 = tg.create_task(risky_task("Task-1"))
         task2 = tg.create_task(risky_task("Task-2", fail=True))  # 这个会报错
@@ -345,12 +330,12 @@ async def main() -> None:
 
     # 如果 Task-2 失败，整个 with 块会抛出 ValueError，
     # 并且 Task-1 和 Task-3 会被自动取消（如果还没完成）。
-    print(f"Task 1 result: {task1.result()}") 
 
 asyncio.run(main())
 ```
 
-### 3.6 拯救同步代码：run_in_executor
+#### 拯救同步代码：run_in_executor
+
 **场景**：你必须调用一个第三方库，但它只提供同步阻塞的 API（比如 `requests` 而不是 `aiohttp`，或者 CPU 密集型计算）。
 如果在 `async def` 里直接调用，会卡死整个程序。此时需要**线程池执行器**。
 
@@ -359,7 +344,6 @@ asyncio.run(main())
 import asyncio
 import time
 
-# 这是一个无法修改的同步阻塞函数
 def blocking_sync_code() -> str:
     print("阻塞中...")
     time.sleep(2)  # 这里的 sleep 是阻塞的
@@ -368,7 +352,6 @@ def blocking_sync_code() -> str:
 async def main() -> None:
     loop = asyncio.get_running_loop()
     
-    # 将同步函数扔进默认的线程池中运行，不会阻塞主循环
     result = await loop.run_in_executor(None, blocking_sync_code)
     print(result)
     
@@ -377,9 +360,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
----
-
-## 4. 架构模式：生产者-消费者模型
+#### 生产者-消费者模型
 
 使用 `asyncio.Queue` 在协程间安全地传递数据。这是构建异步爬虫、消息处理系统的核心模式。
 
@@ -393,8 +374,7 @@ async def producer(queue: asyncio.Queue[int]) -> None:
         await queue.put(i)  # 放入队列
         await asyncio.sleep(0.1)
     
-    # 放入结束标记
-    await queue.put(None)
+    await queue.put(None)  # 放入结束标记
 
 async def consumer(queue: asyncio.Queue[int]) -> None:
     while True:
@@ -408,11 +388,9 @@ async def consumer(queue: asyncio.Queue[int]) -> None:
 async def main() -> None:
     queue: asyncio.Queue[int] = asyncio.Queue(maxsize=10)
     
-    # 启动生产者和多个消费者
     await asyncio.gather(
         producer(queue),
         consumer(queue),
-        # 可以启动多个 consumer 实现并发消费
     )
 
 asyncio.run(main())
@@ -428,11 +406,7 @@ asyncio.run(main())
 | `await queue.put(None)` | 发送结束标记 | 用哨兵值 `None` 通知消费者"没有更多数据"，比 `Event` 标志更适合队列场景 |
 | `if item is None: break` | 收到哨兵值时退出循环 | 消费者检测到结束标记后退出，而不依赖外部 `stop_event`，逻辑自包含 |
 
----
-
-## 5. 异步迭代与上下文
-
-### 5.1 async for 与 async with
+#### 异步迭代与上下文
 
 ```python
 # async_iterator_demo.py
@@ -450,40 +424,26 @@ class AsyncIterator:
         if self.current >= self.count:
             raise StopAsyncIteration
         
-        await asyncio.sleep(0.1) # 模拟异步获取数据
+        await asyncio.sleep(0.1)  # 模拟异步获取数据
         self.current += 1
         return self.current
 
 async def main() -> None:
-    # 异步遍历
     async for item in AsyncIterator(3):
         print(f"获取到 item: {item}")
-
-    # 异步上下文管理器 (async with)
-    # 适用于 aiohttp 等需要优雅关闭连接的库
-    pass
 
 asyncio.run(main())
 ```
 
----
+#### 调试与异常处理
 
-## 6. 调试与异常处理
-
-### 6.1 开启调试模式
-异步代码报错往往只显示一行堆栈，很难定位。开启调试模式后，Python 会报告：
-*   **执行缓慢的回调**（谁阻塞了循环？）
-*   **未被 await 的协程**（内存泄漏警告）
-
-**开启方法：**
+**开启调试模式：**
 1.  **命令行运行**：`PYTHONASYNCIODEBUG=1 python main.py`
-2.  **代码开启**：
-    ```python
-    asyncio.run(main(), debug=True)
-    ```
+2.  **代码开启**：`asyncio.run(main(), debug=True)`
 
-### 6.2 后台任务的异常陷阱
-如果你使用 `create_task` 创建了后台任务，但**没有 `await` 它**，且任务中途报错，会发生什么？
+**后台任务的异常陷阱：**
+
+如果你使用 `create_task` 创建了后台任务，但**没有 `await` 它**，且任务中途报错：
 *   默认情况下，Python 会静默吞掉异常，只在程序退出时打印一个 `Task exception was never retrieved` 的警告。
 
 **解决方案：**
@@ -505,21 +465,14 @@ def handle_exception(task: asyncio.Task) -> None:
         print(f"捕获到后台任务异常: {task.exception()}")
 
 async def main() -> None:
-    # 创建任务
     task = asyncio.create_task(buggy_task())
-    
-    # 绑定异常处理回调
     task.add_done_callback(handle_exception)
-    
-    # 假装去忙别的事
     await asyncio.sleep(1)
 
 asyncio.run(main())
 ```
 
-### 6.3 优雅取消 (Graceful Shutdown)
-当收到 `SIGINT` (Ctrl+C) 时，如何确保数据库连接关闭、文件保存完成？
-使用 `asyncio.gather` 配合信号处理。
+#### 优雅取消
 
 ```python
 # graceful_shutdown_demo.py
@@ -529,7 +482,6 @@ import signal
 async def main() -> None:
     stop_event = asyncio.Event()
     
-    # 监听退出信号
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop_event.set)
@@ -537,16 +489,16 @@ async def main() -> None:
     print("运行中... 按 Ctrl+C 退出")
     await stop_event.wait()
     print("\n收到退出信号，正在清理资源...")
-    # 执行清理逻辑
 
 asyncio.run(main())
 ```
 
-### 6.4 异步安全锁 (asyncio.Lock)
-虽然 asyncio 是单线程的，但如果在 `await` 处交出控制权时，共享数据正处于“中间状态”，其他任务读取就会出错。
+#### 异步安全锁
+
+虽然 asyncio 是单线程的，但如果在 `await` 处交出控制权时，共享数据正处于"中间状态"，其他任务读取就会出错。
 此时需要**异步锁**。
 
-**⚠️ 警告**：千万不要在 async 代码中使用 `threading.Lock`，因为它会阻塞整个事件循环！
+**警告**：千万不要在 async 代码中使用 `threading.Lock`，因为它会阻塞整个事件循环！
 
 ```python
 # async_lock_demo.py
@@ -557,10 +509,8 @@ lock = asyncio.Lock()
 
 async def withdraw(amount: int) -> None:
     global balance
-    # 获取锁
     async with lock:
         if balance >= amount:
-            # 模拟耗时操作（此处交出控制权）
             await asyncio.sleep(0.1) 
             balance -= amount
             print(f"取款 {amount} 成功，余额: {balance}")
@@ -568,37 +518,53 @@ async def withdraw(amount: int) -> None:
             print("余额不足")
 
 async def main() -> None:
-    # 并发取款，Lock 保证数据安全
     await asyncio.gather(withdraw(50), withdraw(60))
 
 asyncio.run(main())
 ```
 
----
+#### 推荐做法表
 
-## L3 专家层：深入
+| 推荐做法 | 说明 | 为什么 |
+|----------|------|--------|
+| **绝不阻塞** | ❌ `time.sleep()`, `requests.get()` / ✅ `await asyncio.sleep()`, `aiohttp` | 一次阻塞卡死整个事件循环 |
+| **必须 Await** | 调用 async 函数必须加 `await` 或 `create_task` | 否则函数从未执行 |
+| **IO 密集用 async** | 网络、DB、文件 I/O 用 asyncio | CPU 密集应使用多进程 |
+| **限制并发量** | 使用 `asyncio.Semaphore` | 防止打满带宽或触发限流 |
+| **优先 TaskGroup** | Python 3.11+ 用 `TaskGroup` 替代 `gather` | 自动取消兄弟任务，防止资源泄漏 |
+| **绑定异常回调** | 用 `add_done_callback` 处理后台任务异常 | 默认异常被静默吞噬 |
 
-## 7. 最佳实践与原则
+#### 反模式对比
 
-### 7.1 异步编程三大铁律
-1.  **绝不阻塞 (Never Block)**：
-    *   ❌ `time.sleep()`, `requests.get()`, `input()`.
-    *   ✅ `await asyncio.sleep()`, `aiohttp`, `run_in_executor`.
-2.  **必须 Await (Always Await)**：
-    *   调用 async 函数必须加 `await` 或 `create_task`，否则它只是一个未执行的“尸体”对象。
-3.  **区分任务类型**：
-    *   🚀 **I/O 密集型**（网络、DB、文件）：**用 Asyncio**。
-    *   🧮 **CPU 密集型**（图像处理、加密、复杂计算）：**用 Multiprocessing**。Asyncio 无法加速 CPU 计算。
+| ❌ 反模式 | ✅ 正确做法 | 说明 |
+|-----------|------------|------|
+| **async 中用 `time.sleep()`** | `await asyncio.sleep()` | 同步阻塞卡死整个事件循环 |
+| **async 中用 `requests`** | `aiohttp` 或 `run_in_executor` | 同上 |
+| **忘记 `await` 协程** | 加 `await` 或 `create_task` | 协程从未执行，仅打印警告 |
+| **使用 `threading.Lock`** | 使用 `asyncio.Lock` | 同步锁阻塞事件循环 |
+| **不收集后台任务异常** | `add_done_callback` 或 `TaskGroup` | 异常被静默吞噬 |
 
-### 7.2 什么时候用 TaskGroup vs Gather？
+#### 适用场景表
+
+| 场景 | 推荐工具 | 说明 |
+|------|---------|------|
+| Web 爬虫（10000+ URL） | asyncio + aiohttp + Semaphore | 单线程处理上万个连接 |
+| Web API 服务器 | FastAPI / Sanic | 原生异步，高并发 |
+| 数据库批量查询 | asyncpg / SQLAlchemy async | 异步驱动，连接池复用 |
+| 消息消费 (Kafka/RabbitMQ) | asyncio.Queue + 消费者协程 | 生产者-消费者模型 |
+| CPU 密集型计算 | ❌ 不用 asyncio，改用多进程 | asyncio 无法加速 CPU 计算 |
+| 调用同步第三方库 | `loop.run_in_executor()` | 将同步代码移到线程池 |
+
+#### TaskGroup vs Gather
+
 *   **Gather**：适合"一荣俱荣"或需要收集所有结果（即使部分失败）。
 *   **TaskGroup**：适合"一损俱损"的场景。如果子任务失败，自动取消兄弟任务，防止资源浪费。推荐 Python 3.11+ 优先使用。
 
 ---
 
-## 8. L3 专家层 — 底层原理
+### L3 专家层：深入
 
-### 8.1 事件循环的 OS 级实现
+#### 事件循环的 OS 级实现原理图
 
 事件循环是对 OS **I/O 多路复用**机制的封装：
 
@@ -630,7 +596,7 @@ asyncio.run(main())
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 8.2 协程与生成器的关系
+#### 协程与生成器的关系
 
 `async def` 在字节码层面是基于 **生成器（generator）** 实现的：
 
@@ -644,7 +610,6 @@ Python 3.5+ 的 async def 是基于 yield from 的语法糖。
 """
 import asyncio
 
-# 等价关系：
 async def my_coro() -> str:
     await asyncio.sleep(1)
     return "done"
@@ -654,14 +619,13 @@ def my_generator():
     yield asyncio.sleep(1)  # 暂停点
     return "done"
 
-# 验证：协程是 GeneratorType 的子类
 import types
 coro = my_coro()
 print(isinstance(coro, types.CoroutineType))  # True
 coro.close()  # 记得清理
 ```
 
-### 8.3 性能考量
+#### 性能考量表
 
 | 操作 | 时间 | 说明 |
 |------|------|------|
@@ -679,7 +643,7 @@ coro.close()  # 记得清理
 | 多线程 | ~1000-3000 | ~10GB（每线程 ~1MB 栈） | ~1-10μs |
 | asyncio | ~100,000+ | ~50-100MB | ~0.5μs |
 
-### 8.4 设计动机
+#### 设计动机
 
 | Python 设计选择 | 原因 |
 |-----------------|------|
@@ -688,7 +652,7 @@ coro.close()  # 记得清理
 | `asyncio.run()` 单次调用 | 避免嵌套事件循环的复杂性 |
 | TaskGroup（3.11+） | 结构化并发，自动资源清理 |
 
-### 8.5 知识关联
+#### 知识关联图
 
 ```
 asyncio 知识关联：

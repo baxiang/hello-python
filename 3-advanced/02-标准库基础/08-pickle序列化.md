@@ -70,7 +70,7 @@ print(f"恢复后: {restored.name}, {restored.scores}")
 
 ---
 
-## pickle 概念铺垫
+## 概念铺垫
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -131,9 +131,9 @@ print(f"恢复后: {restored.name}, {restored.scores}")
 
 ---
 
-## L1 理解层：pickle 基础
+### L1 理解层：会用
 
-### 语法结构
+#### 语法结构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -163,7 +163,7 @@ print(f"恢复后: {restored.name}, {restored.scores}")
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 最简示例：序列化到字节
+#### 最简示例：序列化到字节
 
 ```python
 import pickle
@@ -188,7 +188,7 @@ print(f"原始 == 恢复: {data == restored}")
 原始 == 恢复: True
 ```
 
-### 最简示例：序列化到文件
+#### 最简示例：序列化到文件
 
 ```python
 import pickle
@@ -221,7 +221,7 @@ print(f"恢复: {restored}")
 | `"wb"` | 写入二进制模式 |
 | `"rb"` | 读取二进制模式 |
 
-### 详细示例：序列化自定义类
+#### 详细示例：序列化自定义类
 
 ```python
 import pickle
@@ -230,10 +230,10 @@ class User:
     def __init__(self, name: str, scores: list[int]) -> None:
         self.name = name
         self.scores = scores
-    
+
     def average(self) -> float:
         return sum(self.scores) / len(self.scores)
-    
+
     def __repr__(self) -> str:
         return f"User({self.name}, avg={self.average()})"
 
@@ -261,7 +261,7 @@ print(f"平均分: {restored.average()}")
 - 方法（如 average）不会被序列化
 - 类定义必须在加载时可用
 
-### 详细示例：嵌套对象
+#### 详细示例：嵌套对象
 
 ```python
 import pickle
@@ -305,11 +305,21 @@ for course in restored.courses:
 
 ---
 
-## L2 实践层：pickle 应用
+### L2 实践层：用好
 
-### 实际应用场景
+#### 推荐做法
 
-#### 场景1：机器学习模型保存
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| **只序列化可信数据** | pickle 有安全风险 | 内部数据存储 |
+| **用最高协议版本** | 性能更好，功能更多 | `protocol=pickle.HIGHEST_PROTOCOL` |
+| **二进制模式打开文件** | pickle 输出二进制 | `"wb"` / `"rb"` |
+| **加载时类定义可用** | pickle 不存储类定义 | 确保类已导入 |
+| **用 try-except 处理 EOFError** | 批量读取需要 | `except EOFError: break` |
+
+#### 实际应用场景
+
+##### 场景1：机器学习模型保存
 
 ```python
 import pickle
@@ -318,11 +328,11 @@ class SimpleModel:
     def __init__(self) -> None:
         self.weights: list[float] = []
         self.trained: bool = False
-    
+
     def train(self, data: list[float]) -> None:
         self.weights = [d * 0.5 for d in data]
         self.trained = True
-    
+
     def predict(self, x: float) -> float:
         if not self.trained:
             return 0.0
@@ -348,7 +358,7 @@ print(f"加载后预测: {loaded_model.predict(5.0)}")
 加载后预测: 12.5
 ```
 
-#### 场景2：游戏状态保存
+##### 场景2：游戏状态保存
 
 ```python
 import pickle
@@ -359,11 +369,11 @@ class GameState:
         self.score: int = 0
         self.inventory: list[str] = []
         self.position: tuple[int, int] = (0, 0)
-    
+
     def save(self, filename: str) -> None:
         with open(filename, "wb") as f:
             pickle.dump(self, f)
-    
+
     def load(self, filename: str) -> None:
         with open(filename, "rb") as f:
             data = pickle.load(f)
@@ -386,7 +396,7 @@ print(f"等级: {new_game.level}, 分数: {new_game.score}")
 print(f"装备: {new_game.inventory}")
 ```
 
-#### 场景3：批量对象保存
+##### 场景3：批量对象保存
 
 ```python
 import pickle
@@ -429,19 +439,9 @@ for user in restored_users:
 - 连续 load 直到 EOFError
 - 适合批量数据存储
 
-### 推荐做法
+#### 反模式：不要这样做
 
-| 做法 | 原因 | 示例 |
-|------|------|------|
-| **只序列化可信数据** | pickle 有安全风险 | 内部数据存储 |
-| **用最高协议版本** | 性能更好，功能更多 | `protocol=pickle.HIGHEST_PROTOCOL` |
-| **二进制模式打开文件** | pickle 输出二进制 | `"wb"` / `"rb"` |
-| **加载时类定义可用** | pickle 不存储类定义 | 确保类已导入 |
-| **用 try-except 处理 EOFError** | 批量读取需要 | `except EOFError: break` |
-
-### 反模式：不要这样做
-
-#### 错误1：加载不可信的 pickle 文件
+##### 错误1：加载不可信的 pickle 文件
 
 ```python
 import pickle
@@ -472,7 +472,7 @@ data = json.load(response)
 - 使用 JSON 等安全格式处理外部数据
 - 只用 pickle 处理内部可信数据
 
-#### 错误2：忘记二进制模式
+##### 错误2：忘记二进制模式
 
 ```python
 import pickle
@@ -496,7 +496,7 @@ with open("data.pkl", "wb") as f:  # ✅ 二进制模式
     pickle.dump(data, f)
 ```
 
-#### 错误3：加载时类定义不可用
+##### 错误3：加载时类定义不可用
 
 ```python
 import pickle
@@ -521,7 +521,7 @@ serialized = pickle.dumps(SomeClass())
 obj = pickle.loads(serialized)
 ```
 
-### pickle vs JSON 选择
+#### pickle vs JSON 选择
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -554,7 +554,7 @@ obj = pickle.loads(serialized)
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 适用场景
+#### 适用场景
 
 | 场景 | 是否推荐 pickle | 原因 |
 |------|----------------|------|
@@ -567,116 +567,152 @@ obj = pickle.loads(serialized)
 
 ---
 
-## L3 专家层：pickle 原理
+### L3 专家层：深入
 
-### pickle 协议版本
+#### Python 如何实现
+
+pickle 模块在 CPython 中由纯 Python 的 `Lib/pickle.py`（约 1600 行）和 C 扩展 `_pickle`（`Modules/_pickle.c`，约 6000 行）共同实现。C 扩展负责核心序列化/反序列化引擎，Python 层定义类型分发和自定义逻辑。
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│          pickle 实现架构                                     │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   pickle.py (Python)               _pickle.c (C)             │
+│   ─────────────────               ─────────────              │
+│   class Pickler:                   Pickler 类型              │
+│     dump(obj)              →        save(obj)                │
+│     └── save_reduce(func,args)→    批处理 reduce 调用        │
+│     └── save_xxx() 分发器   →       各类 save_xxx C 函数     │
+│                                                              │
+│   class Unpickler:                 Unpickler 类型            │
+│     load()                  →        load()                  │
+│     └── load_xxx() 分发器   →       各类 load_xxx C 函数     │
+│     └── find_class()       →       (纯 Python 回调)          │
+│                                                              │
+│   __reduce__ / __reduce_ex__ 协议：                           │
+│   · pickle 调用对象的 __reduce_ex__() 获取重建信息            │
+│   · 返回 (callable, args[, state[, listitems[, dictitems]]]) │
+│   · callable(*args) 重新创建对象                              │
+│   · state 用于 __setstate__ 或直接更新 __dict__               │
+│                                                              │
+│   协议版本差异（二进制格式）：                                 │
+│   Protocol 0: ASCII 文本，每个 opcode 一个字符，最大          │
+│   Protocol 1: 二进制，减少 opcode                              │
+│   Protocol 2: 新式类优化，__new__ 支持                        │
+│   Protocol 3: bytes 对象，Python 3 专用                       │
+│   Protocol 4: 大对象，memo 优化，framing                      │
+│   Protocol 5: 带外数据（out-of-band buffer），零拷贝          │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ```python
+# 验证：pickle 的 C 加速
 import pickle
 
-print(f"最高协议: {pickle.HIGHEST_PROTOCOL}")
-print(f"默认协议: {pickle.DEFAULT_PROTOCOL}")
+# _pickle 是 C 加速模块
+import _pickle
+print(f"C 扩展可用: {'_pickle' in dir(pickle)}")
 
-data = {"name": "张三", "scores": [85, 90]}
+# 默认使用 C 实现（Pickler/Unpickler）
+p = pickle.Pickler(None)
+print(f"Pickler 类型: {type(p)}")  # <class '_pickle.Pickler'>
 
-for protocol in range(pickle.HIGHEST_PROTOCOL + 1):
-    serialized = pickle.dumps(data, protocol=protocol)
-    print(f"Protocol {protocol}: {len(serialized)} bytes")
+# 可以强制使用纯 Python 实现
+import pickle as py_pickle_module
+# 实际上 pickle.py 内有 _Pickler/_Unpickler 纯 Python 版本
 ```
-
-**运行结果：**
-
-```
-最高协议: 5
-默认协议: 4
-Protocol 0: 54 bytes
-Protocol 1: 38 bytes
-Protocol 2: 37 bytes
-Protocol 3: 37 bytes
-Protocol 4: 37 bytes
-Protocol 5: 37 bytes
-```
-
-**说明：**
-- Protocol 0 是 ASCII，体积大
-- Protocol 1+ 是二进制，体积小
-- Python 3.8+ 最高支持 Protocol 5
-
-### 自定义序列化行为
 
 ```python
+# 验证：协议版本与输出大小
 import pickle
 
-class SecretData:
-    def __init__(self, public: str, secret: str) -> None:
-        self.public = public
-        self.__secret = secret
-    
-    def __getstate__(self) -> dict:
-        state = self.__dict__.copy()
-        state["_secret"] = "REDACTED"
-        return state
-    
-    def __setstate__(self, state: dict) -> None:
-        self.__dict__.update(state)
-        self.__secret = state.get("_secret", "")
+data = {
+    "name": "张三",
+    "scores": list(range(100)),
+    "nested": {"key": "value"}
+}
 
-data = SecretData("公开数据", "机密信息")
-print(f"原始: public={data.public}, secret={data.__secret}")
+for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+    serialized = pickle.dumps(data, protocol=proto)
+    print(f"Protocol {proto}: {len(serialized):>4} bytes")
+# Protocol 0 最大（ASCII），Protocol 1+ 显著缩小
+# Protocol 5 支持 "out-of-band data" 零拷贝传输
 
-serialized = pickle.dumps(data)
-restored = pickle.loads(serialized)
-print(f"恢复: public={restored.public}, secret={restored.__secret}")
+print(f"当前默认协议: {pickle.DEFAULT_PROTOCOL}")
+print(f"最高可用协议: {pickle.HIGHEST_PROTOCOL}")
 ```
 
-**运行结果：**
+#### 安全风险详解
 
 ```
-原始: public=公开数据, secret=机密信息
-恢复: public=公开数据, secret=REDACTED
+┌─────────────────────────────────────────────────────────────┐
+│          pickle 安全风险                                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ⚠️ pickle 可以执行任意代码                                 │
+│  ─────────────────────────────────────────────              │
+│                                                             │
+│  恶意 pickle 文件示例（不要运行！）：                        │
+│                                                             │
+│  import pickle                                              │
+│  import os                                                  │
+│                                                             │
+│  class Exploit:                                             │
+│      def __reduce__(self):                                  │
+│          return (os.system, ('rm -rf /',))                  │
+│                                                             │
+│  # 序列化恶意对象                                           │
+│  malicious = pickle.dumps(Exploit())                        │
+│                                                             │
+│  # 加载时会执行 rm -rf /                                    │
+│  pickle.loads(malicious)                                    │
+│                                                             │
+│  原理：                                                      │
+│  ─────────────────────────────────────────────              │
+│  • __reduce__ 返回 (函数, 参数)                             │
+│  • pickle.loads 调用 函数(参数)                             │
+│  • 可以执行任意系统命令                                     │
+│                                                             │
+│  防护措施：                                                  │
+│  ─────────────────────────────────────────────              │
+│  1. 只加载可信来源的 pickle                                 │
+│  2. 外部数据用 JSON                                         │
+│  3. 考虑使用 pickletools 检查内容                           │
+│  4. 使用 hmac 验证签名                                      │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
-
-**说明：**
-- `__getstate__` 控制序列化时存储的内容
-- `__setstate__` 控制反序列化时恢复的逻辑
-- 可以过滤敏感数据
-
-### 循环引用处理
 
 ```python
+# 验证：__reduce_ex__ 协议
 import pickle
 
-a = []
-a.append(a)
+class DemoReduce:
+    def __init__(self, value):
+        self.value = value
 
-print(f"a[0] is a: {a[0] is a}")
+    def __reduce_ex__(self, protocol):
+        # 返回重建信息：(callable, args, state)
+        return (self.__class__, (self.value,), self.__dict__)
 
-serialized = pickle.dumps(a)
-restored = pickle.loads(serialized)
-
-print(f"restored[0] is restored: {restored[0] is restored}")
+obj = DemoReduce(42)
+data = pickle.dumps(obj)
+restored = pickle.loads(data)
+print(f"恢复: value={restored.value}")  # value=42
 ```
 
-**运行结果：**
+#### 性能考量
 
-```
-a[0] is a: True
-restored[0] is restored: True
-```
-
-**说明：**
-- pickle 正确处理循环引用
-- 使用 memo dict 记录已序列化的对象
-- 避免无限递归
-
-### 性能考量
-
-| 操作 | 时间复杂度 | 说明 |
-|------|-----------|------|
-| `pickle.dumps` | O(n) | n = 对象大小 |
+| 操作 | 复杂度 | 说明 |
+|------|--------|------|
+| `pickle.dumps` | O(n) | n = 对象大小（序列化所有属性） |
 | `pickle.loads` | O(n) | n = 字节大小 |
 | `pickle.dump` | O(n) | 写入文件 |
 | `pickle.load` | O(n) | 读取文件 |
+| `pickle.dumps` Protocol 0 | O(n) | ASCII 输出，体积最大 |
+| `pickle.dumps` Protocol 5 | O(n) | 二进制，支持 out-of-band |
 
 **pickle vs JSON 性能对比：**
 
@@ -724,48 +760,74 @@ JSON 反序列化: 0.0004s
 - pickle 序列化更快
 - pickle 反序列化更快
 
-### 安全风险详解
+#### 循环引用处理
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│          pickle 安全风险                                     │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ⚠️ pickle 可以执行任意代码                                 │
-│  ─────────────────────────────────────────────              │
-│                                                             │
-│  恶意 pickle 文件示例（不要运行！）：                        │
-│                                                             │
-│  import pickle                                              │
-│  import os                                                  │
-│                                                             │
-│  class Exploit:                                             │
-│      def __reduce__(self):                                  │
-│          return (os.system, ('rm -rf /',))                  │
-│                                                             │
-│  # 序列化恶意对象                                           │
-│  malicious = pickle.dumps(Exploit())                        │
-│                                                             │
-│  # 加载时会执行 rm -rf /                                    │
-│  pickle.loads(malicious)                                    │
-│                                                             │
-│  原理：                                                      │
-│  ─────────────────────────────────────────────              │
-│  • __reduce__ 返回 (函数, 参数)                             │
-│  • pickle.loads 调用 函数(参数)                             │
-│  • 可以执行任意系统命令                                     │
-│                                                             │
-│  防护措施：                                                  │
-│  ─────────────────────────────────────────────              │
-│  1. 只加载可信来源的 pickle                                 │
-│  2. 外部数据用 JSON                                         │
-│  3. 考虑使用 pickletools 检查内容                           │
-│  4. 使用 hmac 验证签名                                      │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```python
+import pickle
+
+a = []
+a.append(a)
+
+print(f"a[0] is a: {a[0] is a}")
+
+serialized = pickle.dumps(a)
+restored = pickle.loads(serialized)
+
+print(f"restored[0] is restored: {restored[0] is restored}")
 ```
 
-### 设计动机
+**运行结果：**
+
+```
+a[0] is a: True
+restored[0] is restored: True
+```
+
+**说明：**
+- pickle 正确处理循环引用
+- 使用 memo dict 记录已序列化的对象
+- 避免无限递归
+
+#### 自定义序列化行为
+
+```python
+import pickle
+
+class SecretData:
+    def __init__(self, public: str, secret: str) -> None:
+        self.public = public
+        self.__secret = secret
+
+    def __getstate__(self) -> dict:
+        state = self.__dict__.copy()
+        state["_secret"] = "REDACTED"
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        self.__dict__.update(state)
+        self.__secret = state.get("_secret", "")
+
+data = SecretData("公开数据", "机密信息")
+print(f"原始: public={data.public}, secret={data.__secret}")
+
+serialized = pickle.dumps(data)
+restored = pickle.loads(serialized)
+print(f"恢复: public={restored.public}, secret={restored.__secret}")
+```
+
+**运行结果：**
+
+```
+原始: public=公开数据, secret=机密信息
+恢复: public=公开数据, secret=REDACTED
+```
+
+**说明：**
+- `__getstate__` 控制序列化时存储的内容
+- `__setstate__` 控制反序列化时恢复的逻辑
+- 可以过滤敏感数据
+
+#### 设计动机
 
 | 设计选择 | 原因 |
 |----------|------|
@@ -775,7 +837,7 @@ JSON 反序列化: 0.0004s
 | __reduce__ 机制 | 支持复杂对象重建 |
 | 协议版本演进 | 支持新特性，保持兼容 |
 
-### 知识关联
+#### 知识关联
 
 ```
 知识关联图：
@@ -795,6 +857,36 @@ JSON 反序列化: 0.0004s
 │   安全风险      │     │   循环引用      │
 │   __reduce__    │     │   memo dict     │
 └─────────────────┘     └─────────────────┘
+```
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│          pickle 协议版本与对象重建流程                         │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   pickle.loads(bytes) 执行流程：                              │
+│                                                              │
+│   bytes → Unpickler → 逐 opcode 解析 → 调用栈重建             │
+│                                                              │
+│   opcode 类型：                                              │
+│   · GLOBAL  → 查找全局名称 (module.class)                    │
+│   · REDUCE  → 调用 callable(*args) 创建对象                  │
+│   · BUILD   → 调用 __setstate__ 或更新 __dict__              │
+│   · MARK    → 标记栈顶位置（用于批次操作）                    │
+│   · PUT/GET → memo dict 存取（处理引用和循环）                │
+│                                                              │
+│   安全风险核心：                                              │
+│   GLOBAL + REDUCE = 可调用任意 Python 函数                    │
+│   · pickle 本身不执行代码 — 但 __reduce__ 返回的函数会执行    │
+│   · 这就是为什么 "不要 unpickle 不信任的数据"                 │
+│   · 替代方案：pickletools.dis() 检查 pickle 内容             │
+│   · 或用 hmac 签名确保数据未被篡改                            │
+│                                                              │
+│   find_class() 安全钩子：                                     │
+│   · Unpickler.find_class(module, name) → 返回类对象          │
+│   · 覆盖此方法可限制允许加载的类（白名单）                    │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -834,3 +926,4 @@ JSON 反序列化: 0.0004s
 - PEP 307：Extensions to the pickle protocol
 - pickletools：检查和分析 pickle 文件
 - shelve：基于 pickle 的持久化字典
+```

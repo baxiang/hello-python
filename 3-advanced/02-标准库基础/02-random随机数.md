@@ -28,19 +28,38 @@ token = secrets.token_urlsafe(16)           # 密码学安全的随机字符串
 
 ---
 
-## 章节导航
+## 概念铺垫
 
-| 部分 | 内容 |
-|------|------|
-| 第一部分 | 随机整数、随机浮点数 |
-| 第二部分 | 随机选择、打乱顺序 |
-| 第三部分 | 随机分布（均匀/正态/其他） |
-| 第四部分 | 随机种子与可复现性 |
-| 第五部分 | 实际应用（密码/抽奖/颜色/骰子） |
-| 第六部分 | 安全随机数（secrets 模块） |
-| L2 实践层 | 推荐做法、反模式、常见陷阱、适用场景 |
+`random` 模块的核心是 **Mersenne Twister（梅森旋转）** 算法——一个基于矩阵线性递归的伪随机数生成器（PRNG），周期长达 2^19937-1。
 
----
+```
+┌──────────────────────────────────────────────────────────────┐
+│           Mersenne Twister 算法原理                           │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   状态数组 state[624]  每个元素 32 bit                        │
+│                                                              │
+│   生成过程：                                                  │
+│   1. 初始化：seed → 生成 624 个状态字                         │
+│   2. 每次调用：从 state 取一个字，进行"回火"变换               │
+│   3. 用完 624 个字后，执行"扭转"生成下一批 624 个字             │
+│                                                              │
+│   回火变换（tempering）：确保输出均匀分布                      │
+│   y = state[i]                                               │
+│   y ^= (y >> 11)                                             │
+│   y ^= (y << 7) & 0x9D2C5680                                 │
+│   y ^= (y << 15) & 0xEFC60000                                │
+│   y ^= (y >> 18)                                             │
+│                                                              │
+│   重要特性：                                                  │
+│   · 确定性：相同 seed → 相同序列                              │
+│   · 周期长：~4.3×10^6001 次调用后才循环                       │
+│   · 非密码学安全：观察 624 个连续输出可恢复完整状态            │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### L1 理解层：会用
 
 ## 第一部分：基本随机数生成
 
@@ -158,7 +177,7 @@ import random
 values: list[float] = [random.gauss(0, 1) for _ in range(5)]
 print(values)  # 接近标准正态分布
 
-# 另一种写法
+# 另一种写法（行为相同）
 values_alt: list[float] = [random.normalvariate(0, 1) for _ in range(5)]
 ```
 
@@ -325,9 +344,9 @@ token_hex: str = secrets.token_hex(16)
 
 ---
 
-## L2 实践层：最佳实践
+### L2 实践层：用好
 
-### 推荐做法
+#### 推荐做法
 
 | 做法 | 原因 | 示例 |
 |------|------|------|
@@ -337,7 +356,7 @@ token_hex: str = secrets.token_hex(16)
 | 带权重抽样用 `choices(weights=...)` | 模拟概率不等的抽奖、A/B 测试 | `random.choices(lst, weights=[60,30,10])` |
 | 生产代码避免在模块顶层调用 `random.seed()` | 会影响整个程序的随机状态 | 测试中局部设置 |
 
-### 实际应用示例
+#### 实际应用示例
 
 ```python
 import random
@@ -356,7 +375,7 @@ rng = random.Random(42)        # 使用独立的 Random 实例，不影响全局
 test_data = [rng.randint(1, 100) for _ in range(10)]
 ```
 
-### 反模式：不要这样做
+#### 反模式：不要这样做
 
 ```python
 # ❌ 密码/令牌用 random
@@ -381,7 +400,7 @@ import random
 random.seed(42)              # 会让所有依赖 random 的代码都变成伪随机
 ```
 
-### 常见陷阱
+#### 常见陷阱
 
 | 陷阱 | 现象 | 解决方案 |
 |------|------|---------|
@@ -391,7 +410,7 @@ random.seed(42)              # 会让所有依赖 random 的代码都变成伪�
 | `shuffle` 修改原列表 | 原始数据丢失 | 先 `copy = lst[:]`，再 `shuffle(copy)` |
 | 全局 seed 污染 | 一处设了 seed，影响其他模块随机行为 | 用 `random.Random(seed)` 创建独立实例 |
 
-### 适用场景
+#### 适用场景
 
 | 场景 | 推荐模块 | 说明 |
 |------|---------|------|
@@ -399,6 +418,139 @@ random.seed(42)              # 会让所有依赖 random 的代码都变成伪�
 | 统计分布模拟 | `random` | 内置正态、指数等分布 |
 | 密码、令牌、会话 ID | `secrets` | 密码学安全 |
 | 大规模数值模拟 | `numpy.random` | 批量生成，速度快 100 倍 |
+
+---
+
+### L3 专家层：深入
+
+#### Python 如何实现
+
+`random` 模块在 CPython 中由两部分组成：纯 Python 的 `random.py`（算法逻辑）和 C 扩展的 `_random` 模块（Mersenne Twister 核心，位于 `Modules/_randommodule.c`）。
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│            random 模块实现架构                                │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   random.py (Python)                _random.c (C)            │
+│   ─────────────────                ─────────────             │
+│   random.seed(42)          →        init_genrand(seed)       │
+│   random.random()          →        genrand_res53()          │
+│   random.randint(a,b)      →        randint_impl()           │
+│   random.shuffle(seq)      →        Fisher-Yates (Python)    │
+│                                                              │
+│   C 实现的核心优势：                                          │
+│   · 状态数组在 C 内存中，无 Python 对象开销                    │
+│   · genrand_res53() 在 C 层合并两个 32 位随机数               │
+│       生成 53 位精度的 double（对应 IEEE 754 尾数）            │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+```python
+# 验证：查看 random 的内部状态
+import random
+
+r = random.Random()
+state = r.getstate()
+print(f"状态类型: {type(state)}")
+print(f"状态长度: {len(state)}")  # 元组 (版本, 内部元组, gauss_next)
+# MT 状态: 624 个 32 位整数
+mt_state = state[1]
+print(f"MT 数组长度: {len(mt_state)}")  # 625 (624 + index)
+
+# 种子如何影响状态：seed(0) vs seed(1)
+r0 = random.Random(0)
+r1 = random.Random(1)
+s0 = r0.getstate()[1]
+s1 = r1.getstate()[1]
+# 相邻种子产生完全不同的状态序列
+print(f"seed(0) 第一个状态字: {s0[0]}")  # 完全不同的值
+print(f"seed(1) 第一个状态字: {s1[0]}")  # 完全不同的值
+```
+
+```python
+# 验证：Mersenne Twister 安全性弱点
+# 观察 624 个连续的 32 位输出可恢复状态
+import random
+
+# random.random() 底层调用 genrand_res53()：
+#   用 2 个连续的 32 位 MT 输出构造 53 位浮点数
+# 所以 624 次 random.random() 消耗 1248 个 MT 状态字
+
+# 非安全场景的正确做法：
+# random 用于模拟测试，secrets 用于安全场景
+import secrets, os
+
+# secrets 模块使用 os.urandom()（底层 /dev/urandom 或 CryptGenRandom）
+print(f"secrets 熵源: {os.urandom(16).hex()}")
+
+# 验证 secrets 不使用 MT 算法
+s = secrets.randbits(256)
+print(f"secrets 256位随机数: {s:#x}")
+```
+
+#### 性能考量
+
+| 操作 | 复杂度 | 说明 |
+|------|--------|------|
+| `random.random()` | O(1) | 单次 MT 回火操作，极快 |
+| `random.randint(a, b)` | O(1) | 先调用 random()，再映射到 [a,b] |
+| `random.choice(seq)` | O(1) | 一次 random() + 索引 |
+| `random.sample(seq, k)` | O(k + k*(N-k)/N) | 蓄水池抽样算法 |
+| `random.shuffle(seq)` | O(n) | Fisher-Yates 算法，n 次交换 |
+| `random.seed(n)` | O(625) | 初始化 624 字状态数组 |
+| `random.Random(n)` (新实例) | O(625) | 独立状态，无全局污染 |
+
+```python
+# 验证性能：独立 Random 实例 vs 全局 random
+import random, timeit
+
+# 全局 random 模块（内置 C 实现）
+t1 = timeit.timeit('random.random()', 'import random', number=1000000)
+# 独立 Random 实例（相同性能）
+t2 = timeit.timeit('r.random()', 'import random; r = random.Random(42)', number=1000000)
+print(f"全局 random.random(): {t1:.4f}s / 1M calls")
+print(f"实例 r.random():       {t2:.4f}s / 1M calls")
+```
+
+#### 知识关联
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│            random 模块知识关联图                              │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │  random  │────→│ Mersenne │────→│ 种子的    │          │
+│   │  模块    │     │ Twister  │     │ 确定性    │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│        │                │                 │                  │
+│        ↓                ↓                 ↓                  │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │ secrets  │     │ os.urandom│     │ 密码学    │          │
+│   │  安全随机 │     │ /dev/     │     │ 安全      │          │
+│   │          │     │  urandom  │     │ CSPRNG   │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │ numpy    │     │ PCG64 /  │     │ 向量化    │          │
+│   │ random   │────→│ Philox   │────→│ 批量生成  │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   选择决策树：                                                │
+│   游戏/模拟/测试  → random（MT19937）                         │
+│   密码/令牌       → secrets（os.urandom）                    │
+│   统计推断/科学   → numpy.random（PCG64 更优）                │
+│   可复现性要求   → random.seed() + 独立 Random 实例           │
+│                                                              │
+│   Mersenne Twister 局限性：                                   │
+│   · 不能用于密码学（状态可被逆向）                             │
+│   · 初始化慢（624 字），不适合频繁创建实例                     │
+│   · 现代替代：PCG、Xoroshiro 系列（numpy 1.17+ 默认）         │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -423,6 +575,8 @@ random.seed(42)              # 会让所有依赖 random 的代码都变成伪�
 │                                                              │
 │   安全场景必须用 secrets：                                   │
 │   token_urlsafe()  token_hex()  token_bytes()  randbelow()   │
+│                                                              │
+│   L3 要点：Mersenne Twister (MT19937) → 624 字状态 → 可预测  │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```

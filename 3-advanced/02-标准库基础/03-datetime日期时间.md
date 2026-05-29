@@ -33,18 +33,38 @@ dt = datetime.strptime("2024-03-15 14:30", "%Y-%m-%d %H:%M")
 
 ---
 
-## 章节导航
+## 概念铺垫
 
-| 部分 | 内容 |
-|------|------|
-| 第一部分 | 三种基础类型：date、time、datetime |
-| 第二部分 | timedelta 时间差计算与运算 |
-| 第三部分 | strftime 格式化与 strptime 解析 |
-| 第四部分 | 时区处理（timezone / zoneinfo） |
-| 第五部分 | 实际应用（年龄/工作日/倒计时） |
-| L2 实践层 | 推荐做法、反模式、常见陷阱、适用场景 |
+`datetime` 模块在 CPython 中由 C 扩展实现（`_datetimemodule.c`），核心类型 `date`/`time`/`datetime`/`timedelta` 都以 C struct 形式存储，确保高性能和紧凑内存布局。
 
----
+```
+┌──────────────────────────────────────────────────────────────┐
+│          datetime 类型层次结构                                │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   object                                                     │
+│     ├── timedelta    (days, seconds, microseconds)           │
+│     ├── tzinfo        ← 抽象基类，时区协议                    │
+│     ├── time          (hour, minute, second, microsecond,    │
+│     │                  tzinfo)                                │
+│     └── date          (year, month, day)                     │
+│           └── datetime (year, month, day,                    │
+│                        hour, minute, second, microsecond,    │
+│                        tzinfo)                                │
+│                                                              │
+│   Naive vs Aware：                                           │
+│   · Naive（无时区）：不知道自己在哪个时区                      │
+│   · Aware（有时区）：携带 tzinfo，可作跨时区比较              │
+│                                                              │
+│   关键设计决策：                                              │
+│   · datetime 继承 date：datetime 可以用在需要 date 的地方      │
+│   · timedelta 存储为 (days, seconds, microseconds) 三部分     │
+│   · tzinfo 是抽象基类，用户可自定义（如 zoneinfo）             │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### L1 理解层：会用
 
 ## 第一部分：日期时间基础类型
 
@@ -441,9 +461,9 @@ print(result)
 
 ---
 
-## L2 实践层：最佳实践
+### L2 实践层：用好
 
-### 推荐做法
+#### 推荐做法
 
 | 做法 | 原因 | 示例 |
 |------|------|------|
@@ -453,7 +473,7 @@ print(result)
 | 时间差用 `timedelta`，不要手动换算 | 避免"一天=86400秒"在夏令时时出错 | `now + timedelta(days=7)` |
 | 比较日期时注意 naive vs aware | naive（无时区）和 aware（有时区）不能直接比较 | 同类型才能 `dt1 < dt2` |
 
-### 实际应用示例
+#### 实际应用示例
 
 ```python
 from datetime import datetime, timezone
@@ -476,7 +496,7 @@ def parse_date(s: str) -> datetime:
         return datetime.strptime(s, "%Y-%m-%d")
 ```
 
-### 反模式：不要这样做
+#### 反模式：不要这样做
 
 ```python
 # ❌ 用字符串比较日期
@@ -504,7 +524,7 @@ days = (end - start).total_seconds() / 86400   # 夏令时当天 != 86400 秒
 days = (end - start).days
 ```
 
-### 常见陷阱
+#### 常见陷阱
 
 | 陷阱 | 现象 | 解决方案 |
 |------|------|---------|
@@ -514,7 +534,7 @@ days = (end - start).days
 | `datetime.utcnow()` 返回无时区对象 | 存入数据库后时区含义不明确 | 改用 `datetime.now(timezone.utc)` |
 | `%m` 和 `%M` 混淆 | `%m` 是月份，`%M` 是分钟 | 记忆：大写 `M` = Minute（分钟） |
 
-### 适用场景
+#### 适用场景
 
 | 场景 | 推荐方式 | 说明 |
 |------|---------|------|
@@ -523,6 +543,143 @@ days = (end - start).days
 | 解析 ISO 格式字符串 | `datetime.fromisoformat()` | 比 `strptime` 简洁快速 |
 | 跨时区应用 | `zoneinfo.ZoneInfo` | 正确处理夏令时 |
 | 高精度计时（性能测量） | `time.perf_counter()` | `datetime` 精度不够 |
+
+---
+
+### L3 专家层：深入
+
+#### Python 如何实现
+
+CPython 的 `datetime` 模块由 `Modules/_datetimemodule.c` 实现，约 6000 行 C 代码。核心类型以 C struct 形式存储，不依赖系统 `time_t`：
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│          datetime C 实现架构                                  │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   C struct 定义（简化）：                                     │
+│                                                              │
+│   PyDateTime_Date {                                         │
+│       uint8_t hashcode;   // 缓存的哈希值                     │
+│       uint8_t hastzinfo;  // 是否有时区                       │
+│       int32_t year;                                          │
+│       uint8_t month;      // 1-12                           │
+│       uint8_t day;        // 1-31                           │
+│   }                                                          │
+│                                                              │
+│   PyDateTime_DateTime {  // 继承 PyDateTime_Date            │
+│       // ... year, month, day ...                            │
+│       uint8_t hour;       // 0-23                           │
+│       uint8_t minute;     // 0-59                           │
+│       uint8_t second;     // 0-59                           │
+│       uint32_t microsecond;                                  │
+│       PyObject *tzinfo;   // 时区对象                        │
+│   }                                                          │
+│                                                              │
+│   PyDateTime_Delta {                                         │
+│       int32_t days;                                          │
+│       int32_t seconds;    // 0-86399                        │
+│       int32_t microseconds; // 0-999999                      │
+│   }                                                          │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+```python
+# 验证：datetime 类型的内存占用
+from datetime import date, datetime, timedelta
+import sys
+
+print(f"date:     {sys.getsizeof(date.today())} bytes")       # ~48 bytes
+print(f"datetime: {sys.getsizeof(datetime.now())} bytes")     # ~56 bytes
+print(f"timedelta:{sys.getsizeof(timedelta(days=1))} bytes")  # ~48 bytes
+
+# 验证：datetime 是 C 扩展类型
+print(type(date.today()))  # <class 'datetime.date'>
+# 其内部 __dict__ 为空（C 类型，slot 存储）
+d = date.today()
+print(hasattr(d, '__dict__'))  # False（C 类型没有实例 __dict__）
+```
+
+```python
+# 验证：tzinfo 协议（抽象基类）
+from datetime import tzinfo, timedelta, datetime, timezone
+
+# timezone 是 tzinfo 的 C 实现子类
+print(issubclass(timezone, tzinfo))  # True
+
+# tzinfo 协议的核心方法：
+#   utcoffset(dt)  → timedelta  返回 UTC 偏移
+#   dst(dt)        → timedelta  返回夏令时偏移
+#   tzname(dt)     → str        返回时区名称
+
+# 验证 fromisoformat 比 strptime 快
+import timeit
+
+s = "2024-03-15T14:30:45"
+# C 实现的 fromisoformat
+t1 = timeit.timeit(lambda: datetime.fromisoformat(s), number=100000)
+# Python 实现的 strptime（需解析格式字符串）
+t2 = timeit.timeit(lambda: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S"), number=100000)
+print(f"fromisoformat: {t1:.4f}s / 100K")
+print(f"strptime:      {t2:.4f}s / 100K")
+# fromisoformat 通常快 2-3 倍
+```
+
+#### 性能考量
+
+| 操作 | 复杂度 | 说明 |
+|------|--------|------|
+| `datetime.now()` | O(1) | 系统调用 gettimeofday() |
+| `dt + timedelta(days=n)` | O(1) | 纯整数运算，C 层直接计算 |
+| `dt.strftime(fmt)` | O(len(fmt)) | 遍历格式字符串，每个格式码查表 |
+| `datetime.strptime(s, fmt)` | O(len(s)) | 纯 Python 循环，较慢 |
+| `datetime.fromisoformat(s)` | O(len(s)) | C 实现，比 strptime 快 2-3x |
+| `dt.astimezone(tz)` | O(1) | UTC 偏移加减，C 层直接计算 |
+| `date.today()` | O(1) | 系统调用，结果缓存在 datetime 模块 |
+
+#### 知识关联
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│          datetime 模块知识关联图                              │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │ datetime │────→│  C 扩展  │────→│ 系统时钟  │          │
+│   │  模块    │     │ _datetime│     │ gettimeofday│         │
+│   └──────────┘     │ module.c │     └───────────┘          │
+│        │           └──────────┘                              │
+│        ↓                                                     │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │ zoneinfo │     │ IANA tz  │     │ 夏令时    │          │
+│   │  时区库  │────→│ 数据库   │────→│ 规则      │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │  time    │     │ perf_    │     │ 高精度    │          │
+│   │  模块    │     │ counter  │     │ 计时      │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │ calendar │     │ 日历     │     │ 闰年判断  │          │
+│   │  模块    │     │ 格式化   │     │ 月份天数  │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   选择决策：                                                  │
+│   日期时间操作 → datetime                                     │
+│   时区处理    → zoneinfo                                      │
+│   高精度计时  → time.perf_counter()                           │
+│   日历格式化  → calendar                                      │
+│   第三方增强  → arrow / pendulum（更友好的 API）              │
+│                                                              │
+│   tzinfo 协议设计（策略模式）：                                │
+│   · abstractmethod: utcoffset(), dst(), tzname()             │
+│   · 子类: timezone (C), ZoneInfo (Python)                    │
+│   · 可自定义时区规则（如金融市场的交易日历）                   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -536,17 +693,19 @@ days = (end - start).days
 │   三种基础类型：                                             │
 │   date(y,m,d)          纯日期                                │
 │   time(H,M,S)          纯时间                                │
-│   datetime(y,m,d,H,M,S) 日期+时间                           │
+│   datetime(y,m,d,H,M,S) 日期+时间                            │
 │                                                              │
 │   时间差：timedelta(days=7, hours=3)                         │
-│   运算：dt + timedelta / dt1 - dt2 → timedelta              │
+│   运算：dt + timedelta / dt1 - dt2 → timedelta               │
 │                                                              │
 │   格式化：strftime('%Y-%m-%d %H:%M:%S')  对象 → 字符串       │
 │   解析：  strptime(s, fmt)              字符串 → 对象        │
 │           fromisoformat(s)              ISO 格式专用（更快）  │
 │                                                              │
-│   时区：timezone.utc  /  ZoneInfo('Asia/Shanghai')          │
+│   时区：timezone.utc  /  ZoneInfo('Asia/Shanghai')           │
 │   原则：存储 UTC，显示时转本地时区                            │
+│                                                              │
+│   L3 要点：C 扩展实现 → tzinfo 策略模式 → fromisoformat 2-3x 快  │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```

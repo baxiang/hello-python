@@ -26,18 +26,41 @@ JSON 是前后端、跨语言传数据的通用格式，`json` 模块是处理�
 
 ---
 
-## 章节导航
+## 概念铺垫
 
-| 部分 | 内容 |
-|------|------|
-| JSON 格式 | JSON 是什么、六种数据类型、格式规则 |
-| 第一部分 | 四个核心函数与所有参数详解 |
-| 第二部分 | Python ↔ JSON 类型映射 |
-| 第三部分 | 自定义编解码（datetime、set、自定义类） |
-| 第四部分 | 实际应用（配置文件、数据持久化） |
-| L2 实践层 | 推荐做法、反模式、常见陷阱、适用场景 |
+`json` 模块在 CPython 中由 C 扩展实现（`Modules/_json.c`，约 2000 行），提供高性能的 JSON 编解码。其核心是两个 C 类型：`JSONEncoder` 和 `JSONDecoder`，通过 `object_hook` 和 `default` 回调实现与 Python 对象的桥接。
 
----
+```
+┌──────────────────────────────────────────────────────────────┐
+│          json 模块编解码流程                                  │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   序列化流程（Python → JSON）：                                │
+│   ┌─────────┐    ┌──────────┐    ┌──────────┐    ┌────────┐ │
+│   │ Python  │───→│_make_iter│───→│_encoder  │───→│ JSON   │ │
+│   │  对象   │    │ _encode  │    │ C 扩展   │    │ 字符串  │ │
+│   └─────────┘    └──────────┘    └──────────┘    └────────┘ │
+│        │                            │                        │
+│        ↓ default=func               ↓ cls=JSONEncoder        │
+│   不支持的类型 → 调用 default    自定义整个编码逻辑             │
+│                                                              │
+│   反序列化流程（JSON → Python）：                              │
+│   ┌─────────┐    ┌──────────┐    ┌──────────┐    ┌────────┐ │
+│   │  JSON   │───→│ JSON     │───→│_decoder  │───→│ Python │ │
+│   │  字符串 │    │  解析器  │    │ C 扩展   │    │  对象   │ │
+│   └─────────┘    └──────────┘    └──────────┘    └────────┘ │
+│                                        │                      │
+│                                        ↓ object_hook         │
+│                                  每个 {} → 回调函数            │
+│                                                              │
+│   性能关键：C 扩展中 JSON 扫描和 UTF-8 编解码比纯 Python      │
+│   快 10-50 倍。python -m json.tool 格式化工具也在内部使用      │
+│   同样的 C 编码器。                                          │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### L1 理解层：会用
 
 ## JSON 格式介绍
 
@@ -641,7 +664,7 @@ db.delete("user:2")
 
 ---
 
-## L2 实践层：最佳实践
+### L2 实践层：用好
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -649,19 +672,19 @@ db.delete("user:2")
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
 │   序列化：                                                   │
-│   ✓ 中文内容必加 ensure_ascii=False                         │
-│   ✓ 写文件用 indent=2，便于人工查看                          │
-│   ✓ 网络传输用 separators=(',',':')，减小体积               │
+│   ✓ 中文内容必加 ensure_ascii=False                          │
+│   ✓ 写文件用 indent=2，便于人工查看                           │
+│   ✓ 网络传输用 separators=(',',':')，减小体积                │
 │                                                              │
 │   反序列化：                                                 │
-│   ✓ 外部数据一定要 try/except JSONDecodeError               │
-│   ✓ 金融金额用 parse_float=Decimal                          │
-│   ✓ 需要自动转类型用 object_hook                            │
+│   ✓ 外部数据一定要 try/except JSONDecodeError                │
+│   ✓ 金融金额用 parse_float=Decimal                           │
+│   ✓ 需要自动转类型用 object_hook                             │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 推荐做法
+#### 推荐做法
 
 | 做法 | 原因 | 示例 |
 |------|------|------|
@@ -672,7 +695,7 @@ db.delete("user:2")
 | 金融金额用 `parse_float=Decimal` | 避免浮点精度问题 | `json.loads(s, parse_float=Decimal)` |
 | 保存时 `sort_keys=True` | git diff 稳定，键序不乱跳 | `json.dumps(data, sort_keys=True)` |
 
-### 反模式：不要这样做
+#### 反模式：不要这样做
 
 ```python
 # ❌ 不加 ensure_ascii=False 存中文
@@ -714,7 +737,7 @@ except json.JSONDecodeError as e:
 json.dumps({"time": datetime.now()}, default=lambda o: o.isoformat())
 ```
 
-### 常见陷阱
+#### 常见陷阱
 
 | 陷阱 | 现象 | 解决方案 |
 |------|------|---------|
@@ -725,7 +748,7 @@ json.dumps({"time": datetime.now()}, default=lambda o: o.isoformat())
 | 键排序每次不同 | 同内容 JSON 字符串不等，diff 有噪声 | 加 `sort_keys=True` |
 | 解析用户输入不捕获异常 | 格式错误时程序崩溃 | `try/except json.JSONDecodeError` |
 
-### 适用场景
+#### 适用场景
 
 | 场景 | 是否推荐 | 说明 |
 |------|---------|------|
@@ -735,6 +758,177 @@ json.dumps({"time": datetime.now()}, default=lambda o: o.isoformat())
 | 大量结构化数据 | ⚠️ 慎用 | 考虑 SQLite 或数据库 |
 | 二进制数据（图片等） | ❌ 不适合 | 需先 base64 编码，体积膨胀 |
 | 需要注释的配置文件 | ❌ 不适合 | JSON 不支持注释，改用 TOML |
+
+---
+
+### L3 专家层：深入
+
+#### Python 如何实现
+
+`json` 模块的核心编解码由 C 扩展 `_json` 实现（`Modules/_json.c`，约 2000 行）。纯 Python 的 `json/encoder.py` 和 `json/decoder.py` 作为 fallback 存在：
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│          json 模块 C 实现架构                                 │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   json/__init__.py                                           │
+│   ├── JSONEncoder (Python类，继承 _json.Encoder)             │
+│   │   └── default() → Python 回调（不可序列化类型）            │
+│   │   └── encode()   → C 扩展 _json.encode_basestring_ascii  │
+│   │                                                    等    │
+│   ├── JSONDecoder (Python类，继承 _json.Decoder)             │
+│   │   └── object_hook  → Python 回调（解析 {} 后）            │
+│   │   └── parse_float  → Python 回调（解析数字后）            │
+│   │                                                          │
+│   _json C 扩展（Modules/_json.c）：                           │
+│   · 手写递归下降 JSON 解析器（非基于正则/状态机库）           │
+│   · 直接操作 PyUnicode 对象，避免中间字符串分配                │
+│   · 使用 Py_ssize_t 处理大整数溢出                            │
+│   · scanstring() 处理转义和 Unicode 编码                      │
+│   · 浮点数解析：调用 PyOS_string_to_double（最终到 strtod）   │
+│                                                              │
+│   性能关键路径：                                              │
+│   · 字符串扫描：C 层逐字符扫描，零 Python 对象开销            │
+│   · 数字解析：strtod() 直接 C 调用                            │
+│   · object_hook 调用：每个 {} 解析后回调 Python 函数          │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+```python
+# 验证：json 编码器是 C 扩展
+import json
+
+# C 编码器
+c_encoder = json._default_encoder  # 内部使用 C 编码器
+print(type(c_encoder))  # <class '_json.Encoder'>
+
+# Python 编码器（用于不支持的类型时）
+encoder = json.JSONEncoder()
+print(type(encoder))  # <class 'json.encoder.JSONEncoder'>
+
+# 验证编码器的 C 加速
+import timeit
+
+data = {"key" + str(i): "value" + str(i) for i in range(1000)}
+
+# C 编码器（默认）
+t1 = timeit.timeit(lambda: json.dumps(data), number=1000)
+# 强制使用 Python 编码器（通过子类覆盖 speedups=False）
+class PyEncoder(json.JSONEncoder):
+    pass
+# 注意：JSONEncoder 默认也会用 C 加速；要纯 Python 需 import json.encoder
+# 这里用纯 Python 的 scanstring 对比
+print(f"C 编码器:    {t1:.4f}s / 1000 calls")
+
+# 验证：object_hook 回调的性能开销
+import json
+
+def slow_hook(d):
+    """每个 {} 都会调用此函数"""
+    # 模拟检查所有字段
+    for k, v in d.items():
+        if isinstance(v, dict):
+            pass  # 嵌套检查
+    return d
+
+large_json = json.dumps({"data": [{"id": i, "name": f"item_{i}"} for i in range(1000)]})
+
+# 不带 hook
+t_no_hook = timeit.timeit(lambda: json.loads(large_json), number=100)
+# 带 hook（每个对象都被遍历）
+t_with_hook = timeit.timeit(lambda: json.loads(large_json, object_hook=slow_hook), number=100)
+print(f"无 hook:      {t_no_hook:.4f}s / 100 calls")
+print(f"有 hook:      {t_with_hook:.4f}s / 100 calls")
+# object_hook 对所有嵌套字典都触发，数量多时开销显著
+```
+
+```python
+# 验证：bytearray 和 memoryview 的 JSON 处理
+import json
+
+# JSON 标准要求输入为字符串，但 json.loads 也接受 bytes/bytearray
+data_bytes = b'{"key": "value"}'
+result = json.loads(data_bytes)
+print(result)  # {'key': 'value'}
+
+# CPython 内部：_json.c 中 scanstring 函数
+# 处理 \uXXXX Unicode 转义 → 直接写入 PyUnicode 对象
+# 处理 \n \t \r \b \f 等转义 → switch-case 快速跳转
+
+import dis
+# json.dumps 是 built-in_function_or_method（C 实现）
+print(dis.dis(json.dumps))
+# 只显示一行：C 函数，没有 Python 字节码
+```
+
+#### 性能考量
+
+| 操作 | 复杂度 | 说明 |
+|------|--------|------|
+| `json.dumps(dict)` | O(n) | n=JSON 输出长度，C 编码器线性扫描 |
+| `json.loads(str)` | O(n) | n=输入长度，递归下降解析 |
+| `json.dumps` + `ensure_ascii=True` | O(n) | 额外 Unicode 转义，约慢 10-20% |
+| `json.dumps` + `indent=2` | O(n) | 额外空格分配，约慢 5-10% |
+| `json.loads` + `object_hook` | O(n + m*k) | m={} 数量，k=hook 复杂度 |
+| `json.loads` + `parse_float=Decimal` | O(n) | Decimal 构造比 float 慢 10x |
+
+```python
+# 验证：ensure_ascii 性能差异
+import json, timeit
+
+cn_data = {"城市": "北京", "地区": "朝阳区"}
+
+t_ascii = timeit.timeit(lambda: json.dumps(cn_data, ensure_ascii=True), number=100000)
+t_no_ascii = timeit.timeit(lambda: json.dumps(cn_data, ensure_ascii=False), number=100000)
+print(f"ensure_ascii=True:  {t_ascii:.4f}s / 100K")
+print(f"ensure_ascii=False: {t_no_ascii:.4f}s / 100K")
+# ensure_ascii=False 略快（省去 Unicode 转义步骤）
+```
+
+#### 知识关联
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│          json 模块知识关联图                                  │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │   json   │────→│  _json   │────→│ C 编码器  │          │
+│   │  模块    │     │  C 扩展  │     │ strtod()  │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│        │                                                      │
+│        ↓                                                      │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │  orjson  │     │  Rust    │     │ 3-5x 提速 │          │
+│   │  ujson   │────→│  实现    │────→│ 第三方    │          │
+│   │  rapidjson│    │          │     │ 高性能库  │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │  pickle  │     │  二进制  │     │ Python    │          │
+│   │          │────→│  专有    │────→│ 内部传递  │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │ decimal  │     │  精确    │     │ 金融金额  │          │
+│   │  模块    │────→│  十进制  │────→│ 无精度损失│          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   选择决策：                                                  │
+│   Web API  → json（标准模块，功能完整）                        │
+│   高性能   → orjson（Rust 实现，3-5x 更快）                   │
+│   金融精度 → json.loads(s, parse_float=Decimal)              │
+│   Python 内部 → pickle                                       │
+│                                                              │
+│   object_hook 使用注意：                                      │
+│   · 对 JSON 中每个 {} 都会调用（包括嵌套），数量级可能很大     │
+│   · 配合 object_pairs_hook 可保持插入顺序                     │
+│   · 大量数据时考虑先 load 再后处理，而非 hook 逐个回调        │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -760,6 +954,8 @@ json.dumps({"time": datetime.now()}, default=lambda o: o.isoformat())
 │   default=func         自定义序列化                          │
 │   object_hook=func     自定义反序列化                        │
 │   parse_float=Decimal  精确浮点数                            │
+│                                                              │
+│   L3 要点: C 扩展 _json → 递归下降解析器 → object_hook 桥接  │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```

@@ -26,17 +26,37 @@ print(path.parent)   # data/2024（父目录）
 
 ---
 
-## 章节导航
+## 概念铺垫
 
-| 部分 | 内容 |
-|------|------|
-| 第一部分 | pathlib：Path 基础、属性、操作、目录、文件读写 |
-| 第二部分 | os 模块：环境变量、目录操作、文件信息 |
-| 第三部分 | os.path 传统路径操作（兼容旧代码） |
-| 第四部分 | pathlib vs os.path 功能对比表 |
-| L2 实践层 | 推荐做法、反模式、常见陷阱、适用场景 |
+`pathlib` 和 `os`/`os.path` 是两种不同时代的路径处理范式。理解它们的底层差异有助于编写高效的跨平台代码。
 
----
+```
+┌──────────────────────────────────────────────────────────────┐
+│          pathlib 类型系统                                     │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   PurePath  ← 纯路径操作，不访问文件系统                       │
+│     ├── PurePosixPath   → Unix/POSIX 语义，正斜杠 /           │
+│     └── PureWindowsPath  → Windows 语义，反斜杠 \             │
+│                                                              │
+│   Path  ← 具体路径操作，访问文件系统                           │
+│     ├── PosixPath     → Unix/POSIX 实际文件系统               │
+│     └── WindowsPath   → Windows 实际文件系统                  │
+│                                                              │
+│   关键区别：                                                  │
+│   · PurePath：可在 Windows 上创建 POSIX 路径而不报错          │
+│   · Path：创建类的实例必须匹配当前操作系统                    │
+│   · PurePath 不能做 stat()、exists() 等 I/O 操作              │
+│                                                              │
+│   os.scandir() 优化：                                         │
+│   · os.listdir(): 返回字符串列表，每项再 stat() 一次           │
+│   · os.scandir(): 返回 DirEntry 迭代器，stat 信息已缓存       │
+│   · pathlib.iterdir() 内部使用 os.scandir() 实现              │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### L1 理解层：会用
 
 ## 第一部分：pathlib 现代路径操作（推荐）
 
@@ -372,9 +392,9 @@ same_file: bool = os.path.samefile('a.txt', 'b.txt')  # 是否同一文件
 
 ---
 
-## L2 实践层：最佳实践
+### L2 实践层：用好
 
-### 推荐做法
+#### 推荐做法
 
 | 做法 | 原因 | 示例 |
 |------|------|------|
@@ -385,7 +405,7 @@ same_file: bool = os.path.samefile('a.txt', 'b.txt')  # 是否同一文件
 | 环境变量用 `os.getenv("KEY", "默认值")` | 比 `os.environ["KEY"]` 安全，不存在不报错 | `os.getenv("DB_URL", "sqlite:///dev.db")` |
 | 遍历目录用 `iterdir()`，递归用 `rglob()` | 比 `os.listdir` 返回 `Path` 对象，可直接调用方法 | `Path(".").rglob("*.py")` |
 
-### 实际应用示例
+#### 实际应用示例
 
 ```python
 from pathlib import Path
@@ -405,7 +425,7 @@ db_host = os.getenv("DB_HOST", "localhost")
 db_port = int(os.getenv("DB_PORT", "5432"))
 ```
 
-### 反模式：不要这样做
+#### 反模式：不要这样做
 
 ```python
 # ❌ 字符串拼接路径（Windows / macOS 分隔符不同）
@@ -436,7 +456,7 @@ content = Path("file.txt").read_text()    # 不同系统默认编码不同
 content = Path("file.txt").read_text(encoding="utf-8")
 ```
 
-### 常见陷阱
+#### 常见陷阱
 
 | 陷阱 | 现象 | 解决方案 |
 |------|------|---------|
@@ -447,7 +467,7 @@ content = Path("file.txt").read_text(encoding="utf-8")
 | `glob("**/*.py")` 忘了 `**` | 只匹配当前层，不递归 | 用 `rglob("*.py")` 更简洁 |
 | `os.chdir()` 改了全局工作目录 | 影响所有相对路径，难以回溯 | 尽量用绝对路径，避免 `chdir` |
 
-### 适用场景
+#### 适用场景
 
 | 场景 | 推荐方式 | 说明 |
 |------|---------|------|
@@ -457,6 +477,154 @@ content = Path("file.txt").read_text(encoding="utf-8")
 | 读取环境变量 | `os.getenv()` | 带默认值，不报错 |
 | 进程操作、系统调用 | `os` / `subprocess` | `pathlib` 不覆盖这些功能 |
 | 兼容旧代码 | `os.path` | 维护遗留项目时使用 |
+
+---
+
+### L3 专家层：深入
+
+#### Python 如何实现
+
+`pathlib` 模块（`Lib/pathlib.py`）是纯 Python 实现，约 1400 行。它通过 ABC（抽象基类）设计实现跨平台：
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│          pathlib 实现架构                                     │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   PurePath (ABC)                                              │
+│   ├── _flavour 属性 → 平台风味对象（决定分隔符、大小写规则）   │
+│   │                                                          │
+│   │   _PosixFlavour:   sep='/',   case_sensitive=True       │
+│   │   _WindowsFlavour: sep='\\',  case_sensitive=False      │
+│   │                                                          │
+│   ├── PurePosixPath   ─→ _flavour = _PosixFlavour()         │
+│   └── PureWindowsPath ─→ _flavour = _WindowsFlavour()       │
+│                                                              │
+│   Path (具体路径，继承 PurePath + I/O 方法)                   │
+│   ├── PosixPath    ─→ 当前 OS 是 POSIX 时使用               │
+│   └── WindowsPath  ─→ 当前 OS 是 Windows 时使用             │
+│                                                              │
+│   Path() 工厂函数在内部根据 os.name 选择正确子类：             │
+│   · os.name == 'posix' → PosixPath                          │
+│   · os.name == 'nt'    → WindowsPath                        │
+│                                                              │
+│   os.scandir() 优化（C 实现，约 300 行）：                      │
+│   · POSIX: opendir() + readdir() + stat() 批量调用           │
+│   · Windows: FindFirstFileW() + FindNextFileW()              │
+│   · 返回 DirEntry 对象，stat 信息已缓存（lstat 不重复系统调用）│
+│   · 比 os.listdir() 快 5-20 倍（取决于目录大小和 OS）         │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+```python
+# 验证：PurePath 平台独立性
+from pathlib import PurePosixPath, PureWindowsPath
+
+# 在 macOS 上创建 Windows 风格路径
+win = PureWindowsPath('C:\\Users\\test\\file.txt')
+print(win.parts)   # ('C:\\', 'Users', 'test', 'file.txt')
+print(win.drive)   # C:
+
+# 在 macOS 上创建 POSIX 风格路径
+posix = PurePosixPath('/home/user/file.txt')
+print(posix.parts)  # ('/', 'home', 'user', 'file.txt')
+```
+
+```python
+# 验证：os.scandir() 性能优势
+import os, timeit
+
+# 准备测试：创建一个有 1000 个文件的临时目录
+import tempfile, pathlib
+
+with tempfile.TemporaryDirectory() as tmpdir:
+    # 创建 1000 个空文件
+    for i in range(1000):
+        pathlib.Path(tmpdir, f"file_{i}.txt").touch()
+
+    # listdir：每次迭代需要额外 stat 调用
+    def use_listdir():
+        result = []
+        for name in os.listdir(tmpdir):
+            path = os.path.join(tmpdir, name)
+            result.append((name, os.path.getsize(path)))
+        return result
+
+    # scandir：stat 信息已缓存
+    def use_scandir():
+        result = []
+        for entry in os.scandir(tmpdir):
+            result.append((entry.name, entry.stat().st_size))
+        return result
+
+    print(f"listdir: {timeit.timeit(use_listdir, number=100):.4f}s / 100 runs")
+    print(f"scandir: {timeit.timeit(use_scandir, number=100):.4f}s / 100 runs")
+    # scandir 通常快 5-10 倍
+
+# 验证：pathlib.iterdir() 使用 scandir 实现
+import pathlib, inspect
+# pathlib.Path.iterdir() 内部调用 os.scandir()
+src = inspect.getsource(pathlib.Path.iterdir)
+print("os.scandir" in src)  # True（验证使用 scandir）
+```
+
+#### 性能考量
+
+| 操作 | 复杂度 | 说明 |
+|------|--------|------|
+| `Path("a") / "b"` | O(len(parts)) | 字符串拼接 + 路径规范化 |
+| `p.exists()` / `p.is_file()` | O(1) 系统调用 | 单次 stat() 调用 |
+| `p.iterdir()` | O(n) | n=目录项数，scandir 缓存 stat |
+| `p.glob("*.txt")` | O(n + m) | n=遍历目录，m=模式匹配项数 |
+| `p.rglob("*.py")` | O(N) | N=递归遍历所有文件 |
+| `os.listdir(path)` | O(n) | 但每次 stat 额外系统调用 |
+| `os.scandir(path)` | O(n) | stat 信息已缓存，比 listdir 快 5-10x |
+
+#### 知识关联
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│          路径操作知识关联图                                   │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │ pathlib  │────→│ PurePath │────→│ ABC 抽象  │          │
+│   │  (推荐)  │     │ 纯操作   │     │ 跨平台    │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│        │                                                      │
+│        ↓                                                      │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │ os.path  │     │ 字符串   │     │ 兼容旧    │          │
+│   │  传统    │────→│ 操作     │────→│ 代码      │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │ os 模块  │     │ 环境变量 │     │ 进程管理  │          │
+│   │          │────→│ getenv   │────→│ subprocess│          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   ┌──────────┐     ┌──────────┐     ┌───────────┐          │
+│   │ shutil   │     │ 高级操作 │     │ 复制/     │          │
+│   │          │────→│ rmtree   │────→│ 移动/归档 │          │
+│   └──────────┘     └──────────┘     └───────────┘          │
+│                                                              │
+│   选择决策：                                                  │
+│   路径操作  → pathlib.Path（新代码）                          │
+│   环境变量  → os.getenv()                                     │
+│   目录遍历  → Path.iterdir() > os.listdir()                  │
+│   文件复制  → shutil.copy2()                                  │
+│   旧代码兼容 → os.path                                        │
+│                                                              │
+│   scandir 性能原理：                                          │
+│   · Windows: FindFirstFileW 返回 WIN32_FIND_DATA             │
+│     已包含文件大小、时间戳、属性，无需额外 GetFileAttributes  │
+│   · Linux: getdents64() 返回 struct dirent                   │
+│     包含 d_type（DT_REG/DT_DIR），无需额外 stat()            │
+│   · 这就是为什么 scandir 比 listdir + stat 快一个数量级       │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -482,7 +650,9 @@ content = Path("file.txt").read_text(encoding="utf-8")
 │   os.getcwd()  os.chdir()              工作目录               │
 │   os.stat()                            文件属性               │
 │                                                              │
-│   原则：新代码用 pathlib，旧代码兼容用 os.path               │
+│   原则：新代码用 pathlib，旧代码兼容用 os.path                │
+│                                                              │
+│   L3 要点: PurePosixPath → ABC 风味 → scandir 缓存 stat 快 10x │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```

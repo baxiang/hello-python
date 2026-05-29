@@ -2,7 +2,7 @@
 
 > Python 3.11+
 
-## 第一部分：pip 基础
+## 概念铺垫
 
 ### 5.1 什么是 pip
 
@@ -24,11 +24,11 @@ pip 是 Python 的包管理工具，用于安装和管理第三方库。
 
 | 特性 | pip | uv |
 |------|-----|-----|
-| **速度** | 基准 | 10-100倍快 ⚡ |
-| **依赖解析** | 慢，可能冲突 | 快速准确 ✅ |
-| **虚拟环境** | 需要venv | 内置支持 ✅ |
-| **锁文件** | 需要pip-tools | 自动生成 ✅ |
-| **Python版本管理** | 不支持 | 支持 ✅ |
+| **速度** | 基准 | 10-100倍快 |
+| **依赖解析** | 慢，可能冲突 | 快速准确 |
+| **虚拟环境** | 需要venv | 内置支持 |
+| **锁文件** | 需要pip-tools | 自动生成 |
+| **Python版本管理** | 不支持 | 支持 |
 | **兼容性** | 广泛 | 广泛 |
 
 ### 何时使用 pip
@@ -37,14 +37,39 @@ pip 是 Python 的包管理工具，用于安装和管理第三方库。
 - 教学演示基础概念
 
 ### 何时使用 uv（推荐）
-- 新项目 ✅
+- 新项目
 - 需要快速安装依赖
 - 追求现代工具链
 - 需要Python版本管理
 
 ---
 
-#### 基本命令
+### 5.3 版本 specifier
+
+| 符号 | 含义 | 示例 |
+|------|------|------|
+| `==` | 精确版本 | `requests==2.28.0` |
+| `!=` | 不等于 | `requests!=2.28.0` |
+| `>=` | 大于等于 | `requests>=2.28.0` |
+| `<=` | 小于等于 | `requests<=2.28.0` |
+| `>` | 大于 | `requests>2.28.0` |
+| `<` | 小于 | `requests<2.28.0` |
+| `~=` | 兼容版本 | `requests~=2.28.0` |
+| `===` | 任意版本 | `requests===2.28.0` |
+
+---
+
+## 虚拟环境
+
+### 5.10 venv（Python 内置）
+
+虚拟环境为每个项目创建独立的 Python 运行环境，避免不同项目的依赖互相冲突。
+
+---
+
+### L1 理解层：会用
+
+## 基本命令
 
 ```bash
 # 推荐：使用 uv 安装包（更快）
@@ -60,11 +85,7 @@ pip list
 pip freeze > requirements.txt
 ```
 
----
-
-## 第二部分：安装包
-
-### 5.3 基本安装
+## 安装包
 
 ```bash
 # 推荐：使用 uv 安装（更快）
@@ -84,7 +105,7 @@ pip install "requests>=2.28.0,<3.0.0"
 pip install requests~=2.28.0  # >=2.28.0, <2.29.0
 ```
 
-### 5.4 从不同来源安装
+## 从不同来源安装
 
 ```bash
 # 从 PyPI 安装（默认）
@@ -104,7 +125,7 @@ pip install -r requirements.txt
 uv pip install -r requirements.txt
 ```
 
-### 5.5 安装选项
+## 安装选项
 
 ```bash
 # 升级已安装的包
@@ -120,11 +141,7 @@ pip install --no-cache-dir requests
 pip install --user requests
 ```
 
----
-
-## 第三部分：卸载包
-
-### 5.6 卸载命令
+## 卸载包
 
 ```bash
 # 卸载包
@@ -140,11 +157,7 @@ pip uninstall -y requests
 pip freeze | xargs pip uninstall -y
 ```
 
----
-
-## 第四部分：查看包信息
-
-### 5.7 查看命令
+## 查看包信息
 
 ```bash
 # 查看已安装的包
@@ -166,11 +179,7 @@ pip show -f requests
 # pip search requests
 ```
 
----
-
-## 第五部分：依赖管理
-
-### 5.8 requirements.txt
+## 依赖管理
 
 ```bash
 # 推荐：使用 uv 自动管理
@@ -201,24 +210,7 @@ git+https://github.com/user/repo.git@main#egg=package
 ./local-package
 ```
 
-### 5.9 版本 specifier
-
-| 符号 | 含义 | 示例 |
-|------|------|------|
-| `==` | 精确版本 | `requests==2.28.0` |
-| `!=` | 不等于 | `requests!=2.28.0` |
-| `>=` | 大于等于 | `requests>=2.28.0` |
-| `<=` | 小于等于 | `requests<=2.28.0` |
-| `>` | 大于 | `requests>2.28.0` |
-| `<` | 小于 | `requests<2.28.0` |
-| `~=` | 兼容版本 | `requests~=2.28.0` |
-| `===` | 任意版本 | `requests===2.28.0` |
-
----
-
-## 第六部分：虚拟环境
-
-### 5.10 venv（Python 内置）
+## 虚拟环境操作
 
 ```bash
 # 创建虚拟环境
@@ -238,7 +230,7 @@ deactivate
 rm -rf .venv
 ```
 
-### 5.11 virtualenv
+### virtualenv
 
 ```bash
 # 安装
@@ -251,7 +243,7 @@ virtualenv .venv
 virtualenv -p python3.11 .venv
 ```
 
-### 5.12 使用 uv（推荐）
+### 使用 uv（推荐）
 
 ```bash
 # 安装 uv
@@ -273,11 +265,7 @@ uv pip install requests
 uv pip install -r requirements.txt
 ```
 
----
-
-## 第七部分：配置 pip
-
-### 5.13 配置文件
+## 配置 pip
 
 ```bash
 # 查看 pip 配置
@@ -291,7 +279,7 @@ pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 # Windows: %APPDATA%\pip\pip.ini
 ```
 
-### 5.14 pip.conf 示例
+### pip.conf 示例
 
 ```ini
 [global]
@@ -303,7 +291,7 @@ timeout = 60
 no-cache-dir = true
 ```
 
-### 5.15 使用国内镜像
+### 使用国内镜像
 
 ```bash
 # 临时使用
@@ -322,11 +310,9 @@ pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 | 中科大 | https://pypi.mirrors.ustc.edu.cn/simple |
 | 豆瓣 | https://pypi.douban.com/simple |
 
----
+## 迁移到 uv
 
-## 第八部分：迁移到 uv
-
-### 5.16 安装 uv
+### 安装 uv
 
 ```bash
 # macOS/Linux
@@ -336,7 +322,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-### 5.17 基本使用对比
+### 基本使用对比
 
 ```bash
 # pip 方式
@@ -353,7 +339,7 @@ uv add requests
 uv run python main.py
 ```
 
-### 5.18 pip 命令 vs uv 命令
+### pip 命令 vs uv 命令
 
 | 操作 | pip | uv |
 |------|-----|-----|
@@ -365,7 +351,7 @@ uv run python main.py
 | 运行脚本 | `python script.py` | `uv run python script.py` |
 | 导出依赖 | `pip freeze > requirements.txt` | 自动生成 `uv.lock` |
 
-### 5.19 从 pip 项目迁移
+### 从 pip 项目迁移
 
 如果你有一个使用 pip 的老项目：
 
@@ -384,7 +370,7 @@ uv add $(cat requirements.txt | tr '\n' ' ')
 uv run python main.py
 ```
 
-### 5.20 uv 的优势
+### uv 的优势
 
 1. **速度快** - 比 pip 快10-100倍
 2. **自动管理虚拟环境** - 无需手动创建
@@ -392,13 +378,91 @@ uv run python main.py
 4. **Python版本管理** - `uv python install 3.11`
 5. **统一工具链** - 替代 pip, venv, pip-tools 等
 
-### 5.21 何时继续使用 pip
+### 何时继续使用 pip
 
 - 维护不需要频繁更新的老项目
 - 团队工作流已深度集成 pip
 - 需要使用 pip 特有的插件或功能
 
 对于新项目，**强烈推荐使用 uv**。
+
+---
+
+### L2 实践层：用好
+
+#### 推荐做法
+
+| 做法 | 原因 | 示例 |
+|------|------|------|
+| 每个项目使用独立的虚拟环境 | 避免依赖冲突 | `python -m venv .venv` 或 `uv init` |
+| 锁定依赖版本 | 确保环境可再现 | `pip freeze > requirements.txt` 或 `uv.lock` |
+| 新项目优先使用 uv | 速度快，体验好 | `uv init my-project` |
+| 使用国内镜像加速下载 | 国内网络环境优化 | `-i https://pypi.tuna.tsinghua.edu.cn/simple` |
+| 将 `requirements.txt` 纳入版本控制 | 团队成员共享依赖 | `git add requirements.txt` |
+| 不要全局安装项目依赖 | 避免系统 Python 环境污染 | 始终在虚拟环境中操作 |
+| 生产环境固定版本号 | 防止意外升级导致故障 | `requests==2.28.0` 而非 `requests>=2.28.0` |
+
+#### 反模式：不要这样做
+
+```bash
+# ❌ 在生产环境直接 pip install（无版本锁定）
+pip install requests
+# 可能安装到不兼容的新版本
+
+# ✅ 锁定版本
+pip install requests==2.28.0
+
+# ---
+
+# ❌ 全局安装项目依赖
+sudo pip install flask  # 污染系统 Python！
+
+# ✅ 使用虚拟环境
+python -m venv .venv
+source .venv/bin/activate
+pip install flask
+
+# ---
+
+# ❌ 将 .venv/ 目录提交到 git
+# .gitignore 中应包含 .venv/
+
+# ✅ 只提交依赖文件
+# 提交 requirements.txt 或 uv.lock
+# .gitignore 添加 .venv/
+
+# ---
+
+# ❌ 在 requirements.txt 中不写版本
+requests
+flask
+# 每次安装可能得到不同版本
+
+# ✅ 指定版本范围或精确版本
+requests==2.28.0
+flask>=3.0,<4.0
+
+# ---
+
+# ❌ pip install 时不用 --user 覆盖系统包（非虚拟环境）
+pip install --upgrade pip  # 可能破坏系统 pip
+
+# ✅ 在虚拟环境中安全升级
+source .venv/bin/activate
+pip install --upgrade pip
+```
+
+#### 适用场景
+
+| 场景 | 推荐 | 原因 |
+|------|------|------|
+| 新建 Python 项目 | `uv init` + `uv add` | 现代工具链，速度最快 |
+| 维护旧项目 | `pip` + `venv` | 兼容现有工作流 |
+| 团队协作 | `uv sync` 或 `pip install -r requirements.txt` | 统一依赖 |
+| CI/CD 环境 | `pip install -r requirements.txt`（或 `uv pip install`） | 稳定可靠 |
+| 快速尝试新库 | `uv pip install <pkg>` 或 `pip install <pkg>` | 临时安装测试 |
+| 国内速度慢 | 配置清华/阿里云镜像 | `pip config set global.index-url` |
+| Python 版本管理 | `uv python install 3.12` | 多版本切换方便 |
 
 ---
 
