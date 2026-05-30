@@ -8,6 +8,6 @@ def flatten_list(nested_list: list[list[Any]]) -> list[Any]:
     return [item for sublist in nested_list for item in sublist]
 
 
-def unique_items(items: list) -> list:
+def unique_items(items: list[Any]) -> list[Any]:
     """获取唯一元素"""
     return list(set(items))

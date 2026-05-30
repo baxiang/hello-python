@@ -11,7 +11,7 @@ def string_operations(s: str) -> dict[str, Any]:
         "upper": s.upper(),
         "lower": s.lower(),
         "capitalize": s.capitalize(),
-        "reverse": s[::-1]
+        "reverse": s[::-1],
     }
 
 
@@ -19,8 +19,8 @@ def string_formatting(name: str, value: float) -> dict[str, str]:
     """字符串格式化"""
     return {
         "f_string": f"{name} {value:.2f}",
-        "format": "{} {:.2f}".format(name, value),
-        "percent": "%s %.2f" % (name, value)
+        "format": "{} {:.2f}".format(name, value),  # noqa: UP032
+        "percent": "%s %.2f" % (name, value),  # noqa: UP031
     }
 
 
@@ -31,7 +31,7 @@ def string_methods(s: str) -> dict[str, Any]:
         "split": s.split(","),
         "join": "-".join(s.split(",")),
         "find": s.find("python"),
-        "replace": s.replace("python", "Python")
+        "replace": s.replace("python", "Python"),
     }
 
 
@@ -41,5 +41,5 @@ def string_validation(s: str) -> dict[str, bool]:
         "isdigit": s.isdigit(),
         "isalpha": s.isalpha(),
         "isalnum": s.isalnum(),
-        "isspace": s.isspace()
+        "isspace": s.isspace(),
     }

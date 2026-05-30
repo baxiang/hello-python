@@ -1,6 +1,11 @@
 """数据结构测试"""
 
-from app.core.structures import list_operations, dict_operations, set_operations
+from app.core.structures import (
+    dict_operations,
+    list_operations,
+    set_operations,
+    tuple_operations,
+)
 
 
 def test_list_operations():
@@ -20,3 +25,11 @@ def test_set_operations():
     result = set_operations({1, 2, 3}, {3, 4, 5})
     assert result["union"] == {1, 2, 3, 4, 5}
     assert result["intersection"] == {3}
+
+
+def test_tuple_operations():
+    result = tuple_operations((10, 20))
+    assert result["original"] == (10, 20)
+    assert result["slice"] == (10, 20)
+    assert result["x"] == 10
+    assert result["y"] == 20

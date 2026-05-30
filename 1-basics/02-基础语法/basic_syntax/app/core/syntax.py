@@ -1,7 +1,5 @@
 """基础语法示例"""
 
-from typing import Any
-
 
 def check_score(score: int) -> str:
     """根据分数判断等级"""
@@ -26,9 +24,9 @@ def loop_examples(n: int) -> list[int]:
 def comprehension_examples() -> dict[str, list[int]]:
     """推导式示例"""
     return {
-        "squares": [x ** 2 for x in range(10)],
-        "even_squares": [x ** 2 for x in range(10) if x % 2 == 0],
-        "cube": [x ** 3 for x in range(5)]
+        "squares": [x**2 for x in range(10)],
+        "even_squares": [x**2 for x in range(10) if x % 2 == 0],
+        "cube": [x**3 for x in range(5)],
     }
 
 

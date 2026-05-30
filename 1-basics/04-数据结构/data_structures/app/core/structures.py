@@ -1,7 +1,7 @@
 """数据结构示例"""
 
-from typing import Any
 from collections import namedtuple
+from typing import Any
 
 
 def list_operations(items: list) -> dict[str, Any]:
@@ -12,7 +12,7 @@ def list_operations(items: list) -> dict[str, Any]:
         "append": result + ["new"],
         "slice": items[:3],
         "reverse": items[::-1],
-        "length": len(items)
+        "length": len(items),
     }
 
 
@@ -23,7 +23,7 @@ def dict_operations(data: dict) -> dict[str, Any]:
         "values": list(data.values()),
         "items": list(data.items()),
         "get": data.get("name", "N/A"),
-        "length": len(data)
+        "length": len(data),
     }
 
 
@@ -33,7 +33,7 @@ def set_operations(a: set, b: set) -> dict[str, set]:
         "union": a | b,
         "intersection": a & b,
         "difference": a - b,
-        "symmetric_difference": a ^ b
+        "symmetric_difference": a ^ b,
     }
 
 
@@ -41,10 +41,4 @@ def tuple_operations(data: tuple) -> dict[str, Any]:
     """元组操作"""
     Point = namedtuple("Point", ["x", "y"])
     p = Point(data[0], data[1])
-    return {
-        "original": data,
-        "slice": data[:2],
-        "namedtuple": p,
-        "x": p.x,
-        "y": p.y
-    }
+    return {"original": data, "slice": data[:2], "namedtuple": p, "x": p.x, "y": p.y}
